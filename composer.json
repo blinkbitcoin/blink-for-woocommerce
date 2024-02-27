@@ -1,0 +1,19 @@
+{
+  "name": "blinkserver/blink-for-woocommerce",
+  "type": "project",
+  "license": "MIT",
+  "autoload": {
+    "psr-4": {
+      "Blink\\WC\\": "src/"
+    }
+  },
+  "authors": [
+    {
+      "name": "Blink",
+      "email": "support@blink.sv"
+    }
+  ],
+  "require": {
+    "guzzlehttp/guzzle": "^7.8"
+  }
+}
