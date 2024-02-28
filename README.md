@@ -23,4 +23,4 @@ composer install
 ```
 docker-compose up -d
 ```
-Go to [http://localhost:88080](http://localhost:88080) and install WordPress, WooCommerce and Blink for WooCommerce Plugin.
+Go to [http://localhost:8080](http://localhost:8080) and install WordPress, WooCommerce and Blink for WooCommerce Plugin.
