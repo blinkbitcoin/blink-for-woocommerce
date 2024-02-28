@@ -22,7 +22,6 @@ define( 'BLINK_PLUGIN_FILE_PATH', plugin_dir_path( __FILE__ ) );
 define( 'BLINK_PLUGIN_URL', plugin_dir_url(__FILE__ ) );
 define( 'BLINK_PLUGIN_ID', 'blink-for-woocommerce' );
 
-
 class BlinkWCPlugin {
 
  	private static $instance;
@@ -114,19 +113,18 @@ class BlinkWCPlugin {
 	 * Displays notice (and link to config page) on admin dashboard if the plugin is not configured yet.
 	 */
 	public function notConfiguredNotification(): void {
-    // TODO: after add GaloyApiHelper
-  	// 	if (!\Blink\WC\Helper\GaloyApiHelper::getConfig()) {
-  	// 		$message = sprintf(
-  	// 			esc_html__(
-  	// 				'Plugin not configured yet, please %1$sconfigure the plugin here%2$s',
-  	// 				'blink-for-woocommerce'
-  	// 			),
-  	// 			'<a href="' . esc_url(admin_url('admin.php?page=wc-settings&tab=blink_settings')) . '">',
-  	// 			'</a>'
-  	// 		);
-    //
-  	// 		Notice::addNotice('error', $message);
-  	// 	}
+		if (!\Blink\WC\Helpers\GaloyApiHelper::getConfig()) {
+			$message = sprintf(
+				esc_html__(
+					'Plugin not configured yet, please %1$sconfigure the plugin here%2$s',
+					'blink-for-woocommerce'
+				),
+				'<a href="' . esc_url(admin_url('admin.php?page=wc-settings&tab=blink_settings')) . '">',
+				'</a>'
+			);
+
+			Notice::addNotice('error', $message);
+		}
 	}
 
   /**
@@ -239,7 +237,7 @@ register_activation_hook( __FILE__, function() {
 });
 
 // Initialize payment gateways and plugin.
-// TODO: after add GaloyApiHelper
+// TODO: after add BlinkWCPlugin
 // add_filter( 'woocommerce_payment_gateways', [ 'BlinkWCPlugin', 'initPaymentGateways' ] );
 add_action( 'plugins_loaded', 'init_blink_plugin', 0 );
 

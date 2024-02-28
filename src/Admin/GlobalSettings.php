@@ -6,12 +6,16 @@ namespace Blink\WC\Admin;
 
 use Blink\WC\Helpers\Logger;
 use Blink\WC\Helpers\OrderStates;
+use Blink\WC\Helpers\GaloyApiHelper;
 
 class GlobalSettings extends \WC_Settings_Page {
+
+	private GaloyApiHelper $apiHelper;
 
 	public function __construct() {
 		$this->id = 'blink_settings';
 		$this->label = __( 'Blink Settings', 'blink-for-woocommerce' );
+		$this->apiHelper = new GaloyApiHelper();
 
 		// Register custom field type order_states with OrderStatesField class.
 		add_action('woocommerce_admin_field_order_states', [(new OrderStates()), 'renderOrderStatesHtml']);
@@ -155,14 +159,8 @@ class GlobalSettings extends \WC_Settings_Page {
 			$apiEnv  = sanitize_text_field( $_POST['galoy_blink_env'] );
 			$apiKey  = sanitize_text_field( $_POST['galoy_blink_api_key'] );
 
-			try {
-				// TODO: validate env/api key with galoy client
-
-			} catch ( \Throwable $e ) {
-				$messageException = sprintf(
-					__( 'Error fetching data for this API key from server. Please check if the key is valid. Error: %s', 'blink-for-woocommerce' ),
-					$e->getMessage()
-				);
+			if (!GaloyApiHelper::verifyApiKey( $apiEnv, $apiKey )) {
+				$messageException = __( 'Error fetching data for this API key from server. Please check if the API key is valid.', 'blink-for-woocommerce' );
 				Notice::addNotice('error', $messageException );
 				Logger::debug($messageException, true);
 			}
