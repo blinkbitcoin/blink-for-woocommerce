@@ -34,9 +34,12 @@ class GaloyApiHelper {
   public static function getConfig(): array {
     $env = get_option('galoy_blink_env');
     $key = get_option('galoy_blink_api_key');
-    $url = self::getUrl($env);
+    if (!$env || !$key) {
+      return [];
+    }
 
-    if ($env && $key && $url) {
+    $url = self::getUrl($env);
+    if ($url) {
       return [
         'env' => $env,
         'api_key' => $key,

@@ -14,6 +14,7 @@
 
 use Blink\WC\Admin\Notice;
 use Blink\WC\Helpers\Logger;
+use Blink\WC\Gateway\BlinkLnGateway;
 
 defined( 'ABSPATH' ) || exit();
 define( 'BLINK_VERSION', '0.1.0' );
@@ -29,6 +30,7 @@ class BlinkWCPlugin {
  	public function __construct() {
  		$this->includes();
 
+    add_action( 'woocommerce_thankyou_galoy_blink_default', ['BlinkWCPlugin', 'orderStatusThankYouPage'], 10, 1);
     add_action( 'wp_ajax_galoy_blink_notifications', [$this, 'processAjaxNotification'] );
  		add_action( 'admin_enqueue_scripts', [$this, 'enqueueAdminScripts'] );
 
@@ -74,6 +76,11 @@ class BlinkWCPlugin {
 			'ajax_url' => admin_url('admin-ajax.php'),
 			'nonce' => wp_create_nonce('galoy-blink-notifications-nonce')
 		]);
+	}
+
+  public static function initPaymentGateways($gateways): array {
+		$gateways[] = BlinkLnGateway::class;
+		return $gateways;
 	}
 
   /**
@@ -146,15 +153,14 @@ class BlinkWCPlugin {
 	 * Register WooCommerce Blocks support.
 	 */
 	public static function blocksSupport() {
-    // TODO: after add GaloyApiHelper
-		// if ( class_exists( '\Automattic\WooCommerce\Blocks\Payments\Integrations\AbstractPaymentMethodType' ) ) {
-		// 	add_action(
-		// 		'woocommerce_blocks_payment_method_type_registration',
-		// 		function( \Automattic\WooCommerce\Blocks\Payments\PaymentMethodRegistry $payment_method_registry ) {
-		// 			$payment_method_registry->register(new \Blink\WC\Blocks\DefaultGatewayBlocks());
-		// 		}
-		// 	);
-		// }
+		if ( class_exists( '\Automattic\WooCommerce\Blocks\Payments\Integrations\AbstractPaymentMethodType' ) ) {
+			add_action(
+				'woocommerce_blocks_payment_method_type_registration',
+				function( \Automattic\WooCommerce\Blocks\Payments\PaymentMethodRegistry $payment_method_registry ) {
+					$payment_method_registry->register(new \Blink\WC\Blocks\BlinkLnGatewayBlocks());
+				}
+			);
+		}
 	}
 
 	/**
@@ -169,6 +175,18 @@ class BlinkWCPlugin {
 
 		return self::$instance;
 	}
+
+  /**
+	 * Displays the payment status on the thank you page.
+	 */
+	public static function orderStatusThankYouPage($order_id) {
+    echo "
+		<section class='woocommerce-order-payment-status'>
+		    <h2 class='woocommerce-order-payment-status-title'>Title</h2>
+		    <p><strong>Thank you</strong></p>
+		</section>
+		";
+  }
 }
 
 // Start everything up.
@@ -237,8 +255,7 @@ register_activation_hook( __FILE__, function() {
 });
 
 // Initialize payment gateways and plugin.
-// TODO: after add BlinkWCPlugin
-// add_filter( 'woocommerce_payment_gateways', [ 'BlinkWCPlugin', 'initPaymentGateways' ] );
+add_filter( 'woocommerce_payment_gateways', [ 'BlinkWCPlugin', 'initPaymentGateways' ] );
 add_action( 'plugins_loaded', 'init_blink_plugin', 0 );
 
 // Mark support for HPOS / COT.

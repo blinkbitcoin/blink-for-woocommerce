@@ -92,7 +92,7 @@ class GlobalSettings extends \WC_Settings_Page {
 			'api_key' => [
 				'title'       => esc_html_x( 'Blink API Key', 'global_settings','blink-for-woocommerce' ),
 				'type'        => 'text',
-				'desc' => _x( 'Your Blink API Key. If you do not have any yet use Blink dashboard to get a new one.', 'global_settings', 'blink-for-woocommerce' ),
+				'desc' => _x( 'Your Blink API Key. If you do not have any yet use <a target="_blank" href="https://dashboard.blink.sv/">Blink dashboard</a> to get a new one.', 'global_settings', 'blink-for-woocommerce' ),
 				'default'     => '',
 				'id' => 'galoy_blink_api_key'
 			],

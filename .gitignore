@@ -9,4 +9,3 @@ node_modules/
 *.zip
 /vendor/
 /generated/
-/assets/js/
