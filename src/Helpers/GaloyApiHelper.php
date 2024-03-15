@@ -9,16 +9,16 @@ use Blink\WC\Helpers\GaloyApiClient;
 
 class GaloyApiHelper {
   public $configured = false;
-	public $env;
-	public $apiKey;
+  public $env;
+  public $apiKey;
 
-	public function __construct() {
-		if ($config = self::getConfig()) {
-			$this->url = $config['env'];
-			$this->apiKey = $config['api_key'];
-			$this->configured = true;
-		}
-	}
+  public function __construct() {
+  if ($config = self::getConfig()) {
+  $this->url = $config['env'];
+  $this->apiKey = $config['api_key'];
+  $this->configured = true;
+  }
+  }
 
   public static function getUrl(string $env = null): string {
     $urlMapping = [
@@ -53,30 +53,36 @@ class GaloyApiHelper {
 
   public static function verifyApiKey(string $env = null, string $apiKey = null): bool {
     Logger::debug( 'Start verifyApiKey' );
+    if (!$env || !$apiKey) {
+      Logger::debug( 'Invalid env or api key' );
+      return false;
+    }
 
-		$config = self::getConfig();
-		$url = self::getUrl($env);
+    $config = self::getConfig();
+    $url = self::getUrl($env);
 
-		if ($env && $apiKey && $url) {
+    if ($url) {
       $config['env'] = $env;
-			$config['url'] = $url;
-			$config['api_key'] = $apiKey;
-		}
+      $config['url'] = $url;
+      $config['api_key'] = $apiKey;
+    }
 
-		if (!$config) {
+    if (!$config) {
       Logger::debug( 'Invalid config', true );
       return false;
-		}
+    }
 
     try {
       $client = new GaloyApiClient( $config['url'], $config['api_key'] );
-      $info = $client->getUserInfo();
-      Logger::debug( 'User info: ' . print_r( $info, true ) );
-      Logger::debug( 'End verifyApiKey with ' . !!$info );
-      return !!$info;
+      $scopes = $client->getAuthorizationScopes();
+      $hasReceive = in_array('RECEIVE', $scopes);
+      $hasWrite = in_array('WRITE', $scopes);
+      Logger::debug( 'API key scopes: ' . print_r( $scopes, true ) );
+      Logger::debug( 'End verifyApiKey with ' . $hasReceive || $hasWrite );
+      return $hasReceive || $hasWrite;
     } catch (\Throwable $e) {
       Logger::debug('Error fetching user info: ' . $e->getMessage(), true);
       return false;
     }
-	}
+  }
 }

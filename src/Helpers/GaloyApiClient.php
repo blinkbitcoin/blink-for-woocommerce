@@ -55,6 +55,32 @@ class GaloyApiClient {
       return $data['data']['me'] ?? null;
   }
 
+  public function getAuthorizationScopes() {
+    // Prepare GraphQL query for authorization scopes
+    $query = 'query Authorization {
+        authorization {
+            scopes
+        }
+    }';
+
+    // Send GraphQL request for authorization scopes
+    $response = $this->sendRequest($query, null);
+
+    // Parse response for authorization scopes
+    $response = $this->sendRequest($query, null);
+    $responseBody = $response->getBody()->getContents();
+    $data = json_decode($responseBody, true);
+
+    // Check for errors during authorization scopes retrieval
+    if (!empty($data['errors'])) {
+        $errorMessage = implode(', ', array_column($data['errors'], 'message'));
+        throw new Exception('Authorization scopes retrieval failed: ' . $errorMessage);
+    }
+
+    // Return authorization scopes
+    return $data['data']['authorization']['scopes'];
+  }
+
   public function createInvoice($amount, $expiresIn, $memo, $walletId) {
     // Prepare GraphQL query
     $query = 'mutation lnInvoiceCreate($input: LnInvoiceCreateInput!) {
