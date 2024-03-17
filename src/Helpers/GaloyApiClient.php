@@ -38,23 +38,6 @@ class GaloyApiClient {
     return $response;
   }
 
-  public function getUserInfo() {
-      $query = 'query Me { me { id } }';
-
-      $response = $this->sendRequest($query, null);
-      $responseBody = $response->getBody()->getContents();
-      $data = json_decode($responseBody, true);
-
-      // Check for errors
-      if (!empty($data['errors'])) {
-          $errorMessage = implode(', ', array_column($data['errors'], 'message'));
-          throw new Exception('GraphQL query failed: ' . $errorMessage);
-      }
-
-      // Return user info
-      return $data['data']['me'] ?? null;
-  }
-
   public function getAuthorizationScopes() {
     // Prepare GraphQL query for authorization scopes
     $query = 'query Authorization {

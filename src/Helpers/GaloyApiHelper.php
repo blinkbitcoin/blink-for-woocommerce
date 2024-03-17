@@ -78,7 +78,7 @@ class GaloyApiHelper {
       $hasReceive = in_array('RECEIVE', $scopes);
       $hasWrite = in_array('WRITE', $scopes);
       Logger::debug( 'API key scopes: ' . print_r( $scopes, true ) );
-      Logger::debug( 'End verifyApiKey with ' . $hasReceive || $hasWrite );
+      Logger::debug( 'End verifyApiKey with ' . ($hasReceive || $hasWrite) );
       return $hasReceive || $hasWrite;
     } catch (\Throwable $e) {
       Logger::debug('Error fetching user info: ' . $e->getMessage(), true);
