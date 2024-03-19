@@ -13,11 +13,11 @@ class GaloyApiHelper {
   public $apiKey;
 
   public function __construct() {
-  if ($config = self::getConfig()) {
-  $this->url = $config['env'];
-  $this->apiKey = $config['api_key'];
-  $this->configured = true;
-  }
+    if ($config = self::getConfig()) {
+      $this->url = $config['env'];
+      $this->apiKey = $config['api_key'];
+      $this->configured = true;
+    }
   }
 
   public static function getUrl(string $env = null): string {
