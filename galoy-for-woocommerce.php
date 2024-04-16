@@ -1,11 +1,11 @@
 <?php
 /**
  * Plugin Name:     Blink For Woocommerce
- * Plugin URI:      https://wordpress.org/plugins/blink-for-woocommerce/
+ * Plugin URI:      https://wordpress.org/plugins/galoy-for-woocommerce/
  * Description:     Blink is a free and open-source bitcoin wallet which allows you to receive payments in Bitcoin and stablesats directly, with no fees, transaction cost or a middleman.
  * Author:          Galoy - Blink
  * Author URI:      https://blink.sv
- * Text Domain:     blink-for-woocommerce
+ * Text Domain:     galoy-for-woocommerce
  * Domain Path:     /languages
  * Version:         0.1.0
  *
@@ -21,7 +21,7 @@ define( 'BLINK_VERSION', '0.1.0' );
 define( 'BLINK_VERSION_KEY', 'galoy_blink_version' );
 define( 'BLINK_PLUGIN_FILE_PATH', plugin_dir_path( __FILE__ ) );
 define( 'BLINK_PLUGIN_URL', plugin_dir_url(__FILE__ ) );
-define( 'BLINK_PLUGIN_ID', 'blink-for-woocommerce' );
+define( 'BLINK_PLUGIN_ID', 'galoy-for-woocommerce' );
 
 class BlinkWCPlugin {
 
@@ -99,19 +99,19 @@ class BlinkWCPlugin {
   public function dependenciesNotification() {
     // Check PHP version.
     if ( version_compare( PHP_VERSION, '7.4', '<' ) ) {
-      $versionMessage = sprintf( __( 'Your PHP version is %s but Blink Payment plugin requires version 7.4+.', 'blink-for-woocommerce' ), PHP_VERSION );
+      $versionMessage = sprintf( __( 'Your PHP version is %s but Blink Payment plugin requires version 7.4+.', 'galoy-for-woocommerce' ), PHP_VERSION );
       Notice::addNotice('error', $versionMessage);
     }
 
     // Check if WooCommerce is installed.
     if ( !is_plugin_active('woocommerce/woocommerce.php') ) {
-      $wcMessage = __('WooCommerce seems to be not installed. Make sure you do before you activate Blink Payment Gateway.', 'blink-for-woocommerce');
+      $wcMessage = __('WooCommerce seems to be not installed. Make sure you do before you activate Blink Payment Gateway.', 'galoy-for-woocommerce');
       Notice::addNotice('error', $wcMessage);
     }
 
     // Check if PHP cURL is available.
     if ( ! function_exists('curl_init') ) {
-      $curlMessage = __('The PHP cURL extension is not installed. Make sure it is available otherwise this plugin will not work.', 'blink-for-woocommerce');
+      $curlMessage = __('The PHP cURL extension is not installed. Make sure it is available otherwise this plugin will not work.', 'galoy-for-woocommerce');
       Notice::addNotice('error', $curlMessage);
     }
   }
@@ -124,7 +124,7 @@ class BlinkWCPlugin {
 			$message = sprintf(
 				esc_html__(
 					'Plugin not configured yet, please %1$sconfigure the plugin here%2$s',
-					'blink-for-woocommerce'
+					'galoy-for-woocommerce'
 				),
 				'<a href="' . esc_url(admin_url('admin.php?page=wc-settings&tab=blink_settings')) . '">',
 				'</a>'
@@ -140,8 +140,8 @@ class BlinkWCPlugin {
 	public function submitReviewNotification() {
 		if (!get_transient('galoy_blink_review_dismissed')) {
 			$reviewMessage = sprintf(
-				__( 'Thank you for using Blink for WooCommerce! If you like the plugin, we would love if you %1$sleave us a review%2$s.', 'blink-for-woocommerce' ),
-				'<a href="https://wordpress.org/support/plugin/blink-for-woocommerce/reviews/?filter=5#new-post" target="_blank">',
+				__( 'Thank you for using Blink for WooCommerce! If you like the plugin, we would love if you %1$sleave us a review%2$s.', 'galoy-for-woocommerce' ),
+				'<a href="https://wordpress.org/support/plugin/galoy-for-woocommerce/reviews/?filter=5#new-post" target="_blank">',
 				'</a>'
 			);
 
@@ -199,7 +199,7 @@ function init_blink_plugin() {
  */
 add_action('init', function() {
 	// Adding textdomain and translation support.
-	load_plugin_textdomain('blink-for-woocommerce', false, dirname( plugin_basename( __FILE__ ) ) . '/languages/');
+	load_plugin_textdomain('galoy-for-woocommerce', false, dirname( plugin_basename( __FILE__ ) ) . '/languages/');
 	// Setting up and handling custom endpoint for api key redirect from Blink.
 	add_rewrite_endpoint('blink-settings-callback', EP_ROOT);
 	// Flush rewrite rules only once after activation.
@@ -210,7 +210,7 @@ add_action('init', function() {
 });
 
 // Action links on plugin overview.
-add_filter( 'plugin_action_links_blink-for-woocommerce/blink-for-woocommerce.php', function ( $links ) {
+add_filter( 'plugin_action_links_galoy-for-woocommerce/galoy-for-woocommerce.php', function ( $links ) {
 
 	// Settings link.
 	$settings_url = esc_url( add_query_arg(
@@ -221,13 +221,13 @@ add_filter( 'plugin_action_links_blink-for-woocommerce/blink-for-woocommerce.php
 		get_admin_url() . 'admin.php'
 	) );
 
-	$settings_link = "<a href='$settings_url'>" . __( 'Settings', 'blink-for-woocommerce' ) . '</a>';
+	$settings_link = "<a href='$settings_url'>" . __( 'Settings', 'galoy-for-woocommerce' ) . '</a>';
 
-	$logs_link = "<a target='_blank' href='" . Logger::getLogFileUrl() . "'>" . __('Debug log', 'blink-for-woocommerce') . "</a>";
+	$logs_link = "<a target='_blank' href='" . Logger::getLogFileUrl() . "'>" . __('Debug log', 'galoy-for-woocommerce') . "</a>";
 
-	$docs_link = "<a target='_blank' href='". esc_url('https://dev.blink.sv/examples/woocommerce-plugin/') . "'>" . __('Docs', 'blink-for-woocommerce') . "</a>";
+	$docs_link = "<a target='_blank' href='". esc_url('https://dev.blink.sv/examples/woocommerce-plugin/') . "'>" . __('Docs', 'galoy-for-woocommerce') . "</a>";
 
-	$support_link = "<a target='_blank' href='". esc_url('https://chat.blink.sv/') . "'>" . __('Support Chat', 'blink-for-woocommerce') . "</a>";
+	$support_link = "<a target='_blank' href='". esc_url('https://chat.blink.sv/') . "'>" . __('Support Chat', 'galoy-for-woocommerce') . "</a>";
 
 	array_unshift(
 		$links,
