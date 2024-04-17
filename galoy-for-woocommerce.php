@@ -180,10 +180,38 @@ class BlinkWCPlugin {
 	 * Displays the payment status on the thank you page.
 	 */
 	public static function orderStatusThankYouPage($order_id) {
-    echo "
+    if (!$order = wc_get_order($order_id)) {
+			return;
+		}
+
+		$title = _x('Payment Status', 'galoy-for-woocommerce');
+
+		$orderData = $order->get_data();
+		$status = $orderData['status'];
+
+		switch ($status)
+		{
+			case 'on-hold':
+				$statusDesc = _x('Waiting for payment settlement', 'galoy-for-woocommerce');
+				break;
+			case 'processing':
+				$statusDesc = _x('Payment processing', 'galoy-for-woocommerce');
+				break;
+			case 'completed':
+				$statusDesc = _x('Payment settled', 'galoy-for-woocommerce');
+				break;
+			case 'failed':
+				$statusDesc = _x('Payment failed', 'galoy-for-woocommerce');
+				break;
+			default:
+				$statusDesc = _x(ucfirst($status), 'galoy-for-woocommerce');
+				break;
+		}
+
+		echo "
 		<section class='woocommerce-order-payment-status'>
-		    <h2 class='woocommerce-order-payment-status-title'>Title</h2>
-		    <p><strong>Thank you</strong></p>
+	    <h2 class='woocommerce-order-payment-status-title'>{$title}</h2>
+	    <p><strong>{$statusDesc}</strong></p>
 		</section>
 		";
   }
