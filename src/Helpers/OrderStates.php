@@ -11,6 +11,7 @@ class OrderStates {
 	const NEW = 'New';
 	const PENDING = 'Pending';
 	const SETTLED = 'Settled';
+	const PAID = 'Paid';
 	const EXPIRED = 'Expired';
 	const IGNORE = 'BLINK_IGNORE';
 
@@ -18,6 +19,7 @@ class OrderStates {
 		return [
 			self::NEW                  => 'wc-pending',
 			self::PENDING              => 'wc-pending',
+			self::PAID                 => 'wc-processing',
 			self::SETTLED              => self::IGNORE,
 			self::EXPIRED              => 'wc-cancelled'
 		];
@@ -26,7 +28,8 @@ class OrderStates {
 	public function getOrderStateLabels(): array {
 		return [
 			self::NEW     => _x('New', 'global_settings', 'galoy-for-woocommerce'),
-			self::PENDING => _x('Paid', 'global_settings', 'galoy-for-woocommerce'),
+			self::PENDING => _x('Pending', 'global_settings', 'galoy-for-woocommerce'),
+			self::PAID    => _x('Paid', 'global_settings', 'galoy-for-woocommerce'),
 			self::SETTLED => _x('Settled', 'global_settings', 'galoy-for-woocommerce'),
 			self::EXPIRED => _x('Expired', 'global_settings', 'galoy-for-woocommerce')
 		];

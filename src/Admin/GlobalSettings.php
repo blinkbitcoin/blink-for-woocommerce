@@ -19,6 +19,7 @@ class GlobalSettings extends \WC_Settings_Page {
 
 		// Register custom field type order_states with OrderStatesField class.
 		add_action('woocommerce_admin_field_order_states', [(new OrderStates()), 'renderOrderStatesHtml']);
+		add_action('woocommerce_admin_field_custom_markup', [$this, 'output_custom_markup_field']);
 
 		if (is_admin()) {
 			// Register and include JS.
@@ -58,7 +59,9 @@ class GlobalSettings extends \WC_Settings_Page {
 
 		$setupStatus = '<p class="blink-connection-error">' . _x('Not connected. Please configure your api key.', 'global_settings', 'galoy-for-woocommerce') . '</p>';
 		if ($storedGaloyEnv && $storedApiKey) {
-			$setupStatus = '<p class="blink-connection-success">' . _x('Connected.', 'global_settings', 'galoy-for-woocommerce') . '</p>';
+			if (GaloyApiHelper::verifyApiKey( $storedGaloyEnv, $storedApiKey )) {
+				$setupStatus = '<p class="blink-connection-success">' . _x('Connected.', 'global_settings', 'galoy-for-woocommerce') . '</p>';
+			}
 		}
 
 		return [
@@ -101,16 +104,22 @@ class GlobalSettings extends \WC_Settings_Page {
 					'stablesats' => _x('Stablesats', 'global_settings', 'galoy-for-woocommerce'),
 				],
 				'default'     => 'Blink',
-				'desc' => esc_html_x( 'Galoy instance.', 'global_settings', 'galoy-for-woocommerce' ),
+				'desc' => esc_html_x( 'Galoy/Blink Wallet', 'global_settings', 'galoy-for-woocommerce' ),
 				'desc_tip'    => true,
 				'id' => 'galoy_blink_wallet_type'
 			],
 			'api_key' => [
 				'title'       => esc_html_x( 'Blink API Key', 'global_settings','galoy-for-woocommerce' ),
 				'type'        => 'text',
-				'desc' => _x( 'Your Blink API Key. If you do not have any yet use <a target="_blank" href="https://dashboard.blink.sv/">Blink dashboard</a> to get a new one.', 'global_settings', 'galoy-for-woocommerce' ),
+				'desc' => _x( 'Your Blink API Key. If you do not have any yet use <a target="_blank" href="https://dashboard.blink.sv/api-keys">Blink dashboard</a> to get a new one.', 'global_settings', 'galoy-for-woocommerce' ),
 				'default'     => '',
 				'id' => 'galoy_blink_api_key'
+			],
+			'webhook_url' => [
+				'title' => esc_html_x( 'Webhook Url', 'galoy-for-woocommerce' ),
+				'type'  => 'custom_markup',
+				'markup'  => WC()->api_request_url( 'galoy_blink_default' ) . '<p class="description"> Please use <a target="_blank" href="https://dashboard.blink.sv/callback">Blink dashboard</a> to set it up.</p>',
+				'id'    => 'galoy_blink_webhook_url'
 			],
 			'status' => [
 				'title'       => esc_html_x( 'Setup status', 'global_settings','galoy-for-woocommerce' ),
@@ -192,5 +201,19 @@ class GlobalSettings extends \WC_Settings_Page {
 
 	private function hasNeededApiCredentials(): bool {
 		return !empty($_POST['galoy_blink_env']) && !empty($_POST['galoy_blink_api_key']);
+	}
+
+	public function output_custom_markup_field($value) {
+		echo '<tr valign="top">';
+		if (!empty($value['title'])) {
+			echo '<th scope="row" class="titledesc">' . esc_html($value['title']) . '</th>';
+		} else {
+			echo '<th scope="row" class="titledesc">&nbsp;</th>';
+		}
+
+		echo '<td class="forminp" id="' . $value['id'] . '">';
+		echo $value['markup'];
+		echo '</td>';
+		echo '</tr>';
 	}
 }

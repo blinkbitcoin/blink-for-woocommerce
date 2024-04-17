@@ -6,6 +6,7 @@ namespace Blink\WC\Gateway;
 
 use Blink\WC\Helpers\Logger;
 use Blink\WC\Helpers\GaloyApiHelper;
+use Blink\WC\Helpers\OrderStates;
 
 class BlinkLnGateway extends \WC_Payment_Gateway {
 	const ICON_MEDIA_OPTION = 'icon_media_id';
@@ -40,6 +41,7 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
 
 		// Actions.
 		add_action('woocommerce_update_options_payment_gateways_' . $this->getId(), [$this, 'process_admin_options']);
+		add_action('woocommerce_api_' . $this->getId(), [$this, 'processWebhook']);
 
     // Supported features.
 		$this->supports = [ 'products' ];
@@ -122,13 +124,6 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
 	}
 
 	/**
-		 * Process webhooks from Galoy.
-		 */
-	public function processWebhook() {
-
-	}
-
-	/**
 	 * Process the payment and return the result.
 	 *
 	 * @param int $order_id Order ID.
@@ -180,6 +175,53 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
 	}
 
 	/**
+	 * Process webhooks from Galoy/Blink.
+	 */
+	public function processWebhook() {
+		Logger::debug( 'Galoy/Blink Webhook handler' );
+		if ($rawPostData = file_get_contents("php://input")) {
+			try {
+				$postData = json_decode($rawPostData, false, 512, JSON_THROW_ON_ERROR);
+				if (!isset($postData->transaction->initiationVia->paymentHash)) {
+					Logger::debug('No Galoy/Blink invoiceId provided, aborting.');
+					wp_die('No Galoy/Blink invoiceId provided, aborting.');
+				}
+
+				$invoiceId = $postData->transaction->initiationVia->paymentHash;
+				if (empty($invoiceId)) {
+	        Logger::error('No Galoy/Blink invoiceId provided.');
+	        wp_die('No Galoy/Blink invoiceId provided, aborting.');
+	    	}
+
+				// Load the order by metadata field Blink_id
+				$orders = wc_get_orders([
+					'meta_key' => 'galoy_id',
+					'meta_value' => $invoiceId
+				]);
+
+				// Abort if no orders found.
+				if (count($orders) === 0) {
+					Logger::debug('Could not load order by Blink invoiceId: ' . $postData->invoiceId);
+					wp_die('No order found for this invoiceId.', '', ['response' => 200]);
+				}
+
+				// Abort on multiple orders found.
+				if (count($orders) > 1) {
+					Logger::debug('Found multiple orders for invoiceId: ' . $postData->invoiceId);
+					Logger::debug(print_r($orders, true));
+					wp_die('Multiple orders found for this invoiceId, aborting.', '', ['response' => 200]);
+				}
+
+				$this->processOrderStatus($orders[0]);
+
+			} catch (\Throwable $e) {
+				Logger::debug('Error decoding webook payload: ' . $e->getMessage());
+				Logger::debug($rawPostData);
+			}
+		}
+	}
+
+	/**
 	 * Checks if the order has already a Galoy/Blink invoice set and checks if it is still
 	 * valid to avoid creating multiple invoices for the same order on Blink end.
 	 *
@@ -228,6 +270,7 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
 
 			$order->update_meta_data('galoy_redirect', $invoice['redirectUrl'] );
 			$order->update_meta_data('galoy_id', $invoice['paymentHash']);
+			$order->update_meta_data('galoy_payment_request', $invoice['paymentRequest']);
 			$order->save();
 
 			return $invoice;
@@ -236,5 +279,61 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
 		}
 
 		return null;
+	}
+
+	protected function processOrderStatus(\WC_Order $order) {
+		Logger::debug('Updating status for order: '. $order->get_id());
+		// Check if the order is already in a final state, if so do not update it if the orders are protected.
+		$protectOrders = get_option('galoy_blink_protect_order_status', 'no');
+
+		Logger::debug('Protect order: '. $protectOrders);
+
+		if ($protectOrders === 'yes') {
+			// Check if the order status is either 'processing' or 'completed'
+			if ($order->has_status(array('processing', 'completed'))) {
+				$note = 'Webhook received from Galoy/Blink, but the order is already processing or completed, skipping to update order status. Please manually check if everything is alright.';
+				$order->add_order_note($note);
+				return;
+			}
+		}
+
+		if ($invoiceId = $order->get_meta('galoy_id')) {
+			// Get configured order states or fall back to defaults.
+			if (!$configuredOrderStates = get_option('galoy_blink_order_states')) {
+				$configuredOrderStates = (new OrderStates())->getDefaultOrderStateMappings();
+			}
+			Logger::debug('Configured Order States: '. implode(', ', $configuredOrderStates));
+
+			try {
+				Logger::debug( 'Trying to fetch existing invoice from Galoy/Blink for hash '. $invoiceId);
+				$invoice = $this->apiHelper->getInvoice($invoiceId);
+				$invoiceStatus = $invoice['status'];
+				Logger::debug('Invoice status: '. $invoiceStatus);
+
+				if ($invoiceStatus === 'EXPIRED') {
+					$this->updateWCOrderStatus($order, $configuredOrderStates[OrderStates::EXPIRED]);
+					$order->add_order_note(__('Invoice expired.', 'galoy-for-woocommerce'));
+					return;
+				}
+
+				if ($invoiceStatus === 'PAID') {
+					$this->updateWCOrderStatus($order, $configuredOrderStates[OrderStates::PAID]);
+					$order->add_order_note(__('Invoice payment settled.', 'galoy-for-woocommerce'));
+					return;
+				}
+			} catch ( \Throwable $e ) {
+				Logger::debug( $e->getMessage(), true);
+			}
+		}
+	}
+
+	/**
+	 * Update WC order status (if a valid mapping is set).
+	 */
+	public function updateWCOrderStatus(\WC_Order $order, string $status): void {
+		if ($status !== OrderStates::IGNORE) {
+			Logger::debug('Updating order status from ' . $order->get_status() . ' to ' . $status);
+			$order->update_status($status);
+		}
 	}
 }

@@ -184,23 +184,27 @@ class BlinkWCPlugin {
 			return;
 		}
 
-		$title = _x('Payment Status', 'galoy-for-woocommerce');
+		$title = _x('Order Status', 'galoy-for-woocommerce');
 
 		$orderData = $order->get_data();
 		$status = $orderData['status'];
 
 		switch ($status)
 		{
+			case 'pending':
+				$statusDesc = _x('Waiting payment', 'galoy-for-woocommerce');
+				break;
 			case 'on-hold':
 				$statusDesc = _x('Waiting for payment settlement', 'galoy-for-woocommerce');
 				break;
 			case 'processing':
-				$statusDesc = _x('Payment processing', 'galoy-for-woocommerce');
-				break;
-			case 'completed':
 				$statusDesc = _x('Payment settled', 'galoy-for-woocommerce');
 				break;
+			case 'completed':
+				$statusDesc = _x('Order completed', 'galoy-for-woocommerce');
+				break;
 			case 'failed':
+			case 'cancelled':
 				$statusDesc = _x('Payment failed', 'galoy-for-woocommerce');
 				break;
 			default:
