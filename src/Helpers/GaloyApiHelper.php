@@ -66,9 +66,9 @@ class GaloyApiHelper {
   }
 
   public static function verifyApiKey(string $env = null, string $apiKey = null): bool {
-    Logger::debug( 'Start verifyApiKey' );
+    Logger::debug('Start verifyApiKey');
     if (!$env || !$apiKey) {
-      Logger::debug( 'Invalid env or api key' );
+      Logger::debug('Invalid env or api key');
       return false;
     }
 
@@ -82,17 +82,17 @@ class GaloyApiHelper {
     }
 
     if (!$config) {
-      Logger::debug( 'Invalid config', true );
+      Logger::debug('Invalid config', true);
       return false;
     }
 
     try {
-      $client = new GaloyApiClient( $config['url'], $config['api_key'] );
+      $client = new GaloyApiClient($config['url'], $config['api_key']);
       $scopes = $client->getAuthorizationScopes();
       $hasReceive = in_array('RECEIVE', $scopes);
       $hasWrite = in_array('WRITE', $scopes);
-      Logger::debug( 'API key scopes: ' . print_r( $scopes, true ) );
-      Logger::debug( 'End verifyApiKey with ' . ($hasReceive || $hasWrite) );
+      Logger::debug('API key scopes: ' . print_r($scopes, true));
+      Logger::debug('End verifyApiKey with ' . ($hasReceive || $hasWrite));
       return $hasReceive || $hasWrite;
     } catch (\Throwable $e) {
       Logger::debug('Error fetching user info: ' . $e->getMessage(), true);
@@ -103,20 +103,20 @@ class GaloyApiHelper {
   public function getInvoice(string $paymentHash) {
     Logger::debug('Start getInvoice for' . $paymentHash);
     if (!$paymentHash) {
-      Logger::debug( 'Invalid invoice hash' );
+      Logger::debug('Invalid invoice hash');
       return false;
     }
 
     if (!$this->configured) {
-      Logger::debug( 'Invalid config', true );
+      Logger::debug('Invalid config', true);
       return false;
     }
 
     try {
       $config = self::getConfig();
-      $client = new GaloyApiClient( $config['url'], $config['api_key'] );
+      $client = new GaloyApiClient($config['url'], $config['api_key']);
       $invoice = $client->getInvoiceStatus($paymentHash);
-      Logger::debug( 'End getInvoice for ' . $paymentHash );
+      Logger::debug('End getInvoice for ' . $paymentHash);
       return $invoice;
     } catch (\Throwable $e) {
       Logger::debug('Error fetching invoice: ' . $e->getMessage(), true);
@@ -132,7 +132,7 @@ class GaloyApiHelper {
     }
 
     if (!$this->configured) {
-      Logger::debug( 'Invalid config', true );
+      Logger::debug('Invalid config', true);
       return null;
     }
 
@@ -140,7 +140,7 @@ class GaloyApiHelper {
       $config = self::getConfig();
       $walletType = $config['wallet_type'];
 
-      $client = new GaloyApiClient( $config['url'], $config['api_key']);
+      $client = new GaloyApiClient($config['url'], $config['api_key']);
       $walletsAmounts = $client->currencyConversionEstimation($amount, $currency);
 
       $walletCurrency = 'BTC';
@@ -152,19 +152,19 @@ class GaloyApiHelper {
         $createInvoice = [$client, 'createStablesatsInvoice'];
       }
 
-      Logger::debug('CreateInvoice with wallet amount: ' . $walletAmount );
-      Logger::debug('CreateInvoice with wallet currency: ' . $walletCurrency );
+      Logger::debug('CreateInvoice with wallet amount: ' . $walletAmount);
+      Logger::debug('CreateInvoice with wallet currency: ' . $walletCurrency);
 
       $wallets = $client->getWallets();
       $walletId = $wallets[$walletCurrency];
 
       //TODO: add expiresIn and memo prefix in global config
       $expiresIn = 5;
-      $memo = 'GW-'.$orderNumber;
+      $memo = 'GW-' . $orderNumber;
       $invoice = $createInvoice($walletAmount, $expiresIn, $memo, $walletId);
       $redirectUrl = self::getInvoiceRedirectUrl($invoice['paymentHash']);
       $invoice['redirectUrl'] = $redirectUrl;
-      Logger::debug( 'End createInvoice for ' . $orderNumber );
+      Logger::debug('End createInvoice for ' . $orderNumber);
       return $invoice;
     } catch (\Throwable $e) {
       Logger::debug('Error creating invoice: ' . $e->getMessage(), true);
@@ -173,13 +173,13 @@ class GaloyApiHelper {
   }
 
   /**
-	 * Returns Blink invoice url.
-	 */
-	public function getInvoiceRedirectUrl($invoiceId): ?string {
-		if ($this->configured) {
+   * Returns Blink invoice url.
+   */
+  public function getInvoiceRedirectUrl($invoiceId): ?string {
+    if ($this->configured) {
       $payUrl = self::getPayUrl($this->$env);
-			return $payUrl . '/i/' . urlencode($invoiceId);
-		}
-		return null;
-	}
+      return $payUrl . '/i/' . urlencode($invoiceId);
+    }
+    return null;
+  }
 }

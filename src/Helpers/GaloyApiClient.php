@@ -17,20 +17,20 @@ class GaloyApiClient {
     // Prepare HTTP headers
     $headers = [
       'X-API-KEY' => $this->token,
-      'Content-Type' => 'application/json'
+      'Content-Type' => 'application/json',
     ];
 
     // Prepare request body
     $body = json_encode([
       'query' => $query,
-      'variables' => $variables
+      'variables' => $variables,
     ]);
 
     // Make the HTTP POST request
     $client = new \GuzzleHttp\Client();
     $response = $client->request('POST', $this->apiUrl, [
       'headers' => $headers,
-      'body' => $body
+      'body' => $body,
     ]);
 
     // Parse response
@@ -110,8 +110,8 @@ class GaloyApiClient {
         'amount' => $amount,
         'expiresIn' => $expiresIn,
         'memo' => $memo,
-        'walletId' => $walletId
-      ]
+        'walletId' => $walletId,
+      ],
     ];
 
     // Send GraphQL request
@@ -152,8 +152,8 @@ class GaloyApiClient {
         'amount' => $amount,
         'expiresIn' => $expiresIn,
         'memo' => $memo,
-        'walletId' => $walletId
-      ]
+        'walletId' => $walletId,
+      ],
     ];
 
     $response = $this->sendRequest($query, $variables);
@@ -166,12 +166,11 @@ class GaloyApiClient {
 
     // Return invoice details
     return $response['data']['lnUsdInvoiceCreate']['invoice'];
-}
-
+  }
 
   public function getInvoiceStatus($paymentHash) {
-      // Prepare GraphQL query for invoice payment status by hash
-      $query = 'query lnInvoicePaymentStatusByHash($input: LnInvoicePaymentStatusByHashInput!) {
+    // Prepare GraphQL query for invoice payment status by hash
+    $query = 'query lnInvoicePaymentStatusByHash($input: LnInvoicePaymentStatusByHashInput!) {
         lnInvoicePaymentStatusByHash(input: $input) {
           paymentHash
           paymentRequest
@@ -179,24 +178,24 @@ class GaloyApiClient {
         }
       }';
 
-      // Prepare variables for the invoice payment status by hash GraphQL query
-      $variables = [
-        'input' => [
-          'paymentHash' => $paymentHash
-        ]
-      ];
+    // Prepare variables for the invoice payment status by hash GraphQL query
+    $variables = [
+      'input' => [
+        'paymentHash' => $paymentHash,
+      ],
+    ];
 
-      // Send GraphQL request for invoice payment status by hash
-      $response = $this->sendRequest($query, $variables);
+    // Send GraphQL request for invoice payment status by hash
+    $response = $this->sendRequest($query, $variables);
 
-      // Check for errors during invoice payment status by hash
-      if (!empty($response['errors'])) {
-        $errorMessage = implode(', ', array_column($response['errors'], 'message'));
-        throw new Exception('Invoice payment status retrieval failed: ' . $errorMessage);
-      }
+    // Check for errors during invoice payment status by hash
+    if (!empty($response['errors'])) {
+      $errorMessage = implode(', ', array_column($response['errors'], 'message'));
+      throw new Exception('Invoice payment status retrieval failed: ' . $errorMessage);
+    }
 
-      // Return payment status
-      return $response['data']['lnInvoicePaymentStatusByHash'];
+    // Return payment status
+    return $response['data']['lnInvoicePaymentStatusByHash'];
   }
 
   public function currencyConversionEstimation($amount, $currency) {
@@ -211,7 +210,7 @@ class GaloyApiClient {
 
     $variables = [
       'amount' => $amount,
-      'currency' => $currency
+      'currency' => $currency,
     ];
 
     $response = $this->sendRequest($query, $variables);
