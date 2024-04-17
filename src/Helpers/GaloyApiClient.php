@@ -59,6 +59,33 @@ class GaloyApiClient {
     return $response['data']['authorization']['scopes'];
   }
 
+  public function getWallets() {
+    $query = 'query Wallets {
+      me {
+        defaultAccount {
+          wallets {
+            id
+            walletCurrency
+          }
+        }
+      }
+    }';
+    $response = $this->sendRequest($query, null);
+
+    // Check for errors
+    if (!empty($response['errors'])) {
+      $errorMessage = implode(', ', array_column($response['errors'], 'message'));
+      throw new Exception('GraphQL query failed: ' . $errorMessage);
+    }
+
+    // Parse response and structure wallets
+    $wallets = [];
+    foreach ($response['data']['me']['defaultAccount']['wallets'] as $wallet) {
+      $wallets[$wallet['walletCurrency']] = $wallet['id'];
+    }
+    return $wallets;
+  }
+
   public function createInvoice($amount, $expiresIn, $memo, $walletId) {
     // Prepare GraphQL query
     $query = 'mutation lnInvoiceCreate($input: LnInvoiceCreateInput!) {
@@ -97,8 +124,50 @@ class GaloyApiClient {
     }
 
     // Return invoice details
-    return $response['data']['lnInvoiceCreate'];
+    return $response['data']['lnInvoiceCreate']['invoice'];
   }
+
+  public function createStablesatsInvoice($amount, $expiresIn, $memo, $walletId) {
+    $query = 'mutation LnUsdInvoiceCreate($input: LnUsdInvoiceCreateInput!) {
+      lnUsdInvoiceCreate(input: $input) {
+        errors {
+          code
+          message
+          path
+        }
+        invoice {
+          createdAt
+          externalId
+          paymentHash
+          paymentRequest
+          paymentSecret
+          paymentStatus
+          satoshis
+        }
+      }
+    }';
+
+    $variables = [
+      'input' => [
+        'amount' => $amount,
+        'expiresIn' => $expiresIn,
+        'memo' => $memo,
+        'walletId' => $walletId
+      ]
+    ];
+
+    $response = $this->sendRequest($query, $variables);
+
+    // Check for errors
+    if (!empty($response['errors'])) {
+      $errorMessage = implode(', ', array_column($response['errors'], 'message'));
+      throw new Exception('GraphQL mutation failed: ' . $errorMessage);
+    }
+
+    // Return invoice details
+    return $response['data']['lnUsdInvoiceCreate']['invoice'];
+}
+
 
   public function getInvoiceStatus($paymentHash) {
       // Prepare GraphQL query for invoice payment status by hash
@@ -128,5 +197,30 @@ class GaloyApiClient {
 
       // Return payment status
       return $response['data']['lnInvoicePaymentStatusByHash'];
+  }
+
+  public function currencyConversionEstimation($amount, $currency) {
+    $query = 'query CurrencyConversionEstimation($amount: Float!, $currency: DisplayCurrency!) {
+      currencyConversionEstimation(amount: $amount, currency: $currency) {
+        id
+        timestamp
+        usdCentAmount
+        btcSatAmount
+      }
+    }';
+
+    $variables = [
+      'amount' => $amount,
+      'currency' => $currency
+    ];
+
+    $response = $this->sendRequest($query, $variables);
+
+    if (!empty($response['errors'])) {
+      $errorMessage = implode(', ', array_column($response['errors'], 'message'));
+      throw new Exception('GraphQL query failed: ' . $errorMessage);
+    }
+
+    return $response['data']['currencyConversionEstimation'];
   }
 }

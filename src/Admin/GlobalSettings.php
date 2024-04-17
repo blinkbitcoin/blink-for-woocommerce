@@ -89,6 +89,22 @@ class GlobalSettings extends \WC_Settings_Page {
 				'desc_tip'    => true,
 				'id' => 'galoy_blink_env'
 			],
+			'galoy_wallet_type' => [
+				'title' => esc_html_x(
+					'Blink Wallet',
+					'global_settings',
+					'galoy-for-woocommerce'
+				),
+				'type' => 'select',
+				'options'     => [
+					'bitcoin'         => _x('Bitcoin', 'global_settings', 'galoy-for-woocommerce'),
+					'stablesats' => _x('Stablesats', 'global_settings', 'galoy-for-woocommerce'),
+				],
+				'default'     => 'Blink',
+				'desc' => esc_html_x( 'Galoy instance.', 'global_settings', 'galoy-for-woocommerce' ),
+				'desc_tip'    => true,
+				'id' => 'galoy_blink_wallet_type'
+			],
 			'api_key' => [
 				'title'       => esc_html_x( 'Blink API Key', 'global_settings','galoy-for-woocommerce' ),
 				'type'        => 'text',

@@ -135,17 +135,106 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
 	 * @return array
 	 */
 	public function process_payment( $order_id ) {
+		if (!$this->apiHelper->configured) {
+			Logger::debug( 'Galoy/Blink API connection not configured, aborting. Please go to settings and set it up.' );
+			throw new \Exception( __( "Can't process order. Please contact us if the problem persists.", 'galoy-for-woocommerce' ) );
+		}
+
 		$order = wc_get_order( $order_id );
+		if ($order->get_id() === 0) {
+			$message = 'Could not load order id ' . $orderId . ', aborting.';
+			Logger::debug( $message, true );
+			throw new \Exception( $message );
+		}
 
-		$order->payment_complete();
+		// Check for existing invoice and redirect instead.
+		if ($this->validInvoiceExists($order)) {
+			$existingInvoiceId = $order->get_meta('galoy_id');
+			Logger::debug('Found existing Galoy/Blink invoice and redirecting to it. Invoice id: ' . $existingInvoiceId );
 
-		// Remove cart.
-		// WC()->cart->empty_cart();
+			return [
+				'result' => 'success',
+				'invoiceId' => $existingInvoiceId,
+				'orderCompleteLink' => $order->get_checkout_order_received_url(),
+				'redirect' => $this->apiHelper->getInvoiceRedirectUrl($existingInvoiceId).'?callback='.$order->get_checkout_order_received_url(),
+			];
+		}
 
-		// Return thankyou redirect.
-		return array(
-			'result'   => 'success',
-			'redirect' => $this->get_return_url( $order ),
-		);
+		// Create an invoice.
+		Logger::debug('Creating invoice on Galoy/Blink');
+		if ( $invoice = $this->createInvoice($order) ) {
+			Logger::debug( 'Invoice creation successful, redirecting user.' );
+			return [
+				'result' => 'success',
+				'invoiceId' => $invoice['paymentHash'],
+				'orderCompleteLink' => $order->get_checkout_order_received_url(),
+				'redirect' => $invoice['redirectUrl'].'?callback='.$order->get_checkout_order_received_url(),
+			];
+		}
+	}
+
+	public function process_refund( $order_id, $amount = null, $reason = '' ) {
+		$errServer = 'Blink does not support refunds.';
+		Logger::debug($errServer);
+		return new \WP_Error('1', $errServer);
+	}
+
+	/**
+	 * Checks if the order has already a Galoy/Blink invoice set and checks if it is still
+	 * valid to avoid creating multiple invoices for the same order on Blink end.
+	 *
+	 * @param int $orderId
+	 *
+	 * @return mixed Returns false if no valid invoice found or the invoice id.
+	 */
+	protected function validInvoiceExists(\WC_Order $order): bool {
+		if ($invoiceId = $order->get_meta('galoy_id')) {
+			try {
+				Logger::debug( 'Trying to fetch existing invoice from Galoy/Blink for hash '. $invoiceId);
+				$invoice = $this->apiHelper->getInvoice($invoiceId);
+				$invalidStates = ['EXPIRED'];
+				if (in_array($invoice['status'], $invalidStates)) {
+					return false;
+				}
+
+				return true;
+			} catch ( \Throwable $e ) {
+				Logger::debug( $e->getMessage() );
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Create an invoice on Galoy/Blink.
+	 */
+	protected function createInvoice( \WC_Order $order ) {
+		// In case some plugins customizing the order number we need to pass that along, defaults to internal ID.
+		$orderNumber = $order->get_order_number();
+		Logger::debug( 'Got order number: ' . $orderNumber . ' and order ID: ' . $order->get_id() );
+
+		$redirectUrl = $this->get_return_url($order);
+		Logger::debug( 'Redirect url to: ' . $redirectUrl );
+
+		// unlike method signature suggests, it returns string.
+		$amount = floatval($order->get_total());
+		$currency = $order->get_currency();
+
+		try {
+			Logger::debug( 'Creating invoice with amount: ' . $amount );
+			Logger::debug( 'Creating invoice with currency: ' . $currency );
+			$invoice = $this->apiHelper->createInvoice($amount, $currency, $orderNumber);
+
+			$order->update_meta_data('galoy_redirect', $invoice['redirectUrl'] );
+			$order->update_meta_data('galoy_id', $invoice['paymentHash']);
+			$order->save();
+
+			return $invoice;
+		} catch ( \Throwable $e ) {
+			Logger::debug( $e->getMessage(), true );
+		}
+
+		return null;
 	}
 }
