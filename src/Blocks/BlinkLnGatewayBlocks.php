@@ -71,7 +71,7 @@ final class BlinkLnGatewayBlocks extends AbstractPaymentMethodType {
     if (function_exists('wp_set_script_translations')) {
       wp_set_script_translations(
         'blink-gateway-blocks',
-        'galoy-for-woocommerce',
+        'blink-for-woocommerce',
         BLINK_PLUGIN_FILE_PATH . 'languages/'
       );
     }

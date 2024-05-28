@@ -152,7 +152,7 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
       throw new \Exception(
         __(
           "Can't process order. Please contact us if the problem persists.",
-          'galoy-for-woocommerce'
+          'blink-for-woocommerce'
         )
       );
     }
@@ -358,13 +358,13 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
             $order,
             $configuredOrderStates[OrderStates::EXPIRED]
           );
-          $order->add_order_note(__('Invoice expired.', 'galoy-for-woocommerce'));
+          $order->add_order_note(__('Invoice expired.', 'blink-for-woocommerce'));
           return;
         }
 
         if ($invoiceStatus === 'PAID') {
           $this->updateWCOrderStatus($order, $configuredOrderStates[OrderStates::PAID]);
-          $order->add_order_note(__('Invoice payment settled.', 'galoy-for-woocommerce'));
+          $order->add_order_note(__('Invoice payment settled.', 'blink-for-woocommerce'));
           return;
         }
       } catch (\Throwable $e) {
