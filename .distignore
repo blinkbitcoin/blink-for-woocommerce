@@ -41,3 +41,8 @@ node_modules
 *.sql
 *.tar.gz
 *.zip
+DOCKER_ENV
+docker_tag
+Dockerfile
+docker-compose.yml
+output.log
