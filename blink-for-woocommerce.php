@@ -1,11 +1,11 @@
 <?php
 /**
  * Plugin Name:     Blink For Woocommerce
- * Plugin URI:      https://wordpress.org/plugins/galoy-for-woocommerce/
+ * Plugin URI:      https://wordpress.org/plugins/blink-for-woocommerce/
  * Description:     Blink is a free and open-source bitcoin wallet which allows you to receive payments in Bitcoin and stablesats directly, with no fees, transaction cost or a middleman.
  * Author:          Galoy - Blink
  * Author URI:      https://blink.sv
- * Text Domain:     galoy-for-woocommerce
+ * Text Domain:     blink-for-woocommerce
  * Domain Path:     /languages
  * Version:         0.1.0
  *
@@ -21,7 +21,7 @@ define('BLINK_VERSION', '0.1.0');
 define('BLINK_VERSION_KEY', 'galoy_blink_version');
 define('BLINK_PLUGIN_FILE_PATH', plugin_dir_path(__FILE__));
 define('BLINK_PLUGIN_URL', plugin_dir_url(__FILE__));
-define('BLINK_PLUGIN_ID', 'galoy-for-woocommerce');
+define('BLINK_PLUGIN_ID', 'blink-for-woocommerce');
 
 class BlinkWCPlugin {
   private static $instance;
@@ -109,7 +109,7 @@ class BlinkWCPlugin {
       $versionMessage = sprintf(
         __(
           'Your PHP version is %s but Blink Payment plugin requires version 7.4+.',
-          'galoy-for-woocommerce'
+          'blink-for-woocommerce'
         ),
         PHP_VERSION
       );
@@ -120,7 +120,7 @@ class BlinkWCPlugin {
     if (!is_plugin_active('woocommerce/woocommerce.php')) {
       $wcMessage = __(
         'WooCommerce seems to be not installed. Make sure you do before you activate Blink Payment Gateway.',
-        'galoy-for-woocommerce'
+        'blink-for-woocommerce'
       );
       Notice::addNotice('error', $wcMessage);
     }
@@ -129,7 +129,7 @@ class BlinkWCPlugin {
     if (!function_exists('curl_init')) {
       $curlMessage = __(
         'The PHP cURL extension is not installed. Make sure it is available otherwise this plugin will not work.',
-        'galoy-for-woocommerce'
+        'blink-for-woocommerce'
       );
       Notice::addNotice('error', $curlMessage);
     }
@@ -143,7 +143,7 @@ class BlinkWCPlugin {
       $message = sprintf(
         esc_html__(
           'Plugin not configured yet, please %1$sconfigure the plugin here%2$s',
-          'galoy-for-woocommerce'
+          'blink-for-woocommerce'
         ),
         '<a href="' .
           esc_url(admin_url('admin.php?page=wc-settings&tab=blink_settings')) .
@@ -163,9 +163,9 @@ class BlinkWCPlugin {
       $reviewMessage = sprintf(
         __(
           'Thank you for using Blink for WooCommerce! If you like the plugin, we would love if you %1$sleave us a review%2$s.',
-          'galoy-for-woocommerce'
+          'blink-for-woocommerce'
         ),
-        '<a href="https://wordpress.org/support/plugin/galoy-for-woocommerce/reviews/?filter=5#new-post" target="_blank">',
+        '<a href="https://wordpress.org/support/plugin/blink-for-woocommerce/reviews/?filter=5#new-post" target="_blank">',
         '</a>'
       );
 
@@ -211,30 +211,30 @@ class BlinkWCPlugin {
       return;
     }
 
-    $title = _x('Order Status', 'galoy-for-woocommerce');
+    $title = _x('Order Status', 'blink-for-woocommerce');
 
     $orderData = $order->get_data();
     $status = $orderData['status'];
 
     switch ($status) {
       case 'pending':
-        $statusDesc = _x('Waiting payment', 'galoy-for-woocommerce');
+        $statusDesc = _x('Waiting payment', 'blink-for-woocommerce');
         break;
       case 'on-hold':
-        $statusDesc = _x('Waiting for payment settlement', 'galoy-for-woocommerce');
+        $statusDesc = _x('Waiting for payment settlement', 'blink-for-woocommerce');
         break;
       case 'processing':
-        $statusDesc = _x('Payment settled', 'galoy-for-woocommerce');
+        $statusDesc = _x('Payment settled', 'blink-for-woocommerce');
         break;
       case 'completed':
-        $statusDesc = _x('Order completed', 'galoy-for-woocommerce');
+        $statusDesc = _x('Order completed', 'blink-for-woocommerce');
         break;
       case 'failed':
       case 'cancelled':
-        $statusDesc = _x('Payment failed', 'galoy-for-woocommerce');
+        $statusDesc = _x('Payment failed', 'blink-for-woocommerce');
         break;
       default:
-        $statusDesc = _x(ucfirst($status), 'galoy-for-woocommerce');
+        $statusDesc = _x(ucfirst($status), 'blink-for-woocommerce');
         break;
     }
 
@@ -258,7 +258,7 @@ function init_blink_plugin() {
 add_action('init', function () {
   // Adding textdomain and translation support.
   load_plugin_textdomain(
-    'galoy-for-woocommerce',
+    'blink-for-woocommerce',
     false,
     dirname(plugin_basename(__FILE__)) . '/languages/'
   );
@@ -273,7 +273,7 @@ add_action('init', function () {
 
 // Action links on plugin overview.
 add_filter(
-  'plugin_action_links_galoy-for-woocommerce/galoy-for-woocommerce.php',
+  'plugin_action_links_blink-for-woocommerce/blink-for-woocommerce.php',
   function ($links) {
     // Settings link.
     $settings_url = esc_url(
@@ -287,27 +287,27 @@ add_filter(
     );
 
     $settings_link =
-      "<a href='$settings_url'>" . __('Settings', 'galoy-for-woocommerce') . '</a>';
+      "<a href='$settings_url'>" . __('Settings', 'blink-for-woocommerce') . '</a>';
 
     $logs_link =
       "<a target='_blank' href='" .
       Logger::getLogFileUrl() .
       "'>" .
-      __('Debug log', 'galoy-for-woocommerce') .
+      __('Debug log', 'blink-for-woocommerce') .
       '</a>';
 
     $docs_link =
       "<a target='_blank' href='" .
       esc_url('https://dev.blink.sv/examples/woocommerce-plugin/') .
       "'>" .
-      __('Docs', 'galoy-for-woocommerce') .
+      __('Docs', 'blink-for-woocommerce') .
       '</a>';
 
     $support_link =
       "<a target='_blank' href='" .
       esc_url('https://chat.blink.sv/') .
       "'>" .
-      __('Support Chat', 'galoy-for-woocommerce') .
+      __('Support Chat', 'blink-for-woocommerce') .
       '</a>';
 
     array_unshift($links, $settings_link, $logs_link, $docs_link, $support_link);

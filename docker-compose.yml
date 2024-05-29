@@ -5,7 +5,7 @@ services:
     build: .
     volumes:
       - wordpress:/var/www/html
-      - ./:/var/www/html/wp-content/plugins/galoy-for-woocommerce
+      - ./:/var/www/html/wp-content/plugins/blink-for-woocommerce
     ports:
       - "8080:80"
     restart: on-failure:10

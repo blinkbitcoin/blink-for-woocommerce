@@ -27,11 +27,11 @@ class OrderStates {
 
   public function getOrderStateLabels(): array {
     return [
-      self::NEW => _x('New', 'global_settings', 'galoy-for-woocommerce'),
-      self::PENDING => _x('Pending', 'global_settings', 'galoy-for-woocommerce'),
-      self::PAID => _x('Paid', 'global_settings', 'galoy-for-woocommerce'),
-      self::SETTLED => _x('Settled', 'global_settings', 'galoy-for-woocommerce'),
-      self::EXPIRED => _x('Expired', 'global_settings', 'galoy-for-woocommerce'),
+      self::NEW => _x('New', 'global_settings', 'blink-for-woocommerce'),
+      self::PENDING => _x('Pending', 'global_settings', 'blink-for-woocommerce'),
+      self::PAID => _x('Paid', 'global_settings', 'blink-for-woocommerce'),
+      self::SETTLED => _x('Settled', 'global_settings', 'blink-for-woocommerce'),
+      self::EXPIRED => _x('Expired', 'global_settings', 'blink-for-woocommerce'),
     ];
   }
 
@@ -45,7 +45,7 @@ class OrderStates {
         self::IGNORE => _x(
           '- no mapping / defaults -',
           'global_settings',
-          'galoy-for-woocommerce'
+          'blink-for-woocommerce'
         ),
       ] + $wcStates;
     $orderStates = get_option($value['id']);
@@ -93,7 +93,7 @@ class OrderStates {
 					<?php echo _x(
        'By keeping default behavior for the "Settled" status you make sure that WooCommerce handles orders of virtual and downloadable products only properly and set those orders to "complete" instead of "processing" like for orders containing physical products.',
        'global_settings',
-       'galoy-for-woocommerce'
+       'blink-for-woocommerce'
      ); ?>
 				</p>
 			</td>

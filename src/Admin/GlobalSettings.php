@@ -13,7 +13,7 @@ class GlobalSettings extends \WC_Settings_Page {
 
   public function __construct() {
     $this->id = 'blink_settings';
-    $this->label = __('Blink Settings', 'galoy-for-woocommerce');
+    $this->label = __('Blink Settings', 'blink-for-woocommerce');
     $this->apiHelper = new GaloyApiHelper();
 
     // Register custom field type order_states with OrderStatesField class.
@@ -48,7 +48,7 @@ class GlobalSettings extends \WC_Settings_Page {
 
   public function output(): void {
     echo '<h1>' .
-      _x('Blink Payment settings', 'global_settings', 'galoy-for-woocommerce') .
+      _x('Blink Payment settings', 'global_settings', 'blink-for-woocommerce') .
       '</h1>';
     $settings = $this->get_settings_for_default_section();
     \WC_Admin_Settings::output_fields($settings);
@@ -70,14 +70,14 @@ class GlobalSettings extends \WC_Settings_Page {
       _x(
         'Not connected. Please configure your api key.',
         'global_settings',
-        'galoy-for-woocommerce'
+        'blink-for-woocommerce'
       ) .
       '</p>';
     if ($storedGaloyEnv && $storedApiKey) {
       if (GaloyApiHelper::verifyApiKey($storedGaloyEnv, $storedApiKey)) {
         $setupStatus =
           '<p class="blink-connection-success">' .
-          _x('Connected.', 'global_settings', 'galoy-for-woocommerce') .
+          _x('Connected.', 'global_settings', 'blink-for-woocommerce') .
           '</p>';
       }
     }
@@ -88,14 +88,14 @@ class GlobalSettings extends \WC_Settings_Page {
         'title' => esc_html_x(
           'Connection settings',
           'global_settings',
-          'galoy-for-woocommerce'
+          'blink-for-woocommerce'
         ),
         'type' => 'title',
         'desc' => sprintf(
           _x(
             'This plugin version is %s and your PHP version is %s. Check out our <a href="https://dev.blink.sv/examples/woocommerce-plugin/" target="_blank">installation instructions</a>. If you need assistance, please come on our <a href="https://chat.galoy.io" target="_blank">chat</a>. Thank you for using Blink!',
             'global_settings',
-            'galoy-for-woocommerce'
+            'blink-for-woocommerce'
           ),
           BLINK_VERSION,
           PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION
@@ -106,34 +106,34 @@ class GlobalSettings extends \WC_Settings_Page {
         'title' => esc_html_x(
           'Blink Environment',
           'global_settings',
-          'galoy-for-woocommerce'
+          'blink-for-woocommerce'
         ),
         'type' => 'select',
         'options' => [
-          'blink' => _x('Blink', 'global_settings', 'galoy-for-woocommerce'),
-          'staging' => _x('Galoy Staging', 'global_settings', 'galoy-for-woocommerce'),
+          'blink' => _x('Blink', 'global_settings', 'blink-for-woocommerce'),
+          'staging' => _x('Galoy Staging', 'global_settings', 'blink-for-woocommerce'),
         ],
         'default' => 'Blink',
         'desc' => esc_html_x(
           'Galoy instance.',
           'global_settings',
-          'galoy-for-woocommerce'
+          'blink-for-woocommerce'
         ),
         'desc_tip' => true,
         'id' => 'galoy_blink_env',
       ],
       'galoy_wallet_type' => [
-        'title' => esc_html_x('Blink Wallet', 'global_settings', 'galoy-for-woocommerce'),
+        'title' => esc_html_x('Blink Wallet', 'global_settings', 'blink-for-woocommerce'),
         'type' => 'select',
         'options' => [
-          'bitcoin' => _x('Bitcoin', 'global_settings', 'galoy-for-woocommerce'),
-          'stablesats' => _x('Stablesats', 'global_settings', 'galoy-for-woocommerce'),
+          'bitcoin' => _x('Bitcoin', 'global_settings', 'blink-for-woocommerce'),
+          'stablesats' => _x('Stablesats', 'global_settings', 'blink-for-woocommerce'),
         ],
         'default' => 'Blink',
         'desc' => esc_html_x(
           'Galoy/Blink Wallet',
           'global_settings',
-          'galoy-for-woocommerce'
+          'blink-for-woocommerce'
         ),
         'desc_tip' => true,
         'id' => 'galoy_blink_wallet_type',
@@ -142,19 +142,19 @@ class GlobalSettings extends \WC_Settings_Page {
         'title' => esc_html_x(
           'Blink API Key',
           'global_settings',
-          'galoy-for-woocommerce'
+          'blink-for-woocommerce'
         ),
         'type' => 'text',
         'desc' => _x(
           'Your Blink API Key. If you do not have any yet use <a target="_blank" href="https://dashboard.blink.sv/api-keys">Blink dashboard</a> to get a new one.',
           'global_settings',
-          'galoy-for-woocommerce'
+          'blink-for-woocommerce'
         ),
         'default' => '',
         'id' => 'galoy_blink_api_key',
       ],
       'webhook_url' => [
-        'title' => esc_html_x('Webhook Url', 'galoy-for-woocommerce'),
+        'title' => esc_html_x('Webhook Url', 'blink-for-woocommerce'),
         'type' => 'custom_markup',
         'markup' =>
           WC()->api_request_url('galoy_blink_default') .
@@ -162,7 +162,7 @@ class GlobalSettings extends \WC_Settings_Page {
         'id' => 'galoy_blink_webhook_url',
       ],
       'status' => [
-        'title' => esc_html_x('Setup status', 'global_settings', 'galoy-for-woocommerce'),
+        'title' => esc_html_x('Setup status', 'global_settings', 'blink-for-woocommerce'),
         'type' => 'custom_markup',
         'markup' => $setupStatus,
         'id' => 'galoy_blink_status',
@@ -176,22 +176,22 @@ class GlobalSettings extends \WC_Settings_Page {
         'title' => esc_html_x(
           'General settings',
           'global_settings',
-          'galoy-for-woocommerce'
+          'blink-for-woocommerce'
         ),
         'type' => 'title',
         'id' => 'blink_gf',
       ],
       'default_description' => [
-        'title' => esc_html_x('Default Customer Message', 'galoy-for-woocommerce'),
+        'title' => esc_html_x('Default Customer Message', 'blink-for-woocommerce'),
         'type' => 'textarea',
         'desc' => esc_html_x(
           'Message to explain how the customer will be paying for the purchase. Can be overwritten on a per gateway basis.',
-          'galoy-for-woocommerce'
+          'blink-for-woocommerce'
         ),
         'default' => esc_html_x(
           'You will be redirected to Blink to complete your purchase.',
           'global_settings',
-          'galoy-for-woocommerce'
+          'blink-for-woocommerce'
         ),
         'desc_tip' => true,
         'id' => 'galoy_blink_default_description',
@@ -201,25 +201,25 @@ class GlobalSettings extends \WC_Settings_Page {
         'id' => 'galoy_blink_order_states',
       ],
       'protect_orders' => [
-        'title' => __('Protect order status', 'galoy-for-woocommerce'),
+        'title' => __('Protect order status', 'blink-for-woocommerce'),
         'type' => 'checkbox',
         'default' => 'yes',
         'desc' => _x(
           'Protects order status from changing if it is already "processing" or "completed". This will protect against orders getting cancelled via webhook if they were paid in the meantime with another payment gateway. Default is ON.',
           'global_settings',
-          'galoy-for-woocommerce'
+          'blink-for-woocommerce'
         ),
         'id' => 'galoy_blink_protect_order_status',
       ],
       'debug' => [
-        'title' => __('Debug Log', 'galoy-for-woocommerce'),
+        'title' => __('Debug Log', 'blink-for-woocommerce'),
         'type' => 'checkbox',
         'default' => 'yes',
         'desc' => sprintf(
           _x(
             'Enable logging <a href="%s" class="button">View Logs</a>',
             'global_settings',
-            'galoy-for-woocommerce'
+            'blink-for-woocommerce'
           ),
           Logger::getLogFileUrl()
         ),
@@ -245,7 +245,7 @@ class GlobalSettings extends \WC_Settings_Page {
       if (!GaloyApiHelper::verifyApiKey($apiEnv, $apiKey)) {
         $messageException = __(
           'Error fetching data for this API key from server. Please check if the API key is valid.',
-          'galoy-for-woocommerce'
+          'blink-for-woocommerce'
         );
         Notice::addNotice('error', $messageException);
         Logger::debug($messageException, true);

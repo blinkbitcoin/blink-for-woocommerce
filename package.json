@@ -1,11 +1,11 @@
 {
-  "name": "galoy-for-woocommerce",
+  "name": "blink-for-woocommerce",
   "version": "0.1.0",
   "main": "Gruntfile.js",
-  "author": "YOUR NAME HERE",
+  "author": "Galoy Inc",
   "scripts": {
-    "prettier:check": "prettier -c galoy-for-woocommerce.php src",
-    "prettier:fix": "prettier -w galoy-for-woocommerce.php src",
+    "prettier:check": "prettier -c blink-for-woocommerce.php src",
+    "prettier:fix": "prettier -w blink-for-woocommerce.php src",
     "start": "grunt default",
     "readme": "grunt readme",
     "i18n": "grunt i18n"

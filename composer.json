@@ -1,5 +1,5 @@
 {
-  "name": "blinkserver/galoy-for-woocommerce",
+  "name": "galoy/blink-for-woocommerce",
   "type": "project",
   "license": "MIT",
   "autoload": {
@@ -14,6 +14,6 @@
     }
   ],
   "require": {
-    "guzzlehttp/guzzle": "^7.8"
+    "guzzlehttp/guzzle": "^7.8.1"
   }
 }
