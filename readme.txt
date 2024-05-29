@@ -28,9 +28,11 @@ For more information please visit [Plugin Repository](https://github.com/GaloyMo
 This section describes how to install the plugin and get it working.
 
 1. Upload and unzip `blink-woocommerce.zip` to the `/wp-content/plugins/` directory.
-1. Activate the plugin through the 'Plugins' menu in WordPress.
-1. Configure the plugin settings via the WooCommerce settings page.
-1. Ensure your Blink or Staging account is set up and linked with the plugin.
+2. Activate the plugin through the 'Plugins' menu in WordPress.
+3. Configure the plugin settings via the WooCommerce settings page.
+4. Ensure your Blink or Staging account is set up and linked with the plugin.
+
+You can find more details on our [WooCommerce documentation](https://dev.blink.sv/examples/woocommerce-plugin/).
 
 == Frequently Asked Questions ==
 
@@ -44,11 +46,11 @@ Blink offers instant payments, low transaction fees and StableSats integration f
 
 = Is there support for troubleshooting? =
 
-Yes, visit the Blink website for support and troubleshooting resources.
+Yes, visit the [Blink website](https://www.blink.sv/) for support and troubleshooting resources.
 
 == Screenshots ==
 
-1. Plugin Settings Page - Configure your Blink settings.
+1. Plugin Settings Page - Configure your Blink payment settings.
 2. Payment Checkout Page - Customers can choose to pay with Bitcoin via the Lightning Network during checkout.
 
 == Changelog ==
