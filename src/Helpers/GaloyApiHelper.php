@@ -177,8 +177,8 @@ class GaloyApiHelper {
    */
   public function getInvoiceRedirectUrl($invoiceId): ?string {
     if ($this->configured) {
-      $payUrl = self::getPayUrl($this->$env);
-      return $payUrl . '/i/' . urlencode($invoiceId);
+      $payUrl = self::getPayUrl($this->env);
+      return $payUrl . '/checkout/' . urlencode($invoiceId);
     }
     return null;
   }
