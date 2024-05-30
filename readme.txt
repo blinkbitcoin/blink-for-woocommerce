@@ -42,7 +42,7 @@ Follow the installation steps and configure your Blink settings within the plugi
 
 = What are the benefits of using Blink? =
 
-Blink offers instant payments, low transaction fees and StableSats integration for stable value payments.
+Blink offers instant payments, low transaction fees and Stablesats integration for stable value payments.
 
 = Is there support for troubleshooting? =
 
