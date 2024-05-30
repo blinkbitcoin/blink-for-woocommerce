@@ -22,7 +22,7 @@ class Logger {
     $log_file =
       BLINK_PLUGIN_ID .
       '-' .
-      date('Y-m-d') .
+      gmdate('Y-m-d') .
       '-' .
       sanitize_file_name(wp_hash(BLINK_PLUGIN_ID)) .
       '-log';
