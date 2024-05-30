@@ -21,7 +21,7 @@ class GaloyApiClient {
     ];
 
     // Prepare request body
-    $body = json_encode([
+    $body = wp_json_encode([
       'query' => $query,
       'variables' => $variables,
     ]);
