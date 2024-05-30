@@ -18,7 +18,7 @@ Key features of Blink For WooCommerce include:
 
 * Instant Payments: Leveraging the Lightning Network, [Blink](https://www.blink.sv/) ensures that Bitcoin payments are processed instantly, providing a smooth checkout experience for customers.
 * Low Transaction Fees: Enjoy significantly lower transaction fees compared to traditional payment methods, helping you save on processing costs.
-* StableSats Integration: Offers the ability to receive payments in Bitcoin while maintaining a stable value pegged to the US Dollar, reducing volatility risks.
+* Stablesats Integration: Offers the ability to receive payments in Bitcoin while maintaining a stable value pegged to the US Dollar, reducing volatility risks.
 * Easy Integration: Simple setup and configuration within WooCommerce, allowing you to start accepting Bitcoin payments quickly and easily.
 
 For more information please visit [Plugin Repository](https://github.com/GaloyMoney/blink-woocommerce/).
