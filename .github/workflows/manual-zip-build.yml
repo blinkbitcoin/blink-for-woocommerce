@@ -1,0 +1,24 @@
+name: Build release zip
+
+on:
+  workflow_dispatch
+
+jobs:
+  build:
+    name: Build release zip
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Install Composer dependencies
+      uses: php-actions/composer@v6
+      with:
+        dev: no
+        php_version: 8.3.6
+        php_extensions: bcmath
+
+    - name: Generate zip
+      uses: 10up/action-wordpress-plugin-build-zip@stable
+      with:
+        retention-days: 1 # Optional; defaults to 5
