@@ -48,7 +48,7 @@ class GlobalSettings extends \WC_Settings_Page {
 
   public function output(): void {
     echo '<h1>' .
-      _x('Blink Payment settings', 'global_settings', 'blink-for-woocommerce') .
+      esc_html(_x('Blink Payment settings', 'global_settings', 'blink-for-woocommerce')) .
       '</h1>';
     $settings = $this->get_settings_for_default_section();
     \WC_Admin_Settings::output_fields($settings);
@@ -92,8 +92,9 @@ class GlobalSettings extends \WC_Settings_Page {
         ),
         'type' => 'title',
         'desc' => sprintf(
+          /* translators: 1: Plugin version, 2: PHP version */
           _x(
-            'This plugin version is %s and your PHP version is %s. Check out our <a href="https://dev.blink.sv/examples/woocommerce-plugin/" target="_blank">installation instructions</a>. If you need assistance, please come on our <a href="https://chat.galoy.io" target="_blank">chat</a>. Thank you for using Blink!',
+            'This plugin version is %1$s and your PHP version is %2$s. Check out our <a href="https://dev.blink.sv/examples/woocommerce-plugin/" target="_blank">installation instructions</a>. If you need assistance, please come on our <a href="https://chat.galoy.io" target="_blank">chat</a>. Thank you for using Blink!',
             'global_settings',
             'blink-for-woocommerce'
           ),
@@ -216,6 +217,7 @@ class GlobalSettings extends \WC_Settings_Page {
         'type' => 'checkbox',
         'default' => 'yes',
         'desc' => sprintf(
+          /* translators: %s: URL to view logs */
           _x(
             'Enable logging <a href="%s" class="button">View Logs</a>',
             'global_settings',
@@ -272,8 +274,8 @@ class GlobalSettings extends \WC_Settings_Page {
       echo '<th scope="row" class="titledesc">&nbsp;</th>';
     }
 
-    echo '<td class="forminp" id="' . $value['id'] . '">';
-    echo $value['markup'];
+    echo '<td class="forminp" id="' . esc_attr($value['id']) . '">';
+    echo wp_kses_post($value['markup']);
     echo '</td>';
     echo '</tr>';
   }

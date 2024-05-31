@@ -107,6 +107,7 @@ class BlinkWCPlugin {
     // Check PHP version.
     if (version_compare(PHP_VERSION, '7.4', '<')) {
       $versionMessage = sprintf(
+        /* translators: %s: Current PHP version */
         __(
           'Your PHP version is %s but Blink Payment plugin requires version 7.4+.',
           'blink-for-woocommerce'
@@ -141,6 +142,7 @@ class BlinkWCPlugin {
   public function notConfiguredNotification(): void {
     if (!\Blink\WC\Helpers\GaloyApiHelper::getConfig()) {
       $message = sprintf(
+        /* translators: 1: Opening anchor tag, 2: Closing anchor tag */
         esc_html__(
           'Plugin not configured yet, please %1$sconfigure the plugin here%2$s',
           'blink-for-woocommerce'
@@ -161,6 +163,7 @@ class BlinkWCPlugin {
   public function submitReviewNotification() {
     if (!get_transient('galoy_blink_review_dismissed')) {
       $reviewMessage = sprintf(
+        /* translators: 1: Opening anchor tag, 2: Closing anchor tag */
         __(
           'Thank you for using Blink for WooCommerce! If you like the plugin, we would love if you %1$sleave us a review%2$s.',
           'blink-for-woocommerce'
@@ -234,16 +237,20 @@ class BlinkWCPlugin {
         $statusDesc = _x('Payment failed', 'blink-for-woocommerce');
         break;
       default:
-        $statusDesc = _x(ucfirst($status), 'blink-for-woocommerce');
+        $statusDesc = ucfirst($status);
         break;
     }
 
     echo "
-		<section class='woocommerce-order-payment-status'>
-	    <h2 class='woocommerce-order-payment-status-title'>{$title}</h2>
-	    <p><strong>{$statusDesc}</strong></p>
-		</section>
-		";
+      <section class='woocommerce-order-payment-status'>
+          <h2 class='woocommerce-order-payment-status-title'>" .
+      esc_html($title) .
+      "</h2>
+          <p><strong>" .
+      esc_html($statusDesc) .
+      "</strong></p>
+      </section>
+    ";
   }
 }
 
