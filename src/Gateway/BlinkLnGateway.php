@@ -150,7 +150,7 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
         'Galoy/Blink API connection not configured, aborting. Please go to settings and set it up.'
       );
       throw new \Exception(
-        __(
+        esc_html__(
           "Can't process order. Please contact us if the problem persists.",
           'blink-for-woocommerce'
         )
@@ -161,7 +161,7 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
     if ($order->get_id() === 0) {
       $message = 'Could not load order id ' . $orderId . ', aborting.';
       Logger::debug($message, true);
-      throw new \Exception($message);
+      throw new \Exception(esc_html($message));
     }
 
     // Check for existing invoice and redirect instead.

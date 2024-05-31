@@ -52,7 +52,9 @@ class GaloyApiClient {
     // Check for errors during authorization scopes retrieval
     if (!empty($response['errors'])) {
       $errorMessage = implode(', ', array_column($response['errors'], 'message'));
-      throw new Exception('Authorization scopes retrieval failed: ' . $errorMessage);
+      throw new Exception(
+        'Authorization scopes retrieval failed: ' . esc_html($errorMessage)
+      );
     }
 
     // Return authorization scopes
@@ -75,7 +77,7 @@ class GaloyApiClient {
     // Check for errors
     if (!empty($response['errors'])) {
       $errorMessage = implode(', ', array_column($response['errors'], 'message'));
-      throw new Exception('GraphQL query failed: ' . $errorMessage);
+      throw new Exception('GraphQL query failed: ' . esc_html($errorMessage));
     }
 
     // Parse response and structure wallets
@@ -120,7 +122,7 @@ class GaloyApiClient {
     // Check for errors
     if (!empty($response['errors'])) {
       $errorMessage = implode(', ', array_column($response['errors'], 'message'));
-      throw new Exception('GraphQL query failed: ' . $errorMessage);
+      throw new Exception('GraphQL query failed: ' . esc_html($errorMessage));
     }
 
     // Return invoice details
@@ -161,7 +163,7 @@ class GaloyApiClient {
     // Check for errors
     if (!empty($response['errors'])) {
       $errorMessage = implode(', ', array_column($response['errors'], 'message'));
-      throw new Exception('GraphQL mutation failed: ' . $errorMessage);
+      throw new Exception('GraphQL mutation failed: ' . esc_html($errorMessage));
     }
 
     // Return invoice details
@@ -191,7 +193,9 @@ class GaloyApiClient {
     // Check for errors during invoice payment status by hash
     if (!empty($response['errors'])) {
       $errorMessage = implode(', ', array_column($response['errors'], 'message'));
-      throw new Exception('Invoice payment status retrieval failed: ' . $errorMessage);
+      throw new Exception(
+        'Invoice payment status retrieval failed: ' . esc_html($errorMessage)
+      );
     }
 
     // Return payment status
@@ -217,7 +221,7 @@ class GaloyApiClient {
 
     if (!empty($response['errors'])) {
       $errorMessage = implode(', ', array_column($response['errors'], 'message'));
-      throw new Exception('GraphQL query failed: ' . $errorMessage);
+      throw new Exception('GraphQL query failed: ' . esc_html($errorMessage));
     }
 
     return $response['data']['currencyConversionEstimation'];
