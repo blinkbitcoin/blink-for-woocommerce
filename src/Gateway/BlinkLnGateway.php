@@ -11,6 +11,8 @@ use Blink\WC\Helpers\OrderStates;
 class BlinkLnGateway extends \WC_Payment_Gateway {
   const ICON_MEDIA_OPTION = 'icon_media_id';
   private $apiHelper;
+  public $debug_php_version;
+  public $debug_plugin_version;
 
   public function __construct() {
     // Set the id first.
