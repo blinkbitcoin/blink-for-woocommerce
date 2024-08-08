@@ -212,50 +212,48 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
    */
   public function processWebhook() {
     Logger::debug('Galoy/Blink Webhook handler');
-    if ($rawPostData = file_get_contents('php://input')) {
-      try {
-        $postData = json_decode($rawPostData, false, 512, JSON_THROW_ON_ERROR);
-        if (!isset($postData->transaction->initiationVia->paymentHash)) {
-          Logger::debug('No Galoy/Blink invoiceId provided, aborting.');
-          wp_die('No Galoy/Blink invoiceId provided, aborting.');
-        }
 
-        $invoiceId = $postData->transaction->initiationVia->paymentHash;
-        if (empty($invoiceId)) {
-          Logger::error('No Galoy/Blink invoiceId provided.');
-          wp_die('No Galoy/Blink invoiceId provided, aborting.');
-        }
-
-        // Load the order by metadata field Blink_id
-        $orders = wc_get_orders([
-          'meta_key' => 'galoy_id',
-          'meta_value' => $invoiceId,
-        ]);
-
-        // Abort if no orders found.
-        if (count($orders) === 0) {
-          Logger::debug(
-            'Could not load order by Blink invoiceId: ' . $postData->invoiceId
-          );
-          wp_die('No order found for this invoiceId.', '', [
-            'response' => 200,
-          ]);
-        }
-
-        // Abort on multiple orders found.
-        if (count($orders) > 1) {
-          Logger::debug('Found multiple orders for invoiceId: ' . $postData->invoiceId);
-          Logger::debug(print_r($orders, true));
-          wp_die('Multiple orders found for this invoiceId, aborting.', '', [
-            'response' => 200,
-          ]);
-        }
-
-        $this->processOrderStatus($orders[0]);
-      } catch (\Throwable $e) {
-        Logger::debug('Error decoding webook payload: ' . $e->getMessage());
-        Logger::debug($rawPostData);
+    try {
+      // Check if the required fields are set in the $_POST array
+      if (!isset($_POST['transaction']['initiationVia']['paymentHash'])) {
+        Logger::debug('No Galoy/Blink invoiceId provided, aborting.');
+        wp_die('No Galoy/Blink invoiceId provided, aborting.', '', ['response' => 200]);
       }
+
+      $invoiceId = sanitize_text_field(
+        $_POST['transaction']['initiationVia']['paymentHash']
+      );
+      if (empty($invoiceId)) {
+        Logger::error('No Galoy/Blink invoiceId provided.');
+        wp_die('No Galoy/Blink invoiceId provided, aborting.');
+      }
+
+      // Load the order by metadata field Blink_id
+      $orders = wc_get_orders([
+        'meta_key' => 'galoy_id',
+        'meta_value' => $invoiceId,
+      ]);
+
+      // Abort if no orders found
+      if (count($orders) === 0) {
+        Logger::debug('Could not load order by Blink invoiceId: ' . $invoiceId);
+        wp_die('No order found for this invoiceId.', '', ['response' => 200]);
+      }
+
+      // Abort on multiple orders found
+      if (count($orders) > 1) {
+        Logger::debug('Found multiple orders for invoiceId: ' . $invoiceId);
+        Logger::debug(print_r($orders, true));
+        wp_die('Multiple orders found for this invoiceId, aborting.', '', [
+          'response' => 200,
+        ]);
+      }
+
+      // Process the order
+      $this->processOrderStatus($orders[0]);
+    } catch (\Throwable $e) {
+      Logger::debug('Error decoding webook payload: ' . $e->getMessage());
+      Logger::debug($rawPostData);
     }
   }
 
