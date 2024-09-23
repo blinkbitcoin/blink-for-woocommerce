@@ -27,11 +27,11 @@ class OrderStates {
 
   public function getOrderStateLabels(): array {
     return [
-      self::NEW => _x('New', 'global_settings', 'blink-for-woocommerce'),
-      self::PENDING => _x('Pending', 'global_settings', 'blink-for-woocommerce'),
-      self::PAID => _x('Paid', 'global_settings', 'blink-for-woocommerce'),
-      self::SETTLED => _x('Settled', 'global_settings', 'blink-for-woocommerce'),
-      self::EXPIRED => _x('Expired', 'global_settings', 'blink-for-woocommerce'),
+      self::NEW => 'New',
+      self::PENDING => 'Pending',
+      self::PAID => 'Paid',
+      self::SETTLED => 'Settled',
+      self::EXPIRED => 'Expired',
     ];
   }
 
@@ -42,11 +42,7 @@ class OrderStates {
     $wcStates = wc_get_order_statuses();
     $wcStates =
       [
-        self::IGNORE => _x(
-          '- no mapping / defaults -',
-          'global_settings',
-          'blink-for-woocommerce'
-        ),
+        self::IGNORE => '- no mapping / defaults -',
       ] + $wcStates;
     $orderStates = get_option($value['id']);
     ?>
@@ -91,11 +87,7 @@ class OrderStates {
 				</table>
 				<p class="description">
           <?php echo esc_html(
-            _x(
-              'By keeping default behavior for the "Settled" status you make sure that WooCommerce handles orders of virtual and downloadable products only properly and set those orders to "complete" instead of "processing" like for orders containing physical products.',
-              'global_settings',
-              'blink-for-woocommerce'
-            )
+            'By keeping default behavior for the "Settled" status you make sure that WooCommerce handles orders of virtual and downloadable products only properly and set those orders to "complete" instead of "processing" like for orders containing physical products.'
           ); ?>
 				</p>
 			</td>

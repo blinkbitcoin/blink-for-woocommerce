@@ -25,7 +25,6 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
     // General gateway setup.
     $this->icon = $this->getIcon();
     $this->has_fields = false;
-    // $this->order_button_text = __( 'Proceed to Blink', 'blink-for-woocommerce' );
 
     // Load the settings.
     $this->init_form_fields();
@@ -37,10 +36,7 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
 
     // Admin facing title and description.
     $this->method_title = 'Blink (Lightning)';
-    $this->method_description = __(
-      'Blink Bitcoin Lightning gateway.',
-      'blink-for-woocommerce'
-    );
+    $this->method_description = 'Blink Bitcoin Lightning gateway.';
 
     $this->apiHelper = new GaloyApiHelper();
 
@@ -61,30 +57,26 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
   public function init_form_fields() {
     $this->form_fields = [
       'enabled' => [
-        'title' => __('Enabled/Disabled', 'blink-for-woocommerce'),
+        'title' => 'Enabled/Disabled',
         'type' => 'checkbox',
-        'label' => __('Enable this payment gateway.', 'blink-for-woocommerce'),
+        'label' => 'Enable this payment gateway.',
         'default' => 'no',
         'value' => 'yes',
         'desc_tip' => false,
       ],
       'title' => [
-        'title' => __('Title', 'blink-for-woocommerce'),
+        'title' => 'Title',
         'type' => 'safe_text',
-        'description' => __(
+        'description' =>
           'Controls the name of this payment method as displayed to the customer during checkout.',
-          'blink-for-woocommerce'
-        ),
         'default' => $this->getTitle(),
         'desc_tip' => true,
       ],
       'description' => [
-        'title' => __('Customer Message', 'blink-for-woocommerce'),
+        'title' => 'Customer Message',
         'type' => 'textarea',
-        'description' => __(
+        'description' =>
           'Message to explain how the customer will be paying for the purchase.',
-          'blink-for-woocommerce'
-        ),
         'default' => $this->getDescription(),
         'desc_tip' => true,
       ],
@@ -152,10 +144,7 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
         'Galoy/Blink API connection not configured, aborting. Please go to settings and set it up.'
       );
       throw new \Exception(
-        esc_html__(
-          "Can't process order. Please contact us if the problem persists.",
-          'blink-for-woocommerce'
-        )
+        "Can't process order. Please contact us if the problem persists."
       );
     }
 
@@ -180,8 +169,8 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
         'orderCompleteLink' => $order->get_checkout_order_received_url(),
         'redirect' =>
           $this->apiHelper->getInvoiceRedirectUrl($existingInvoiceId) .
-          '?callback=' .
-          $order->get_checkout_order_received_url(),
+          '?returnUrl=' .
+          urlencode($order->get_checkout_order_received_url()),
       ];
     }
 
@@ -195,8 +184,8 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
         'orderCompleteLink' => $order->get_checkout_order_received_url(),
         'redirect' =>
           $invoice['redirectUrl'] .
-          '?callback=' .
-          $order->get_checkout_order_received_url(),
+          '?returnUrl=' .
+          urlencode($order->get_checkout_order_received_url()),
       ];
     }
   }
@@ -214,14 +203,16 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
     Logger::debug('Galoy/Blink Webhook handler');
 
     try {
+      $data = json_decode(file_get_contents('php://input'), true);
+
       // Check if the required fields are set in the $_POST array
-      if (!isset($_POST['transaction']['initiationVia']['paymentHash'])) {
+      if (!isset($data['transaction']['initiationVia']['paymentHash'])) {
         Logger::debug('No Galoy/Blink invoiceId provided, aborting.');
         wp_die('No Galoy/Blink invoiceId provided, aborting.', '', ['response' => 200]);
       }
 
       $invoiceId = sanitize_text_field(
-        $_POST['transaction']['initiationVia']['paymentHash']
+        $data['transaction']['initiationVia']['paymentHash']
       );
       if (empty($invoiceId)) {
         Logger::error('No Galoy/Blink invoiceId provided.');
@@ -253,7 +244,6 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
       $this->processOrderStatus($orders[0]);
     } catch (\Throwable $e) {
       Logger::debug('Error decoding webook payload: ' . $e->getMessage());
-      Logger::debug($rawPostData);
     }
   }
 
@@ -358,13 +348,13 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
             $order,
             $configuredOrderStates[OrderStates::EXPIRED]
           );
-          $order->add_order_note(__('Invoice expired.', 'blink-for-woocommerce'));
+          $order->add_order_note('Invoice expired.');
           return;
         }
 
         if ($invoiceStatus === 'PAID') {
           $this->updateWCOrderStatus($order, $configuredOrderStates[OrderStates::PAID]);
-          $order->add_order_note(__('Invoice payment settled.', 'blink-for-woocommerce'));
+          $order->add_order_note('Invoice payment settled.');
           return;
         }
       } catch (\Throwable $e) {
