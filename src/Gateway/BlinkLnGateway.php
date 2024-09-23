@@ -121,7 +121,12 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
   public function process_admin_options() {
     // Store media id.
     $iconFieldName = 'woocommerce_' . $this->getId() . '_' . self::ICON_MEDIA_OPTION;
-    if ($mediaId = sanitize_key($_POST[$iconFieldName])) {
+
+    // nonce validation is not required here because it is done by parent::process_admin_options()
+    if (
+      !empty($_POST[$iconFieldName]) &&
+      ($mediaId = sanitize_key($_POST[$iconFieldName]))
+    ) {
       if ($mediaId !== $this->get_option(self::ICON_MEDIA_OPTION)) {
         $this->update_option(self::ICON_MEDIA_OPTION, $mediaId);
       }
@@ -227,13 +232,13 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
 
       // Abort if no orders found
       if (count($orders) === 0) {
-        Logger::debug('Could not load order by Blink invoiceId: ' . $invoiceId);
+        Logger::debug('Could not load order by Blink invoiceId: ' . esc_html($invoiceId));
         wp_die('No order found for this invoiceId.', '', ['response' => 200]);
       }
 
       // Abort on multiple orders found
       if (count($orders) > 1) {
-        Logger::debug('Found multiple orders for invoiceId: ' . $invoiceId);
+        Logger::debug('Found multiple orders for invoiceId: ' . esc_html($invoiceId));
         Logger::debug(print_r($orders, true));
         wp_die('Multiple orders found for this invoiceId, aborting.', '', [
           'response' => 200,

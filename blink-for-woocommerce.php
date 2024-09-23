@@ -78,7 +78,7 @@ class BlinkWCPlugin {
       'galoy-blink-notifications',
       plugin_dir_url(__FILE__) . 'assets/js/backend/notifications.js',
       ['jquery'],
-      null,
+      BLINK_VERSION,
       true
     );
     wp_localize_script('galoy-blink-notifications', 'BlinkNotifications', [

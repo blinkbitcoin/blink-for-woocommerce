@@ -184,9 +184,11 @@ class GlobalSettings extends \WC_Settings_Page {
   public function save() {
     // If we have url, storeID and apiKey we want to check if the api key works and register a webhook.
     Logger::debug('Saving GlobalSettings.');
-    if ($this->hasNeededApiCredentials()) {
-      $apiEnv = sanitize_text_field($_POST['galoy_blink_env']);
-      $apiKey = sanitize_text_field($_POST['galoy_blink_api_key']);
+
+    // nonce validation is not required here because it is done by parent::save()
+    if (!empty($_POST['galoy_blink_env']) && !empty($_POST['galoy_blink_api_key'])) {
+      $apiEnv = sanitize_text_field(wp_unslash($_POST['galoy_blink_env']));
+      $apiKey = sanitize_text_field(wp_unslash($_POST['galoy_blink_api_key']));
 
       if (!GaloyApiHelper::verifyApiKey($apiEnv, $apiKey)) {
         $messageException =
@@ -202,10 +204,6 @@ class GlobalSettings extends \WC_Settings_Page {
     }
 
     parent::save();
-  }
-
-  private function hasNeededApiCredentials(): bool {
-    return !empty($_POST['galoy_blink_env']) && !empty($_POST['galoy_blink_api_key']);
   }
 
   public function output_custom_markup_field($value) {
