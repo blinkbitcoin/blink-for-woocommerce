@@ -2,7 +2,7 @@
 Contributors: galoy
 Tags: Bitcoin, Lightning Network, WooCommerce, payment gateway
 Requires at least: 4.5
-Tested up to: 6.4.3
+Tested up to: 6.6.1
 Requires PHP: 5.6
 Stable tag: 0.1.0
 License: MIT
@@ -22,6 +22,22 @@ Key features of Blink For WooCommerce include:
 * Easy Integration: Simple setup and configuration within WooCommerce, allowing you to start accepting Bitcoin payments quickly and easily.
 
 For more information please visit [Plugin Repository](https://github.com/GaloyMoney/blink-woocommerce/).
+
+### Important Notice
+
+This plugin relies on third-party APIs to function correctly. Specifically, it interacts with the following endpoints:
+
+- **Blink API**: Used for processing payments through the Blink wallet.
+  - **Service URL**: [https://api.blink.sv/graphql](https://api.blink.sv/graphql)
+  - **Terms of Use**: [Blink Terms of Use](https://www.blink.sv/en/terms-conditions)
+  - **Privacy Policy**: [Blink Privacy Policy](https://www.blink.sv/en/privacy-policy)
+
+- **Galoy API (Staging Environment)**: Used during development and testing phases.
+  - **Service URL**: [https://api.staging.galoy.io/graphql](https://api.staging.galoy.io/graphql)
+  - **Terms of Use**: [Galoy Terms of Use](https://www.galoy.io/terms-conditions)
+  - **Privacy Policy**: [Galoy Privacy Policy](https://www.galoy.io/privacy-policy)
+
+Please review these links to ensure that you are compliant with all legal requirements related to data transmission and usage.
 
 == Installation ==
 
