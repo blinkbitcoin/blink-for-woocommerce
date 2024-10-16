@@ -7,7 +7,7 @@ use Blink\WC\Gateway\BlinkLnGateway;
 use Blink\WC\Helpers\Logger;
 
 /**
- * Galoy - Blink payment method integration
+ * Blink payment method integration
  *
  * @since 3.0.0
  */

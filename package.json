@@ -2,7 +2,7 @@
   "name": "blink-for-woocommerce",
   "version": "0.1.0",
   "main": "Gruntfile.js",
-  "author": "Galoy Inc",
+  "author": "Blink",
   "scripts": {
     "prettier:check": "prettier -c blink-for-woocommerce.php src",
     "prettier:fix": "prettier -w blink-for-woocommerce.php src",
@@ -15,10 +15,12 @@
     "grunt": "^1.6.1",
     "grunt-wp-i18n": "^1.0.3",
     "grunt-wp-readme-to-markdown": "^2.1.0",
-    "prettier": "^3.2.5"
+    "prettier": "^3.3.3"
   },
   "prettier": {
-    "plugins": ["@prettier/plugin-php"],
+    "plugins": [
+      "@prettier/plugin-php"
+    ],
     "printWidth": 90,
     "useTabs": false,
     "tabWidth": 2,

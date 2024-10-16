@@ -78,7 +78,7 @@ class GlobalSettings extends \WC_Settings_Page {
         'title' => 'Connection settings',
         'type' => 'title',
         'desc' => sprintf(
-          'This plugin version is %1$s and your PHP version is %2$s. Check out our <a href="https://dev.blink.sv/examples/woocommerce-plugin/" target="_blank">installation instructions</a>. If you need assistance, please come on our <a href="https://chat.galoy.io" target="_blank">chat</a>. Thank you for using Blink!',
+          'This plugin version is %1$s and your PHP version is %2$s. Check out our <a href="https://dev.blink.sv/examples/woocommerce-plugin/" target="_blank">installation instructions</a>. If you need assistance, please come on our <a href="https://chat.blink.sv" target="_blank">chat</a>. Thank you for using Blink!',
           BLINK_VERSION,
           PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION
         ),

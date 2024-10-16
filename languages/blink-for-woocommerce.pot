@@ -1,10 +1,10 @@
-# Copyright (C) 2024 Galoy - Blink
+# Copyright (C) 2024 Blink
 # This file is distributed under the MIT.
 msgid ""
 msgstr ""
 "Project-Id-Version: Blink For Woocommerce 0.1.0\n"
 "Report-Msgid-Bugs-To: "
-"https://wordpress.org/support/plugin/blink-woocommerce\n"
+"https://wordpress.org/support/plugin/blink-for-woocommerce\n"
 "POT-Creation-Date: 2024-09-23 19:56:16+00:00\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
@@ -41,7 +41,7 @@ msgid ""
 msgstr ""
 
 #. Author of the plugin/theme
-msgid "Galoy - Blink"
+msgid "Blink"
 msgstr ""
 
 #. Author URI of the plugin/theme

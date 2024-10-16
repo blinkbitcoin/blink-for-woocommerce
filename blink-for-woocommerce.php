@@ -3,10 +3,10 @@
  * Plugin Name:     Blink For Woocommerce
  * Plugin URI:      https://wordpress.org/plugins/blink-for-woocommerce/
  * Description:     Blink is a free and open-source bitcoin wallet which allows you to receive payments in Bitcoin and stablesats directly, with no fees, transaction cost or a middleman.
- * Author:          Galoy - Blink
+ * Author:          Blink
  * Author URI:      https://blink.sv
  * License:         MIT
- * License URI:     https://github.com/GaloyMoney/blink-woocommerce/blob/main/license.txt
+ * License URI:     https://github.com/blinkbitcoin/blink-for-woocommerce/blob/main/license.txt
  * Text Domain:     blink-for-woocommerce
  * Domain Path:     /languages
  * Version:         0.1.0

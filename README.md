@@ -2,7 +2,7 @@
 
 ## Development
 ```
-git clone git@github.com:GaloyMoney/galoy-woocommerce.git
+git clone git@github.com:blinkbitcoin/blink-for-woocommerce.git
 ```
 
 **Install dependencies with Composer:**
