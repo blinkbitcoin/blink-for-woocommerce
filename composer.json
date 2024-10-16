@@ -1,5 +1,5 @@
 {
-  "name": "galoy/blink-for-woocommerce",
+  "name": "blink/blink-for-woocommerce",
   "type": "project",
   "license": "MIT",
   "autoload": {

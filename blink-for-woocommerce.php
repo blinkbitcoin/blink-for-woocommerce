@@ -20,7 +20,7 @@ use Blink\WC\Gateway\BlinkLnGateway;
 
 defined('ABSPATH') || exit();
 define('BLINK_VERSION', '0.1.0');
-define('BLINK_VERSION_KEY', 'galoy_blink_version');
+define('BLINK_VERSION_KEY', 'blink_version');
 define('BLINK_PLUGIN_FILE_PATH', plugin_dir_path(__FILE__));
 define('BLINK_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('BLINK_PLUGIN_ID', 'blink-for-woocommerce');
@@ -32,12 +32,12 @@ class BlinkWCPlugin {
     $this->includes();
 
     add_action(
-      'woocommerce_thankyou_galoy_blink_default',
+      'woocommerce_thankyou_blink_default',
       ['BlinkWCPlugin', 'orderStatusThankYouPage'],
       10,
       1
     );
-    add_action('wp_ajax_galoy_blink_notifications', [$this, 'processAjaxNotification']);
+    add_action('wp_ajax_blink_notifications', [$this, 'processAjaxNotification']);
     add_action('admin_enqueue_scripts', [$this, 'enqueueAdminScripts']);
 
     // TODO: add process to run the updates.
@@ -75,15 +75,15 @@ class BlinkWCPlugin {
    */
   public function enqueueAdminScripts(): void {
     wp_enqueue_script(
-      'galoy-blink-notifications',
+      'blink-notifications',
       plugin_dir_url(__FILE__) . 'assets/js/backend/notifications.js',
       ['jquery'],
       BLINK_VERSION,
       true
     );
-    wp_localize_script('galoy-blink-notifications', 'BlinkNotifications', [
+    wp_localize_script('blink-notifications', 'BlinkNotifications', [
       'ajax_url' => admin_url('admin-ajax.php'),
-      'nonce' => wp_create_nonce('galoy-blink-notifications-nonce'),
+      'nonce' => wp_create_nonce('blink-notifications-nonce'),
     ]);
   }
 
@@ -96,9 +96,9 @@ class BlinkWCPlugin {
    * Handles the AJAX callback to dismiss review notification.
    */
   public function processAjaxNotification() {
-    check_ajax_referer('galoy-blink-notifications-nonce', 'nonce');
+    check_ajax_referer('blink-notifications-nonce', 'nonce');
     // Dismiss review notice for 30 days.
-    set_transient('galoy_blink_review_dismissed', true, DAY_IN_SECONDS * 30);
+    set_transient('blink_review_dismissed', true, DAY_IN_SECONDS * 30);
     wp_send_json_success();
   }
 
@@ -134,7 +134,7 @@ class BlinkWCPlugin {
    * Displays notice (and link to config page) on admin dashboard if the plugin is not configured yet.
    */
   public function notConfiguredNotification(): void {
-    if (!\Blink\WC\Helpers\GaloyApiHelper::getConfig()) {
+    if (!\Blink\WC\Helpers\BlinkApiHelper::getConfig()) {
       $message = sprintf(
         'Plugin not configured yet, please %1$sconfigure the plugin here%2$s',
         '<a href="' .
@@ -151,7 +151,7 @@ class BlinkWCPlugin {
    * Shows a notice on the admin dashboard to periodically ask for a review.
    */
   public function submitReviewNotification() {
-    if (!get_transient('galoy_blink_review_dismissed')) {
+    if (!get_transient('blink_review_dismissed')) {
       $reviewMessage = sprintf(
         'Thank you for using Blink for WooCommerce! If you like the plugin, we would love if you %1$sleave us a review%2$s.',
         '<a href="https://wordpress.org/support/plugin/blink-for-woocommerce/reviews/?filter=5#new-post" target="_blank">',
@@ -254,9 +254,9 @@ add_action('init', function () {
   // Setting up and handling custom endpoint for api key redirect from Blink.
   add_rewrite_endpoint('blink-settings-callback', EP_ROOT);
   // Flush rewrite rules only once after activation.
-  if (!get_option('galoy_blink_permalinks_flushed')) {
+  if (!get_option('blink_permalinks_flushed')) {
     flush_rewrite_rules(false);
-    update_option('galoy_blink_permalinks_flushed', 1);
+    update_option('blink_permalinks_flushed', 1);
   }
 });
 
@@ -308,7 +308,7 @@ add_filter('request', function ($vars) {
 
 // Installation routine.
 register_activation_hook(__FILE__, function () {
-  update_option('galoy_blink_permalinks_flushed', 0);
+  update_option('blink_permalinks_flushed', 0);
   update_option(BLINK_VERSION_KEY, BLINK_VERSION);
 });
 

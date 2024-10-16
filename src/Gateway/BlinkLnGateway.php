@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Blink\WC\Gateway;
 
 use Blink\WC\Helpers\Logger;
-use Blink\WC\Helpers\GaloyApiHelper;
+use Blink\WC\Helpers\BlinkApiHelper;
 use Blink\WC\Helpers\OrderStates;
 
 class BlinkLnGateway extends \WC_Payment_Gateway {
@@ -16,7 +16,7 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
 
   public function __construct() {
     // Set the id first.
-    $this->id = 'galoy_blink_default';
+    $this->id = 'blink_default';
 
     // Debugging & informational settings.
     $this->debug_php_version = PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION;
@@ -38,7 +38,7 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
     $this->method_title = 'Blink (Lightning)';
     $this->method_description = 'Blink Bitcoin Lightning gateway.';
 
-    $this->apiHelper = new GaloyApiHelper();
+    $this->apiHelper = new BlinkApiHelper();
 
     // Actions.
     add_action('woocommerce_update_options_payment_gateways_' . $this->getId(), [
@@ -146,7 +146,7 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
   public function process_payment($order_id) {
     if (!$this->apiHelper->configured) {
       Logger::debug(
-        'Galoy/Blink API connection not configured, aborting. Please go to settings and set it up.'
+        'Blink API connection not configured, aborting. Please go to settings and set it up.'
       );
       throw new \Exception(
         "Can't process order. Please contact us if the problem persists."
@@ -162,9 +162,9 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
 
     // Check for existing invoice and redirect instead.
     if ($this->validInvoiceExists($order)) {
-      $existingInvoiceId = $order->get_meta('galoy_id');
+      $existingInvoiceId = $order->get_meta('blink_id');
       Logger::debug(
-        'Found existing Galoy/Blink invoice and redirecting to it. Invoice id: ' .
+        'Found existing Blink invoice and redirecting to it. Invoice id: ' .
           $existingInvoiceId
       );
 
@@ -180,7 +180,7 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
     }
 
     // Create an invoice.
-    Logger::debug('Creating invoice on Galoy/Blink');
+    Logger::debug('Creating invoice on Blink');
     if ($invoice = $this->createInvoice($order)) {
       Logger::debug('Invoice creation successful, redirecting user.');
       return [
@@ -202,31 +202,31 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
   }
 
   /**
-   * Process webhooks from Galoy/Blink.
+   * Process webhooks from Blink.
    */
   public function processWebhook() {
-    Logger::debug('Galoy/Blink Webhook handler');
+    Logger::debug('Blink Webhook handler');
 
     try {
       $data = json_decode(file_get_contents('php://input'), true);
 
       // Check if the required fields are set in the $_POST array
       if (!isset($data['transaction']['initiationVia']['paymentHash'])) {
-        Logger::debug('No Galoy/Blink invoiceId provided, aborting.');
-        wp_die('No Galoy/Blink invoiceId provided, aborting.', '', ['response' => 200]);
+        Logger::debug('No Blink invoiceId provided, aborting.');
+        wp_die('No Blink invoiceId provided, aborting.', '', ['response' => 200]);
       }
 
       $invoiceId = sanitize_text_field(
         $data['transaction']['initiationVia']['paymentHash']
       );
       if (empty($invoiceId)) {
-        Logger::error('No Galoy/Blink invoiceId provided.');
-        wp_die('No Galoy/Blink invoiceId provided, aborting.');
+        Logger::error('No Blink invoiceId provided.');
+        wp_die('No Blink invoiceId provided, aborting.');
       }
 
       // Load the order by metadata field Blink_id
       $orders = wc_get_orders([
-        'meta_key' => 'galoy_id',
+        'meta_key' => 'blink_id',
         'meta_value' => $invoiceId,
       ]);
 
@@ -253,7 +253,7 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
   }
 
   /**
-   * Checks if the order has already a Galoy/Blink invoice set and checks if it is still
+   * Checks if the order has already a Blink invoice set and checks if it is still
    * valid to avoid creating multiple invoices for the same order on Blink end.
    *
    * @param int $orderId
@@ -261,10 +261,10 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
    * @return mixed Returns false if no valid invoice found or the invoice id.
    */
   protected function validInvoiceExists(\WC_Order $order): bool {
-    if ($invoiceId = $order->get_meta('galoy_id')) {
+    if ($invoiceId = $order->get_meta('blink_id')) {
       try {
         Logger::debug(
-          'Trying to fetch existing invoice from Galoy/Blink for hash ' . $invoiceId
+          'Trying to fetch existing invoice from Blink for hash ' . $invoiceId
         );
         $invoice = $this->apiHelper->getInvoice($invoiceId);
         $invalidStates = ['EXPIRED'];
@@ -282,7 +282,7 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
   }
 
   /**
-   * Create an invoice on Galoy/Blink.
+   * Create an invoice on Blink.
    */
   protected function createInvoice(\WC_Order $order) {
     // In case some plugins customizing the order number we need to pass that along, defaults to internal ID.
@@ -303,9 +303,9 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
       Logger::debug('Creating invoice with currency: ' . $currency);
       $invoice = $this->apiHelper->createInvoice($amount, $currency, $orderNumber);
 
-      $order->update_meta_data('galoy_redirect', $invoice['redirectUrl']);
-      $order->update_meta_data('galoy_id', $invoice['paymentHash']);
-      $order->update_meta_data('galoy_payment_request', $invoice['paymentRequest']);
+      $order->update_meta_data('blink_redirect', $invoice['redirectUrl']);
+      $order->update_meta_data('blink_id', $invoice['paymentHash']);
+      $order->update_meta_data('blink_payment_request', $invoice['paymentRequest']);
       $order->save();
 
       return $invoice;
@@ -319,7 +319,7 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
   protected function processOrderStatus(\WC_Order $order) {
     Logger::debug('Updating status for order: ' . $order->get_id());
     // Check if the order is already in a final state, if so do not update it if the orders are protected.
-    $protectOrders = get_option('galoy_blink_protect_order_status', 'no');
+    $protectOrders = get_option('blink_protect_order_status', 'no');
 
     Logger::debug('Protect order: ' . $protectOrders);
 
@@ -327,22 +327,22 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
       // Check if the order status is either 'processing' or 'completed'
       if ($order->has_status(['processing', 'completed'])) {
         $note =
-          'Webhook received from Galoy/Blink, but the order is already processing or completed, skipping to update order status. Please manually check if everything is alright.';
+          'Webhook received from Blink, but the order is already processing or completed, skipping to update order status. Please manually check if everything is alright.';
         $order->add_order_note($note);
         return;
       }
     }
 
-    if ($invoiceId = $order->get_meta('galoy_id')) {
+    if ($invoiceId = $order->get_meta('blink_id')) {
       // Get configured order states or fall back to defaults.
-      if (!($configuredOrderStates = get_option('galoy_blink_order_states'))) {
+      if (!($configuredOrderStates = get_option('blink_order_states'))) {
         $configuredOrderStates = (new OrderStates())->getDefaultOrderStateMappings();
       }
       Logger::debug('Configured Order States: ' . implode(', ', $configuredOrderStates));
 
       try {
         Logger::debug(
-          'Trying to fetch existing invoice from Galoy/Blink for hash ' . $invoiceId
+          'Trying to fetch existing invoice from Blink for hash ' . $invoiceId
         );
         $invoice = $this->apiHelper->getInvoice($invoiceId);
         $invoiceStatus = $invoice['status'];

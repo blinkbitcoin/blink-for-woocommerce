@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Blink\WC\Helpers;
 
 use Blink\WC\Admin\Notice;
-use Blink\WC\Helpers\GaloyApiClient;
+use Blink\WC\Helpers\BlinkApiClient;
 
-class GaloyApiHelper {
+class BlinkApiHelper {
   public $configured = false;
   public $env;
   public $apiKey;
@@ -45,9 +45,9 @@ class GaloyApiHelper {
   }
 
   public static function getConfig(): array {
-    $env = get_option('galoy_blink_env');
-    $key = get_option('galoy_blink_api_key');
-    $walletType = get_option('galoy_blink_wallet_type');
+    $env = get_option('blink_env');
+    $key = get_option('blink_api_key');
+    $walletType = get_option('blink_wallet_type');
     if (!$env || !$key || !$walletType) {
       return [];
     }
@@ -87,7 +87,7 @@ class GaloyApiHelper {
     }
 
     try {
-      $client = new GaloyApiClient($config['url'], $config['api_key']);
+      $client = new BlinkApiClient($config['url'], $config['api_key']);
       $scopes = $client->getAuthorizationScopes();
       $hasReceive = in_array('RECEIVE', $scopes);
       $hasWrite = in_array('WRITE', $scopes);
@@ -114,7 +114,7 @@ class GaloyApiHelper {
 
     try {
       $config = self::getConfig();
-      $client = new GaloyApiClient($config['url'], $config['api_key']);
+      $client = new BlinkApiClient($config['url'], $config['api_key']);
       $invoice = $client->getInvoiceStatus($paymentHash);
       Logger::debug('End getInvoice for ' . $paymentHash);
       return $invoice;
@@ -140,7 +140,7 @@ class GaloyApiHelper {
       $config = self::getConfig();
       $walletType = $config['wallet_type'];
 
-      $client = new GaloyApiClient($config['url'], $config['api_key']);
+      $client = new BlinkApiClient($config['url'], $config['api_key']);
       $walletsAmounts = $client->currencyConversionEstimation($amount, $currency);
 
       $walletCurrency = 'BTC';

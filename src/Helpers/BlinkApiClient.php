@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Blink\WC\Helpers;
 
-class GaloyApiClient {
+class BlinkApiClient {
   private $apiUrl;
   private $token;
 
