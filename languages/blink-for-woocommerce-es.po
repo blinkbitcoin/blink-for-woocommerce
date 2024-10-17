@@ -2,7 +2,7 @@
 # This file is distributed under the same license as the Blink For Woocommerce package.
 msgid ""
 msgstr ""
-"Project-Id-Version: Blink For Woocommerce 0.1.0\n"
+"Project-Id-Version: Blink For Woocommerce 0.1.1\n"
 "Report-Msgid-Bugs-To: https://chat.blink.sv\n"
 "POT-Creation-Date: 2024-05-29 00:37:58+00:00\n"
 "PO-Revision-Date: 2024-05-29 00:23-0500\n"
