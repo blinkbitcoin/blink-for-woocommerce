@@ -145,12 +145,11 @@ msgstr "https://wordpress.org/plugins/blink-for-woocommerce/"
 #. Description of the plugin/theme
 msgid ""
 "Blink is a free and open-source bitcoin wallet which allows you to receive "
-"payments in Bitcoin and stablesats directly, with no fees, transaction cost "
-"or a middleman."
+"payments in Bitcoin and stablesats directly, with no fees or transaction "
+"cost."
 msgstr ""
 "Blink es una billetera de bitcoin gratuita y de código abierto que te permite recibir "
-"pagos en Bitcoin y stablesats directamente, sin comisiones, costos de transacción "
-"o intermediarios."
+"pagos en Bitcoin y stablesats directamente, sin comisiones o costos de transacción "
 
 #. Author of the plugin/theme
 msgid "Blink"

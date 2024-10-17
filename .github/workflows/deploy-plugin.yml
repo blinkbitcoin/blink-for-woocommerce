@@ -6,9 +6,6 @@ on:
 
 jobs:
   deploy_to_wp_repository:
-    permissions:
-      contents: write
-      actions: read
     name: Deploy to WP.org
     runs-on: ubuntu-latest
     steps:
@@ -34,6 +31,6 @@ jobs:
       - name: Upload release asset
         uses: softprops/action-gh-release@v2
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT_GITHUB_TOKEN }}
         with:
           files: ${{ github.workspace }}/${{ github.event.repository.name }}.zip
