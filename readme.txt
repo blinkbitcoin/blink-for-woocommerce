@@ -72,7 +72,7 @@ Yes, visit the [Blink website](https://www.blink.sv/) for support and troublesho
 == Changelog ==
 
 = 0.1.1 =
-* Minor content upddates.
+* Minor content updates.
 
 = 0.1.0 =
 * Beta release for testing and feedback.
