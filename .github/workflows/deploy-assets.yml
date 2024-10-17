@@ -1,0 +1,28 @@
+name: Deploy to WordPress.org Repository
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy_to_wp_repository:
+    name: Deploy assets to WP.org
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Composer dependencies
+        uses: php-actions/composer@v6
+        with:
+          dev: no
+          php_version: 8.3.6
+          php_extensions: bcmath
+
+      - name: WordPress Plugin Assets Deploy
+        id: deploy
+        uses: 10up/action-wordpress-plugin-asset-update@stable
+        env:
+          SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
+          SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
