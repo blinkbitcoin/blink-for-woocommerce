@@ -1,4 +1,4 @@
-name: Deploy to WordPress.org Repository
+name: Deploy Plugin to WordPress.org Repository
 
 on:
   release:
@@ -6,6 +6,9 @@ on:
 
 jobs:
   deploy_to_wp_repository:
+    permissions:
+      contents: write
+      actions: read
     name: Deploy to WP.org
     runs-on: ubuntu-latest
     steps:

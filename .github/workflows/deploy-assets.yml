@@ -1,4 +1,4 @@
-name: Deploy to WordPress.org Repository
+name: Deploy Assets to WordPress.org Repository
 
 on:
   push:
@@ -12,6 +12,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Install Composer dependencies
+        uses: php-actions/composer@v6
+        with:
+          dev: no
+          php_version: 8.3.6
+          php_extensions: bcmath
 
       - name: WordPress Plugin Assets Deploy
         id: deploy
