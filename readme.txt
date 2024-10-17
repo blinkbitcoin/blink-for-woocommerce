@@ -1,12 +1,12 @@
 === Blink For WooCommerce ===
-Contributors: galoy
+Contributors: blink
 Tags: Bitcoin, Lightning Network, WooCommerce, payment gateway
 Requires at least: 4.5
 Tested up to: 6.6.1
 Requires PHP: 5.6
 Stable tag: 0.1.0
 License: MIT
-License URI: https://github.com/GaloyMoney/blink-woocommerce/blob/main/license.txt
+License URI: https://github.com/blinkbitcoin/blink-for-woocommerce/blob/main/license.txt
 
 A simple, fast and secure Bitcoin payment gateway for WooCommerce using [Blink](https://www.blink.sv/).
 
@@ -21,7 +21,7 @@ Key features of Blink For WooCommerce include:
 * Stablesats Integration: Offers the ability to receive payments in Bitcoin while maintaining a stable value pegged to the US Dollar, reducing volatility risks.
 * Easy Integration: Simple setup and configuration within WooCommerce, allowing you to start accepting Bitcoin payments quickly and easily.
 
-For more information please visit [Plugin Repository](https://github.com/GaloyMoney/blink-woocommerce/).
+For more information please visit [Plugin Repository](https://github.com/blinkbitcoin/blink-for-woocommerce/).
 
 ### Important Notice
 
@@ -43,7 +43,7 @@ Please review these links to ensure that you are compliant with all legal requir
 
 This section describes how to install the plugin and get it working.
 
-1. Upload and unzip `blink-woocommerce.zip` to the `/wp-content/plugins/` directory.
+1. Upload and unzip `blink-for-woocommerce.zip` to the `/wp-content/plugins/` directory.
 2. Activate the plugin through the 'Plugins' menu in WordPress.
 3. Configure the plugin settings via the WooCommerce settings page.
 4. Ensure your Blink or Staging account is set up and linked with the plugin.

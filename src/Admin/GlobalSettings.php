@@ -6,15 +6,15 @@ namespace Blink\WC\Admin;
 
 use Blink\WC\Helpers\Logger;
 use Blink\WC\Helpers\OrderStates;
-use Blink\WC\Helpers\GaloyApiHelper;
+use Blink\WC\Helpers\BlinkApiHelper;
 
 class GlobalSettings extends \WC_Settings_Page {
-  private GaloyApiHelper $apiHelper;
+  private BlinkApiHelper $apiHelper;
 
   public function __construct() {
     $this->id = 'blink_settings';
     $this->label = 'Blink Settings';
-    $this->apiHelper = new GaloyApiHelper();
+    $this->apiHelper = new BlinkApiHelper();
 
     // Register custom field type order_states with OrderStatesField class.
     add_action('woocommerce_admin_field_order_states', [
@@ -28,20 +28,20 @@ class GlobalSettings extends \WC_Settings_Page {
 
     if (is_admin()) {
       // Register and include JS.
-      wp_enqueue_script('galoy_blink_global_settings');
-      wp_localize_script('galoy_blink_global_settings', 'BlinkGlobalSettings', [
+      wp_enqueue_script('blink_global_settings');
+      wp_localize_script('blink_global_settings', 'BlinkGlobalSettings', [
         'url' => admin_url('admin-ajax.php'),
-        'apiNonce' => wp_create_nonce('galoy-blink-api-url-nonce'),
+        'apiNonce' => wp_create_nonce('blink-api-url-nonce'),
       ]);
 
       // Register and include CSS.
       wp_register_style(
-        'galoy_blink_admin_styles',
+        'blink_admin_styles',
         BLINK_PLUGIN_URL . 'assets/css/admin.css',
         [],
         BLINK_VERSION
       );
-      wp_enqueue_style('galoy_blink_admin_styles');
+      wp_enqueue_style('blink_admin_styles');
     }
     parent::__construct();
   }
@@ -60,14 +60,14 @@ class GlobalSettings extends \WC_Settings_Page {
     Logger::debug('Entering Global Settings form.');
 
     // Check setup status and prepare output.
-    $storedApiKey = get_option('galoy_blink_api_key');
-    $storedGaloyEnv = get_option('galoy_blink_env');
+    $storedApiKey = get_option('blink_api_key');
+    $storedBlinkEnv = get_option('blink_env');
 
     $setupStatus = '<p class="blink-connection-error">
         Not connected. Please configure your api key.
       </p>';
-    if ($storedGaloyEnv && $storedApiKey) {
-      if (GaloyApiHelper::verifyApiKey($storedGaloyEnv, $storedApiKey)) {
+    if ($storedBlinkEnv && $storedApiKey) {
+      if (BlinkApiHelper::verifyApiKey($storedBlinkEnv, $storedApiKey)) {
         $setupStatus = '<p class="blink-connection-success">Connected.</p>';
       }
     }
@@ -78,25 +78,25 @@ class GlobalSettings extends \WC_Settings_Page {
         'title' => 'Connection settings',
         'type' => 'title',
         'desc' => sprintf(
-          'This plugin version is %1$s and your PHP version is %2$s. Check out our <a href="https://dev.blink.sv/examples/woocommerce-plugin/" target="_blank">installation instructions</a>. If you need assistance, please come on our <a href="https://chat.galoy.io" target="_blank">chat</a>. Thank you for using Blink!',
+          'This plugin version is %1$s and your PHP version is %2$s. Check out our <a href="https://dev.blink.sv/examples/woocommerce-plugin/" target="_blank">installation instructions</a>. If you need assistance, please come on our <a href="https://chat.blink.sv" target="_blank">chat</a>. Thank you for using Blink!',
           BLINK_VERSION,
           PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION
         ),
-        'id' => 'galoy_blink_connection',
+        'id' => 'blink_connection',
       ],
-      'galoy_env' => [
+      'blink_env' => [
         'title' => 'Blink Environment',
         'type' => 'select',
         'options' => [
           'blink' => 'Blink',
-          'staging' => 'Galoy Staging',
+          'staging' => 'Staging',
         ],
         'default' => 'Blink',
-        'desc' => 'Galoy instance.',
+        'desc' => 'Blink instance.',
         'desc_tip' => true,
-        'id' => 'galoy_blink_env',
+        'id' => 'blink_env',
       ],
-      'galoy_wallet_type' => [
+      'blink_wallet_type' => [
         'title' => 'Blink Wallet',
         'type' => 'select',
         'options' => [
@@ -104,9 +104,9 @@ class GlobalSettings extends \WC_Settings_Page {
           'stablesats' => 'Stablesats',
         ],
         'default' => 'Blink',
-        'desc' => 'Galoy/Blink Wallet',
+        'desc' => 'Blink Wallet',
         'desc_tip' => true,
-        'id' => 'galoy_blink_wallet_type',
+        'id' => 'blink_wallet_type',
       ],
       'api_key' => [
         'title' => 'Blink API Key',
@@ -114,25 +114,25 @@ class GlobalSettings extends \WC_Settings_Page {
         'desc' =>
           'Your Blink API Key. If you do not have any yet use <a target="_blank" href="https://dashboard.blink.sv/api-keys">Blink dashboard</a> to get a new one.',
         'default' => '',
-        'id' => 'galoy_blink_api_key',
+        'id' => 'blink_api_key',
       ],
       'webhook_url' => [
         'title' => 'Webhook Url',
         'type' => 'custom_markup',
         'markup' =>
-          WC()->api_request_url('galoy_blink_default') .
+          WC()->api_request_url('blink_default') .
           '<p class="description"> Please use <a target="_blank" href="https://dashboard.blink.sv/callback">Blink dashboard</a> to set it up.</p>',
-        'id' => 'galoy_blink_webhook_url',
+        'id' => 'blink_webhook_url',
       ],
       'status' => [
         'title' => 'Setup status',
         'type' => 'custom_markup',
         'markup' => $setupStatus,
-        'id' => 'galoy_blink_status',
+        'id' => 'blink_status',
       ],
       'sectionend_connection' => [
         'type' => 'sectionend',
-        'id' => 'galoy_blink_connection',
+        'id' => 'blink_connection',
       ],
       // Section general.
       'title' => [
@@ -147,11 +147,11 @@ class GlobalSettings extends \WC_Settings_Page {
           'Message to explain how the customer will be paying for the purchase. Can be overwritten on a per gateway basis.',
         'default' => 'You will be redirected to Blink to complete your purchase.',
         'desc_tip' => true,
-        'id' => 'galoy_blink_default_description',
+        'id' => 'blink_default_description',
       ],
       'order_states' => [
         'type' => 'order_states',
-        'id' => 'galoy_blink_order_states',
+        'id' => 'blink_order_states',
       ],
       'protect_orders' => [
         'title' => 'Protect order status',
@@ -159,7 +159,7 @@ class GlobalSettings extends \WC_Settings_Page {
         'default' => 'yes',
         'desc' =>
           'Protects order status from changing if it is already "processing" or "completed". This will protect against orders getting cancelled via webhook if they were paid in the meantime with another payment gateway. Default is ON.',
-        'id' => 'galoy_blink_protect_order_status',
+        'id' => 'blink_protect_order_status',
       ],
       'debug' => [
         'title' => 'Debug Log',
@@ -169,7 +169,7 @@ class GlobalSettings extends \WC_Settings_Page {
           'Enable logging <a href="%s" class="button">View Logs</a>',
           Logger::getLogFileUrl()
         ),
-        'id' => 'galoy_blink_debug',
+        'id' => 'blink_debug',
       ],
       'sectionend' => [
         'type' => 'sectionend',
@@ -186,11 +186,11 @@ class GlobalSettings extends \WC_Settings_Page {
     Logger::debug('Saving GlobalSettings.');
 
     // nonce validation is not required here because it is done by parent::save()
-    if (!empty($_POST['galoy_blink_env']) && !empty($_POST['galoy_blink_api_key'])) {
-      $apiEnv = sanitize_text_field(wp_unslash($_POST['galoy_blink_env']));
-      $apiKey = sanitize_text_field(wp_unslash($_POST['galoy_blink_api_key']));
+    if (!empty($_POST['blink_env']) && !empty($_POST['blink_api_key'])) {
+      $apiEnv = sanitize_text_field(wp_unslash($_POST['blink_env']));
+      $apiKey = sanitize_text_field(wp_unslash($_POST['blink_api_key']));
 
-      if (!GaloyApiHelper::verifyApiKey($apiEnv, $apiKey)) {
+      if (!BlinkApiHelper::verifyApiKey($apiEnv, $apiKey)) {
         $messageException =
           'Error fetching data for this API key from server. Please check if the API key is valid.';
         Notice::addNotice('error', $messageException);

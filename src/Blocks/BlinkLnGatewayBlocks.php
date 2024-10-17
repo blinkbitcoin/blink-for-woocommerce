@@ -7,7 +7,7 @@ use Blink\WC\Gateway\BlinkLnGateway;
 use Blink\WC\Helpers\Logger;
 
 /**
- * Galoy - Blink payment method integration
+ * Blink payment method integration
  *
  * @since 3.0.0
  */
@@ -20,13 +20,13 @@ final class BlinkLnGatewayBlocks extends AbstractPaymentMethodType {
   /**
    * Payment method name/id/slug.
    */
-  protected $name = 'galoy_blink_default';
+  protected $name = 'blink_default';
 
   /**
    * Initializes the payment method type.
    */
   public function initialize(): void {
-    $this->settings = get_option('woocommerce_galoy_blink_default_settings', []);
+    $this->settings = get_option('woocommerce_blink_default_settings', []);
     $gateways = \WC()->payment_gateways->payment_gateways();
     $this->gateway = $gateways[$this->name];
   }

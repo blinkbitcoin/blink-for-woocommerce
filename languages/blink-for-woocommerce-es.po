@@ -1,9 +1,9 @@
-# Copyright (C) 2024 Galoy - Blink
+# Copyright (C) 2024 Blink
 # This file is distributed under the same license as the Blink For Woocommerce package.
 msgid ""
 msgstr ""
 "Project-Id-Version: Blink For Woocommerce 0.1.0\n"
-"Report-Msgid-Bugs-To: https://chat.galoy.io\n"
+"Report-Msgid-Bugs-To: https://chat.blink.sv\n"
 "POT-Creation-Date: 2024-05-29 00:37:58+00:00\n"
 "PO-Revision-Date: 2024-05-29 00:23-0500\n"
 "Last-Translator: \n"
@@ -153,8 +153,8 @@ msgstr ""
 "o intermediarios."
 
 #. Author of the plugin/theme
-msgid "Galoy - Blink"
-msgstr "Galoy - Blink"
+msgid "Blink"
+msgstr "Blink"
 
 #. Author URI of the plugin/theme
 msgid "https://blink.sv"
@@ -235,10 +235,10 @@ msgid ""
 "This plugin version is %s and your PHP version is %s. Check out our <a href="
 "\"https://dev.blink.sv/examples/woocommerce-plugin/\" target=\"_blank"
 "\">installation instructions</a>. If you need assistance, please come on our "
-"<a href=\"https://chat.galoy.io\" target=\"_blank\">chat</a>. Thank you for "
+"<a href=\"https://chat.blink.sv\" target=\"_blank\">chat</a>. Thank you for "
 "using Blink!"
 msgstr ""
 "Esta versión del plugin es %s y tu versión de PHP es %s. Consulta nuestras <a href="
 "\"https://dev.blink.sv/examples/woocommerce-plugin/\" target=\"_blank"
 "\">instrucciones de instalación</a>. Si necesitas ayuda, por favor, únete a nuestro "
-"<a href=\"https://chat.galoy.io\" target=\"_blank\">chat</a>. ¡Gracias por usar Blink!"
+"<a href=\"https://chat.blink.sv\" target=\"_blank\">chat</a>. ¡Gracias por usar Blink!"

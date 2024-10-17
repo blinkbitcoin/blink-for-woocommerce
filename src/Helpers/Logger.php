@@ -6,7 +6,7 @@ namespace Blink\WC\Helpers;
 
 class Logger {
   public static function debug(string $message, $force = false): void {
-    if (get_option('galoy_blink_debug') === 'yes' || $force) {
+    if (get_option('blink_debug') === 'yes' || $force) {
       // Convert message to string
       if (!is_string($message)) {
         $message = wc_print_r($message, true);
