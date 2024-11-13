@@ -74,13 +74,13 @@ class BlinkWCPlugin {
    * Add scripts to admin pages.
    */
   public function enqueueAdminScripts(): void {
-    wp_enqueue_script(
+    wp_register_script(
       'blink-notifications',
       plugin_dir_url(__FILE__) . 'assets/js/backend/notifications.js',
       ['jquery'],
-      BLINK_VERSION,
-      true
+      BLINK_VERSION
     );
+    wp_enqueue_script('blink-notifications');
     wp_localize_script('blink-notifications', 'BlinkNotifications', [
       'ajax_url' => admin_url('admin-ajax.php'),
       'nonce' => wp_create_nonce('blink-notifications-nonce'),
@@ -96,9 +96,19 @@ class BlinkWCPlugin {
    * Handles the AJAX callback to dismiss review notification.
    */
   public function processAjaxNotification() {
-    check_ajax_referer('blink-notifications-nonce', 'nonce');
-    // Dismiss review notice for 30 days.
-    set_transient('blink_review_dismissed', true, DAY_IN_SECONDS * 30);
+    if (!check_ajax_referer('blink-notifications-nonce', 'nonce')) {
+      wp_die('Unauthorized!', '', ['response' => 401]);
+    }
+
+    $dismissForever = filter_var($_POST['dismiss_forever'], FILTER_VALIDATE_BOOL);
+
+    if ($dismissForever) {
+      update_option('blink_review_dismissed_forever', true);
+    } else {
+      // Dismiss review notice for 30 days.
+      set_transient('blink_review_dismissed', true, DAY_IN_SECONDS * 30);
+    }
+
     wp_send_json_success();
   }
 
@@ -151,14 +161,21 @@ class BlinkWCPlugin {
    * Shows a notice on the admin dashboard to periodically ask for a review.
    */
   public function submitReviewNotification() {
-    if (!get_transient('blink_review_dismissed')) {
+    if (
+      !get_option('blink_review_dismissed_forever') &&
+      !get_transient('blink_review_dismissed')
+    ) {
       $reviewMessage = sprintf(
-        'Thank you for using Blink for WooCommerce! If you like the plugin, we would love if you %1$sleave us a review%2$s.',
+        'Thank you for using Blink for WooCommerce! If you like the plugin, we would love if you %1$sleave us a review%2$s. %3$sRemind me later%4$s %5$sStop reminding me forever%6$s',
         '<a href="https://wordpress.org/support/plugin/blink-for-woocommerce/reviews/?filter=5#new-post" target="_blank">',
-        '</a>'
+        '</a>',
+        '<button class="blink-review-dismiss">',
+        '</button>',
+        '<button class="blink-review-dismiss-forever">',
+        '</button>'
       );
 
-      Notice::addNotice('info', $reviewMessage, true, 'blink-review-notice');
+      Notice::addNotice('info', $reviewMessage, false, 'blink-review-notice');
     }
   }
 

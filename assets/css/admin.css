@@ -1,6 +1,13 @@
 .blink-connection-success {
-	color: green;
+  color: green;
 }
 .blink-connection-error {
-	color: red;
+  color: red;
+}
+
+.blink-review-dismiss {
+  margin-left: 20px;
+}
+.blink-review-dismiss-forever {
+  margin-left: 10px;
 }
