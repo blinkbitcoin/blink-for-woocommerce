@@ -1,0 +1,4 @@
+files.extend-exclude = ["languages/blink-for-woocommerce-es.po"]
+
+[default.extend-words]
+Automattic = "Automattic"
