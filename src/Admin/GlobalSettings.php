@@ -101,7 +101,7 @@ class GlobalSettings extends \WC_Settings_Page {
         'type' => 'select',
         'options' => [
           'bitcoin' => 'Bitcoin',
-          'stablesats' => 'Stablesats',
+          'stablesats' => 'USD',
         ],
         'default' => 'Blink',
         'desc' => 'Blink Wallet',
@@ -112,7 +112,7 @@ class GlobalSettings extends \WC_Settings_Page {
         'title' => 'Blink API Key',
         'type' => 'text',
         'desc' =>
-          'Your Blink API Key. If you do not have any yet use <a target="_blank" href="https://dashboard.blink.sv/api-keys">Blink dashboard</a> to get a new one.',
+          'Your Blink API Key. If you do not have any yet use <a target="_blank" href="https://dashboard.blink.sv/api-keys">Blink dashboard</a> to get a new one.<br />IMPORTANT: Create an API key with only READ & RECEIVE scopes. <br />⚠️ Using an API key with WRITE scope could result in loss of funds ⚠️',
         'default' => '',
         'id' => 'blink_api_key',
       ],
