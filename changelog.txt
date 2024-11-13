@@ -1,3 +1,9 @@
+= 0.1.2 :: 2024-11-13 =
+* Update Blink Logo
+* Add warning note about API key scopes
+* Fix feedback notification close
+* Rename stablesats to USD
+
 = 0.1.1 :: 2024-10-17 =
 * Minor content updates.
 

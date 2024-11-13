@@ -9,7 +9,7 @@
  * License URI:     https://github.com/blinkbitcoin/blink-for-woocommerce/blob/main/license.txt
  * Text Domain:     blink-for-woocommerce
  * Domain Path:     /languages
- * Version:         0.1.1
+ * Version:         0.1.2
  *
  * @package         Blink_For_Woocommerce
  */
@@ -19,7 +19,7 @@ use Blink\WC\Helpers\Logger;
 use Blink\WC\Gateway\BlinkLnGateway;
 
 defined('ABSPATH') || exit();
-define('BLINK_VERSION', '0.1.1');
+define('BLINK_VERSION', '0.1.2');
 define('BLINK_VERSION_KEY', 'blink_version');
 define('BLINK_PLUGIN_FILE_PATH', plugin_dir_path(__FILE__));
 define('BLINK_PLUGIN_URL', plugin_dir_url(__FILE__));
