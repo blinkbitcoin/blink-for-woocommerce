@@ -3,8 +3,8 @@ Contributors: blink
 Tags: Bitcoin, Lightning Network, WooCommerce, payment gateway
 Requires at least: 4.5
 Tested up to: 6.6.1
-Requires PHP: 5.6
-Stable tag: 0.1.2
+Requires PHP: 8.1
+Stable tag: 0.1.3
 License: MIT
 License URI: https://github.com/blinkbitcoin/blink-for-woocommerce/blob/main/license.txt
 
@@ -70,6 +70,9 @@ Yes, visit the [Blink website](https://www.blink.sv/) for support and troublesho
 2. Payment Checkout Page - Customers can choose to pay with Bitcoin via the Lightning Network during checkout.
 
 == Changelog ==
+
+= 0.1.3 =
+* Update PHP min version
 
 = 0.1.2 =
 * Update Blink Logo
