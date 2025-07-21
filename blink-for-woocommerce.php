@@ -222,20 +222,20 @@ class BlinkWCPlugin {
 
     switch ($status) {
       case 'pending':
-        $statusDesc = 'Waiting payment';
+        $statusDesc = __( 'Waiting payment', 'blink-for-woocommerce' );
         break;
       case 'on-hold':
-        $statusDesc = 'Waiting for payment settlement';
+        $statusDesc = __( 'Waiting for payment settlement', 'blink-for-woocommerce' );
         break;
       case 'processing':
-        $statusDesc = 'Payment settled';
+        $statusDesc = __( 'Payment settled', 'blink-for-woocommerce' );
         break;
       case 'completed':
-        $statusDesc = 'Order completed';
+        $statusDesc = __( 'Order completed', 'blink-for-woocommerce' );
         break;
       case 'failed':
       case 'cancelled':
-        $statusDesc = 'Payment failed';
+        $statusDesc = __( 'Payment failed', 'blink-for-woocommerce' );
         break;
       default:
         $statusDesc = ucfirst($status);
@@ -244,7 +244,7 @@ class BlinkWCPlugin {
 
     echo "
       <section class='woocommerce-order-payment-status'>
-          <h2 class='woocommerce-order-payment-status-title'>Order Status</h2>
+          <h2 class='woocommerce-order-payment-status-title'>".__( 'Order Status', 'blink-for-woocommerce' )."</h2>
           <p><strong>" .
       esc_html($statusDesc) .
       "</strong></p>
