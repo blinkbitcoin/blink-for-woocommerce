@@ -220,6 +220,10 @@ class GlobalSettings extends \WC_Settings_Page {
     $accountType = !empty($_POST['blink_account_type'])
       ? sanitize_text_field(wp_unslash($_POST['blink_account_type']))
       : 'custodial';
+    // Constrain to the known set so an unexpected value cannot be persisted.
+    if (!in_array($accountType, ['custodial', 'non_custodial'], true)) {
+      $accountType = 'custodial';
+    }
 
     if ($accountType === 'non_custodial') {
       if (!empty($_POST['blink_ln_address'])) {

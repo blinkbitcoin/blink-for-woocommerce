@@ -9,6 +9,9 @@ use Blink\WC\Helpers\BlinkApiClient;
 use Blink\WC\Helpers\BlinkLnurlClient;
 
 class BlinkApiHelper {
+  /** Default non-custodial invoice expiry window, in seconds (60 minutes). */
+  const NON_CUSTODIAL_EXPIRY_SECONDS = 3600;
+
   public $configured = false;
   public $env;
   public $apiKey;
@@ -35,6 +38,16 @@ class BlinkApiHelper {
     return $this->accountType === 'non_custodial';
   }
 
+  /**
+   * Returns the domain part of a lightning address (identifier@domain), or ''.
+   */
+  public static function lnAddressDomain(?string $lnAddress): string {
+    if (!$lnAddress || !str_contains($lnAddress, '@')) {
+      return '';
+    }
+    return trim(strtolower(explode('@', $lnAddress, 2)[1]));
+  }
+
   public static function getApiUrl(string $env = null): string {
     $urlMapping = [
       'blink' => 'https://api.blink.sv/graphql',
@@ -59,6 +72,10 @@ class BlinkApiHelper {
 
   public static function getConfig(): array {
     $accountType = get_option('blink_account_type', 'custodial');
+    // Defense in depth: never trust an out-of-range stored value.
+    if (!in_array($accountType, ['custodial', 'non_custodial'], true)) {
+      $accountType = 'custodial';
+    }
     $env = get_option('blink_env') ?: 'blink';
     $url = self::getApiUrl($env);
 
@@ -160,8 +177,13 @@ class BlinkApiHelper {
    *
    * @param string      $paymentHash Payment hash of the invoice.
    * @param string|null $verifyUrl   LUD-21 verify URL (non-custodial only).
+   * @param int         $expiresAt   Unix timestamp when the invoice expires (non-custodial; 0 = unknown).
    */
-  public function getInvoice(string $paymentHash, string $verifyUrl = null) {
+  public function getInvoice(
+    string $paymentHash,
+    string $verifyUrl = null,
+    int $expiresAt = 0
+  ) {
     Logger::debug('Start getInvoice for ' . $paymentHash);
     if (!$paymentHash) {
       Logger::debug('Invalid invoice hash');
@@ -174,7 +196,7 @@ class BlinkApiHelper {
     }
 
     if ($this->isNonCustodial()) {
-      return $this->getInvoiceNonCustodial($paymentHash, $verifyUrl);
+      return $this->getInvoiceNonCustodial($paymentHash, $verifyUrl, $expiresAt);
     }
 
     try {
@@ -196,17 +218,26 @@ class BlinkApiHelper {
    * "not found" responses are reported as PENDING so callers keep polling
    * rather than dropping a still-payable invoice.
    */
-  private function getInvoiceNonCustodial(string $paymentHash, string $verifyUrl = null) {
+  private function getInvoiceNonCustodial(
+    string $paymentHash,
+    string $verifyUrl = null,
+    int $expiresAt = 0
+  ) {
     if (!$verifyUrl) {
       Logger::debug('Missing verify url for non-custodial invoice ' . $paymentHash);
       return ['paymentHash' => $paymentHash, 'status' => 'PENDING'];
     }
 
-    $verify = BlinkLnurlClient::checkVerify($verifyUrl);
+    $addressDomain = self::lnAddressDomain($this->lnAddress);
+    $verify = BlinkLnurlClient::checkVerify($verifyUrl, $addressDomain);
 
     $status = 'PENDING';
     if ($verify['settled']) {
+      // A settled invoice is always PAID, even if the expiry window has passed.
       $status = 'PAID';
+    } elseif ($expiresAt > 0 && time() > $expiresAt) {
+      // Only mark EXPIRED once the invoice is past its expiry AND unpaid.
+      $status = 'EXPIRED';
     }
 
     Logger::debug(
@@ -326,11 +357,17 @@ class BlinkApiHelper {
         return null;
       }
 
+      $addressDomain = self::lnAddressDomain($lnAddress);
       $comment = 'GW-' . $orderNumber;
+      $expiry = self::NON_CUSTODIAL_EXPIRY_SECONDS;
+      $createdAt = time();
       $invoice = BlinkLnurlClient::requestInvoice(
         $metadata['callback'],
         $amountMsat,
-        $comment
+        $addressDomain,
+        $comment,
+        (int) $metadata['commentAllowed'],
+        $expiry
       );
       if (!$invoice) {
         Logger::debug('Non-custodial invoice: LNURL callback did not return an invoice.');
@@ -344,6 +381,8 @@ class BlinkApiHelper {
         'paymentRequest' => $invoice['paymentRequest'],
         'verifyUrl' => $invoice['verifyUrl'],
         'satoshis' => $satoshis,
+        'createdAt' => $createdAt,
+        'expiresAt' => $createdAt + $expiry,
         // Non-custodial payments are shown on our own on-site pay page,
         // so there is no external redirect URL here.
         'redirectUrl' => null,

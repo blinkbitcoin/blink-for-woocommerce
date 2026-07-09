@@ -52,10 +52,119 @@ class BlinkLnurlClient {
   private static function scheme(string $domain): string {
     // Allow plain HTTP only for local development hosts.
     $host = explode(':', $domain, 2)[0];
-    if ($host === 'localhost' || $host === '127.0.0.1') {
+    if (self::isLocalDevHost($host)) {
       return 'http';
     }
     return 'https';
+  }
+
+  private static function isLocalDevHost(string $host): bool {
+    $host = strtolower($host);
+    return $host === 'localhost' || $host === '127.0.0.1' || $host === '[::1]';
+  }
+
+  /**
+   * Returns the registrable base of a host as its last two labels
+   * (e.g. "lnurl.blink.sv" and "blink.sv" both -> "blink.sv"). This is a
+   * pragmatic check (not a full public-suffix list) sufficient to ensure a
+   * callback/verify URL stays within the same organisation's domain as the
+   * configured lightning address.
+   */
+  private static function registrableBase(string $host): string {
+    $host = strtolower(rtrim($host, '.'));
+    $labels = explode('.', $host);
+    if (count($labels) <= 2) {
+      return $host;
+    }
+    return implode('.', array_slice($labels, -2));
+  }
+
+  /**
+   * SSRF guard. A URL returned by an (untrusted) LNURL server is only allowed if:
+   *  - it is a well-formed http(s) URL, and
+   *  - its host shares the same registrable domain as the lightning-address
+   *    domain (so blink.sv may legitimately delegate to lnurl.blink.sv), and
+   *  - it does not resolve to a private/loopback/link-local/reserved IP
+   *    (blocks cloud metadata endpoints such as 169.254.169.254 and intranet
+   *    targets).
+   *
+   * Local development hosts (localhost/127.0.0.1) are allowed only when the
+   * configured address domain is itself a local dev host.
+   */
+  public static function isUrlAllowed(string $url, string $addressDomain): bool {
+    $parts = wp_parse_url($url);
+    if (!$parts || empty($parts['host'])) {
+      Logger::debug('LNURL URL rejected (could not parse): ' . $url);
+      return false;
+    }
+
+    $scheme = strtolower($parts['scheme'] ?? '');
+    if ($scheme !== 'http' && $scheme !== 'https') {
+      Logger::debug('LNURL URL rejected (bad scheme): ' . $url);
+      return false;
+    }
+
+    $host = strtolower($parts['host']);
+    $addressHost = strtolower(explode(':', $addressDomain, 2)[0]);
+
+    // Local dev exception: only if the configured address is itself local.
+    if (self::isLocalDevHost($addressHost)) {
+      return self::isLocalDevHost($host);
+    }
+
+    // Must stay within the same registrable domain as the address.
+    if (self::registrableBase($host) !== self::registrableBase($addressHost)) {
+      Logger::debug(
+        'LNURL URL rejected (host outside address domain): ' .
+          $host .
+          ' vs ' .
+          $addressHost
+      );
+      return false;
+    }
+
+    // Resolve and reject private/reserved IPs (SSRF to intranet/metadata).
+    $ips = self::resolveHost($host);
+    if (empty($ips)) {
+      Logger::debug('LNURL URL rejected (host does not resolve): ' . $host);
+      return false;
+    }
+    foreach ($ips as $ip) {
+      if (!self::isPublicIp($ip)) {
+        Logger::debug('LNURL URL rejected (non-public IP ' . $ip . '): ' . $host);
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  private static function resolveHost(string $host): array {
+    $ips = [];
+    $v4 = @gethostbynamel($host);
+    if (is_array($v4)) {
+      $ips = $v4;
+    }
+    // Best-effort IPv6 resolution.
+    if (function_exists('dns_get_record')) {
+      $aaaa = @dns_get_record($host, DNS_AAAA);
+      if (is_array($aaaa)) {
+        foreach ($aaaa as $rec) {
+          if (!empty($rec['ipv6'])) {
+            $ips[] = $rec['ipv6'];
+          }
+        }
+      }
+    }
+    return $ips;
+  }
+
+  private static function isPublicIp(string $ip): bool {
+    return (bool) filter_var(
+      $ip,
+      FILTER_VALIDATE_IP,
+      FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
+    );
   }
 
   private static function httpGet(string $url): ?array {
@@ -63,6 +172,9 @@ class BlinkLnurlClient {
       $client = new \GuzzleHttp\Client(['timeout' => 20]);
       $response = $client->request('GET', $url, [
         'headers' => ['Accept' => 'application/json'],
+        // Legitimate LNURL servers do not redirect; disallowing redirects
+        // prevents a 3xx from bypassing the host/IP SSRF checks.
+        'allow_redirects' => false,
       ]);
       $body = $response->getBody()->getContents();
       $decoded = json_decode($body, true);
@@ -110,25 +222,43 @@ class BlinkLnurlClient {
   /**
    * Requests a BOLT11 invoice from the LNURL-pay callback for a fixed amount.
    *
-   * @param string $callback   LNURL-pay callback URL (from fetchPayMetadata).
-   * @param int    $amountMsat Amount in millisatoshis (must be a whole-sat multiple of 1000).
-   * @param string $comment    Optional LUD-12 comment (order reference), truncated to 255 chars.
+   * @param string $callback       LNURL-pay callback URL (from fetchPayMetadata).
+   * @param int    $amountMsat     Amount in millisatoshis (whole-sat multiple of 1000).
+   * @param string $addressDomain  The lightning-address domain, for the SSRF host check.
+   * @param string $comment        Optional LUD-12 comment (order reference).
+   * @param int    $commentAllowed Max comment length advertised by the server (LUD-12);
+   *                               0 means the server does not accept comments.
+   * @param int    $expiry         Optional requested invoice expiry, in seconds (0 = default).
    *
    * @return array{paymentRequest:string,verifyUrl:string,paymentHash:string}|null
    */
   public static function requestInvoice(
     string $callback,
     int $amountMsat,
-    string $comment = ''
+    string $addressDomain,
+    string $comment = '',
+    int $commentAllowed = 0,
+    int $expiry = 0
   ): ?array {
     if ($amountMsat <= 0 || $amountMsat % 1000 !== 0) {
       Logger::debug('Invalid msat amount for LNURL invoice: ' . $amountMsat);
       return null;
     }
 
+    // SSRF guard: the callback URL comes from an untrusted LNURL response.
+    if (!self::isUrlAllowed($callback, $addressDomain)) {
+      Logger::debug('LNURL callback URL not allowed: ' . $callback);
+      return null;
+    }
+
     $query = ['amount' => $amountMsat];
-    if ($comment !== '') {
-      $query['comment'] = substr($comment, 0, self::MAX_COMMENT_LENGTH);
+    // LUD-12: only send a comment if the server advertises support for it.
+    if ($comment !== '' && $commentAllowed > 0) {
+      $limit = min($commentAllowed, self::MAX_COMMENT_LENGTH);
+      $query['comment'] = substr($comment, 0, $limit);
+    }
+    if ($expiry > 0) {
+      $query['expiry'] = $expiry;
     }
 
     $separator = str_contains($callback, '?') ? '&' : '?';
@@ -149,6 +279,13 @@ class BlinkLnurlClient {
     $verifyUrl = $json['verify'] ?? null;
     if (!$pr || !$verifyUrl) {
       Logger::debug('LNURL invoice response missing pr/verify.');
+      return null;
+    }
+
+    // SSRF guard: the verify URL is persisted and polled repeatedly, so validate
+    // it before it is ever stored.
+    if (!self::isUrlAllowed((string) $verifyUrl, $addressDomain)) {
+      Logger::debug('LNURL verify URL not allowed: ' . $verifyUrl);
       return null;
     }
 
@@ -192,7 +329,10 @@ class BlinkLnurlClient {
    *
    * @return array{settled:bool,preimage:?string,pr:?string,notFound:bool,error:bool}
    */
-  public static function checkVerify(string $verifyUrl): array {
+  public static function checkVerify(
+    string $verifyUrl,
+    string $addressDomain = ''
+  ): array {
     $result = [
       'settled' => false,
       'preimage' => null,
@@ -200,6 +340,14 @@ class BlinkLnurlClient {
       'notFound' => false,
       'error' => false,
     ];
+
+    // Defense in depth: the verify URL is validated at creation time before being
+    // stored, but re-check here since this runs on every (public) poll.
+    if ($addressDomain !== '' && !self::isUrlAllowed($verifyUrl, $addressDomain)) {
+      Logger::debug('Verify URL not allowed at poll time: ' . $verifyUrl);
+      $result['error'] = true;
+      return $result;
+    }
 
     $json = self::httpGet($verifyUrl);
     if ($json === null) {

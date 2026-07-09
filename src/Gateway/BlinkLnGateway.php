@@ -212,8 +212,11 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
    * on-site order-pay page, where the invoice is displayed and polled.
    */
   protected function processPaymentNonCustodial(\WC_Order $order): array {
-    // Reuse an existing, still-valid invoice if present.
-    if (!$order->get_meta('blink_id') || !$order->get_meta('blink_verify_url')) {
+    // Only reuse an existing invoice if it is still valid (present and not expired
+    // or already gone from the verify endpoint). Otherwise create a fresh one so the
+    // customer never lands on a pay page showing an unpayable, expired QR code.
+    if (!$this->hasReusableNonCustodialInvoice($order)) {
+      $this->clearNonCustodialInvoiceMeta($order);
       Logger::debug('Creating non-custodial invoice on Blink');
       if (!$this->createInvoice($order)) {
         throw new \Exception(
@@ -226,6 +229,57 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
       'result' => 'success',
       'redirect' => $order->get_checkout_payment_url(true),
     ];
+  }
+
+  /**
+   * Whether the order already has a non-custodial invoice that can still be paid.
+   */
+  protected function hasReusableNonCustodialInvoice(\WC_Order $order): bool {
+    $invoiceId = $order->get_meta('blink_id');
+    $verifyUrl = $order->get_meta('blink_verify_url');
+    if (!$invoiceId || !$verifyUrl) {
+      return false;
+    }
+
+    // Locally known expiry passed => not reusable.
+    $expiresAt = (int) $order->get_meta('blink_expires_at');
+    if ($expiresAt > 0 && time() >= $expiresAt) {
+      Logger::debug(
+        'Existing non-custodial invoice expired for order ' . $order->get_id()
+      );
+      return false;
+    }
+
+    // Confirm with the verify endpoint: if already paid, keep it (nothing to
+    // recreate); if the server no longer knows it (EXPIRED/not found), recreate.
+    $invoice = $this->apiHelper->getInvoice($invoiceId, $verifyUrl, $expiresAt);
+    $status = is_array($invoice) ? $invoice['status'] ?? 'PENDING' : 'PENDING';
+    if ($status === 'EXPIRED') {
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Clears stored non-custodial invoice meta so a fresh invoice can be created.
+   */
+  protected function clearNonCustodialInvoiceMeta(\WC_Order $order): void {
+    foreach (
+      [
+        'blink_id',
+        'blink_verify_url',
+        'blink_payment_request',
+        'blink_created_at',
+        'blink_expires_at',
+        'blink_satoshis',
+        'blink_redirect',
+      ]
+      as $key
+    ) {
+      $order->delete_meta_data($key);
+    }
+    $order->save();
   }
 
   public function process_refund($order_id, $amount = null, $reason = '') {
@@ -353,6 +407,12 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
       if (!empty($invoice['satoshis'])) {
         $order->update_meta_data('blink_satoshis', $invoice['satoshis']);
       }
+      if (!empty($invoice['createdAt'])) {
+        $order->update_meta_data('blink_created_at', $invoice['createdAt']);
+      }
+      if (!empty($invoice['expiresAt'])) {
+        $order->update_meta_data('blink_expires_at', $invoice['expiresAt']);
+      }
 
       $order->save();
 
@@ -364,7 +424,10 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
     return null;
   }
 
-  protected function processOrderStatus(\WC_Order $order): string {
+  protected function processOrderStatus(
+    \WC_Order $order,
+    string $context = 'webhook'
+  ): string {
     Logger::debug('Updating status for order: ' . $order->get_id());
     // Check if the order is already in a final state, if so do not update it if the orders are protected.
     $protectOrders = get_option('blink_protect_order_status', 'no');
@@ -374,8 +437,10 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
     if ($protectOrders === 'yes') {
       // Check if the order status is either 'processing' or 'completed'
       if ($order->has_status(['processing', 'completed'])) {
-        $note =
-          'Webhook received from Blink, but the order is already processing or completed, skipping to update order status. Please manually check if everything is alright.';
+        $note = sprintf(
+          'Blink update received via %s, but the order is already processing or completed, skipping to update order status. Please manually check if everything is alright.',
+          $context
+        );
         $order->add_order_note($note);
         return $order->has_status('completed') ? 'PAID' : 'PENDING';
       }
@@ -394,7 +459,8 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
         );
         // Non-custodial orders are settled by polling their LUD-21 verify URL.
         $verifyUrl = $order->get_meta('blink_verify_url') ?: null;
-        $invoice = $this->apiHelper->getInvoice($invoiceId, $verifyUrl);
+        $expiresAt = (int) $order->get_meta('blink_expires_at');
+        $invoice = $this->apiHelper->getInvoice($invoiceId, $verifyUrl, $expiresAt);
         $invoiceStatus = $invoice['status'];
         Logger::debug('Invoice status: ' . $invoiceStatus);
 
@@ -403,13 +469,13 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
             $order,
             $configuredOrderStates[OrderStates::EXPIRED]
           );
-          $order->add_order_note('Invoice expired.');
+          $order->add_order_note(sprintf('Invoice expired (via %s).', $context));
           return 'EXPIRED';
         }
 
         if ($invoiceStatus === 'PAID') {
           $this->updateWCOrderStatus($order, $configuredOrderStates[OrderStates::PAID]);
-          $order->add_order_note('Invoice payment settled.');
+          $order->add_order_note(sprintf('Invoice payment settled (via %s).', $context));
           return 'PAID';
         }
       } catch (\Throwable $e) {
@@ -474,6 +540,12 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
     $lightningUri = 'lightning:' . strtoupper($paymentRequest);
     $satoshis = (int) $order->get_meta('blink_satoshis');
 
+    // Absolute polling deadline: the earlier of the invoice expiry and a hard
+    // 30-minute cap, so the browser never polls indefinitely.
+    $expiresAt = (int) $order->get_meta('blink_expires_at');
+    $hardCap = time() + 30 * MINUTE_IN_SECONDS;
+    $deadline = $expiresAt > 0 ? min($expiresAt, $hardCap) : $hardCap;
+
     wp_localize_script('blink-pay', 'BlinkPay', [
       'ajaxUrl' => admin_url('admin-ajax.php'),
       'nonce' => wp_create_nonce('blink-pay-nonce'),
@@ -483,6 +555,8 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
       'lightningUri' => $lightningUri,
       'redirectUrl' => $order->get_checkout_order_received_url(),
       'pollInterval' => 3000,
+      // Unix timestamp (seconds) after which the client stops polling.
+      'deadline' => $deadline,
     ]);
     ?>
     <section class="blink-pay-container" id="blink-pay">
@@ -576,7 +650,16 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
       ]);
     }
 
-    $status = $this->processOrderStatus($order);
+    // Rate limit: this endpoint is public (nopriv) and each call triggers an
+    // outbound request to the verify server. Throttle per order so it cannot be
+    // used to amplify traffic against the verify endpoint.
+    $rateLimitKey = 'blink_poll_' . sha1($orderId . '|' . $orderKey);
+    if (get_transient($rateLimitKey)) {
+      wp_send_json_success(['status' => 'PENDING', 'redirect' => null]);
+    }
+    set_transient($rateLimitKey, 1, 2);
+
+    $status = $this->processOrderStatus($order, 'ajax-poll');
 
     wp_send_json_success([
       'status' => $status,

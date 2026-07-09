@@ -69,7 +69,22 @@
     }
   }
 
+  function pastDeadline() {
+    return (
+      typeof BlinkPay.deadline === 'number' &&
+      BlinkPay.deadline > 0 &&
+      Date.now() / 1000 > BlinkPay.deadline
+    );
+  }
+
   function poll() {
+    // Absolute timeout: stop polling once the invoice deadline has passed so the
+    // browser never polls forever (e.g. verify endpoint permanently unreachable).
+    if (pastDeadline()) {
+      setStatus('This invoice has expired. Please place the order again.');
+      return;
+    }
+
     var body = new URLSearchParams();
     body.append('action', 'blink_check_invoice');
     body.append('nonce', BlinkPay.nonce);
