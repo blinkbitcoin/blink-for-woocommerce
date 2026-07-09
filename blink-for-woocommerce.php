@@ -9,7 +9,7 @@
  * License URI:     https://github.com/blinkbitcoin/blink-for-woocommerce/blob/main/license.txt
  * Text Domain:     blink-for-woocommerce
  * Domain Path:     /languages
- * Version:         0.1.3
+ * Version:         0.2.1
  *
  * @package         Blink_For_Woocommerce
  */
@@ -19,7 +19,7 @@ use Blink\WC\Helpers\Logger;
 use Blink\WC\Gateway\BlinkLnGateway;
 
 defined('ABSPATH') || exit();
-define('BLINK_VERSION', '0.1.3');
+define('BLINK_VERSION', '0.2.1');
 define('BLINK_VERSION_KEY', 'blink_version');
 define('BLINK_PLUGIN_FILE_PATH', plugin_dir_path(__FILE__));
 define('BLINK_PLUGIN_URL', plugin_dir_url(__FILE__));
@@ -50,6 +50,27 @@ class BlinkWCPlugin {
 
         return $settings;
       });
+
+      // Register the custom settings-field renderers exactly once per request.
+      // These must NOT live in GlobalSettings::__construct(), because WooCommerce
+      // instantiates the settings page multiple times per request (via the
+      // woocommerce_get_settings_pages filter). Registering there would attach a
+      // distinct per-instance callback each time. Using a static callback also lets
+      // WordPress de-duplicate the registration.
+      //
+      // The field type is namespaced as "blink_custom_markup" (not the generic
+      // "custom_markup") to avoid colliding with other active plugins that use the
+      // same generic type/hook (e.g. the BTCPay for WooCommerce plugin). A shared
+      // hook name would cause every plugin's renderer to fire for every plugin's
+      // fields, rendering each custom row once per registered renderer.
+      add_action('woocommerce_admin_field_blink_custom_markup', [
+        '\Blink\WC\Admin\GlobalSettings',
+        'output_custom_markup_field',
+      ]);
+      add_action('woocommerce_admin_field_order_states', [
+        new \Blink\WC\Helpers\OrderStates(),
+        'renderOrderStatesHtml',
+      ]);
 
       $this->dependenciesNotification();
       $this->notConfiguredNotification();

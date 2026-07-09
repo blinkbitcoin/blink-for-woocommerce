@@ -1,0 +1,56 @@
+.blink-pay-container {
+  max-width: 420px;
+  margin: 2em auto;
+  padding: 2em 1.5em;
+  text-align: center;
+  border: 1px solid #e2e4e7;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  background: #fff;
+}
+
+.blink-pay-container h2 {
+  margin-top: 0;
+  font-size: 1.25em;
+}
+
+.blink-pay-amount {
+  font-size: 1.5em;
+  font-weight: 700;
+  margin: 0.25em 0 1em;
+}
+
+.blink-pay-qr {
+  display: inline-block;
+  max-width: 260px;
+  width: 100%;
+  margin: 0 auto 1em;
+}
+
+.blink-pay-qr svg {
+  width: 100%;
+  height: auto;
+}
+
+.blink-pay-invoice code {
+  display: block;
+  word-break: break-all;
+  padding: 0.75em;
+  background: #f6f7f7;
+  border-radius: 6px;
+  font-size: 0.75em;
+  color: #50575e;
+}
+
+.blink-pay-actions {
+  display: flex;
+  gap: 0.5em;
+  justify-content: center;
+  margin: 1em 0;
+}
+
+.blink-pay-status {
+  margin-top: 1em;
+  font-weight: 600;
+  color: #50575e;
+}

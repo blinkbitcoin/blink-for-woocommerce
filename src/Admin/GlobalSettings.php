@@ -16,15 +16,13 @@ class GlobalSettings extends \WC_Settings_Page {
     $this->label = 'Blink Settings';
     $this->apiHelper = new BlinkApiHelper();
 
-    // Register custom field type order_states with OrderStatesField class.
-    add_action('woocommerce_admin_field_order_states', [
-      new OrderStates(),
-      'renderOrderStatesHtml',
-    ]);
-    add_action('woocommerce_admin_field_custom_markup', [
-      $this,
-      'output_custom_markup_field',
-    ]);
+    // NOTE: The custom field renderers (order_states, blink_custom_markup) are
+    // registered once in the plugin bootstrap (blink-for-woocommerce.php), NOT here.
+    // WooCommerce instantiates the settings page multiple times per request via the
+    // woocommerce_get_settings_pages filter; registering the render callbacks in this
+    // constructor would attach a distinct per-instance callback each time. The
+    // "blink_custom_markup" type is namespaced to avoid colliding with other plugins
+    // (e.g. BTCPay for WooCommerce) that use a generic "custom_markup" type/hook.
 
     if (is_admin()) {
       // Register and include JS.
@@ -62,13 +60,24 @@ class GlobalSettings extends \WC_Settings_Page {
     // Check setup status and prepare output.
     $storedApiKey = get_option('blink_api_key');
     $storedBlinkEnv = get_option('blink_env');
+    $storedAccountType = get_option('blink_account_type', 'custodial');
+    $storedLnAddress = get_option('blink_ln_address');
 
-    $setupStatus = '<p class="blink-connection-error">
-        Not connected. Please configure your api key.
-      </p>';
-    if ($storedBlinkEnv && $storedApiKey) {
-      if (BlinkApiHelper::verifyApiKey($storedBlinkEnv, $storedApiKey)) {
+    if ($storedAccountType === 'non_custodial') {
+      $setupStatus = '<p class="blink-connection-error">
+          Not connected. Please configure your Blink lightning address.
+        </p>';
+      if ($storedLnAddress && BlinkApiHelper::verifyLnAddress($storedLnAddress)) {
         $setupStatus = '<p class="blink-connection-success">Connected.</p>';
+      }
+    } else {
+      $setupStatus = '<p class="blink-connection-error">
+          Not connected. Please configure your api key.
+        </p>';
+      if ($storedBlinkEnv && $storedApiKey) {
+        if (BlinkApiHelper::verifyApiKey($storedBlinkEnv, $storedApiKey)) {
+          $setupStatus = '<p class="blink-connection-success">Connected.</p>';
+        }
       }
     }
 
@@ -83,6 +92,19 @@ class GlobalSettings extends \WC_Settings_Page {
           PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION
         ),
         'id' => 'blink_connection',
+      ],
+      'blink_account_type' => [
+        'title' => 'Account Type',
+        'type' => 'select',
+        'options' => [
+          'custodial' => 'Custodial (API key)',
+          'non_custodial' => 'Non-custodial (Lightning address)',
+        ],
+        'default' => 'custodial',
+        'desc' =>
+          'Custodial uses a Blink API key. Non-custodial uses your Blink lightning address (self-custody) and does not require an API key or a Blink dashboard webhook.',
+        'desc_tip' => true,
+        'id' => 'blink_account_type',
       ],
       'blink_env' => [
         'title' => 'Blink Environment',
@@ -112,21 +134,30 @@ class GlobalSettings extends \WC_Settings_Page {
         'title' => 'Blink API Key',
         'type' => 'text',
         'desc' =>
-          'Your Blink API Key. If you do not have any yet use <a target="_blank" href="https://dashboard.blink.sv/api-keys">Blink dashboard</a> to get a new one.<br />IMPORTANT: Create an API key with only READ & RECEIVE scopes. <br />⚠️ Using an API key with WRITE scope could result in loss of funds ⚠️',
+          'Your Blink API Key (custodial account type only). If you do not have any yet use <a target="_blank" href="https://dashboard.blink.sv/api-keys">Blink dashboard</a> to get a new one.<br />IMPORTANT: Create an API key with only READ & RECEIVE scopes. <br />⚠️ Using an API key with WRITE scope could result in loss of funds ⚠️',
         'default' => '',
         'id' => 'blink_api_key',
       ],
+      'ln_address' => [
+        'title' => 'Blink Lightning Address',
+        'type' => 'text',
+        'desc' =>
+          'Your Blink lightning address (non-custodial account type only), e.g. <code>yourname@blink.sv</code>. Payments are received directly to your self-custodial Blink wallet. No API key or Blink dashboard webhook is required.',
+        'default' => '',
+        'placeholder' => 'yourname@blink.sv',
+        'id' => 'blink_ln_address',
+      ],
       'webhook_url' => [
         'title' => 'Webhook Url',
-        'type' => 'custom_markup',
+        'type' => 'blink_custom_markup',
         'markup' =>
           WC()->api_request_url('blink_default') .
-          '<p class="description"> Please use <a target="_blank" href="https://dashboard.blink.sv/callback">Blink dashboard</a> to set it up.</p>',
+          '<p class="description"> Custodial account type only. Please use <a target="_blank" href="https://dashboard.blink.sv/callback">Blink dashboard</a> to set it up, and make sure the callback endpoint is <strong>enabled</strong> (a disabled endpoint silently stops payment notifications and orders will stay in "Pending payment"). Not required for non-custodial (lightning address) accounts.</p>',
         'id' => 'blink_webhook_url',
       ],
       'status' => [
         'title' => 'Setup status',
-        'type' => 'custom_markup',
+        'type' => 'blink_custom_markup',
         'markup' => $setupStatus,
         'id' => 'blink_status',
       ],
@@ -186,7 +217,27 @@ class GlobalSettings extends \WC_Settings_Page {
     Logger::debug('Saving GlobalSettings.');
 
     // nonce validation is not required here because it is done by parent::save()
-    if (!empty($_POST['blink_env']) && !empty($_POST['blink_api_key'])) {
+    $accountType = !empty($_POST['blink_account_type'])
+      ? sanitize_text_field(wp_unslash($_POST['blink_account_type']))
+      : 'custodial';
+
+    if ($accountType === 'non_custodial') {
+      if (!empty($_POST['blink_ln_address'])) {
+        $lnAddress = sanitize_text_field(wp_unslash($_POST['blink_ln_address']));
+
+        if (!BlinkApiHelper::verifyLnAddress($lnAddress)) {
+          $messageException =
+            'Could not verify this Blink lightning address. Please check that it is valid and reachable (format: yourname@blink.sv).';
+          Notice::addNotice('error', $messageException);
+          Logger::debug($messageException, true);
+        }
+      } else {
+        $messageNotConnecting =
+          'Did not try to connect because the Blink lightning address is missing.';
+        Notice::addNotice('warning', $messageNotConnecting);
+        Logger::debug($messageNotConnecting);
+      }
+    } elseif (!empty($_POST['blink_env']) && !empty($_POST['blink_api_key'])) {
       $apiEnv = sanitize_text_field(wp_unslash($_POST['blink_env']));
       $apiKey = sanitize_text_field(wp_unslash($_POST['blink_api_key']));
 
@@ -206,7 +257,7 @@ class GlobalSettings extends \WC_Settings_Page {
     parent::save();
   }
 
-  public function output_custom_markup_field($value) {
+  public static function output_custom_markup_field($value) {
     echo '<tr valign="top">';
     if (!empty($value['title'])) {
       echo '<th scope="row" class="titledesc">' . esc_html($value['title']) . '</th>';
