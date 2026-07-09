@@ -4,7 +4,7 @@ Tags: Bitcoin, Lightning Network, WooCommerce, payment gateway
 Requires at least: 4.5
 Tested up to: 6.6.1
 Requires PHP: 8.1
-Stable tag: 0.1.3
+Stable tag: 0.2.1
 License: MIT
 License URI: https://github.com/blinkbitcoin/blink-for-woocommerce/blob/main/license.txt
 
@@ -20,6 +20,7 @@ Key features of Blink For WooCommerce include:
 * Low Transaction Fees: Enjoy significantly lower transaction fees compared to traditional payment methods, helping you save on processing costs.
 * Stablesats Integration: Offers the ability to receive payments in Bitcoin while maintaining a stable value pegged to the US Dollar, reducing volatility risks.
 * Easy Integration: Simple setup and configuration within WooCommerce, allowing you to start accepting Bitcoin payments quickly and easily.
+* Custodial or Non-custodial: Connect a custodial Blink account with an API key, or a non-custodial (self-custodial) account using just your Blink lightning address. Non-custodial payments are shown as a Lightning QR code on your store and require no API key.
 
 For more information please visit [Plugin Repository](https://github.com/blinkbitcoin/blink-for-woocommerce/).
 
@@ -70,6 +71,17 @@ Yes, visit the [Blink website](https://www.blink.sv/) for support and troublesho
 2. Payment Checkout Page - Customers can choose to pay with Bitcoin via the Lightning Network during checkout.
 
 == Changelog ==
+
+= 0.2.1 =
+* Fix duplicate custom rows (Webhook Url, Setup status) on the Blink settings page
+* Light visual cleanup of the non-custodial on-site pay page
+* Clarify that the custodial Blink dashboard callback endpoint must be enabled
+
+= 0.2.0 =
+* Add support for non-custodial Blink accounts via lightning address (LNURL-pay + LUD-21 verify)
+* Add "Account Type" setting to choose between custodial (API key) and non-custodial (lightning address)
+* Render Lightning invoice with QR code on an on-site pay page for non-custodial orders
+* Detect settlement for non-custodial orders by polling the LUD-21 verify endpoint
 
 = 0.1.3 =
 * Update PHP min version

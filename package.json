@@ -1,6 +1,6 @@
 {
   "name": "blink-for-woocommerce",
-  "version": "0.1.3",
+  "version": "0.2.1",
   "main": "Gruntfile.js",
   "author": "Blink",
   "scripts": {

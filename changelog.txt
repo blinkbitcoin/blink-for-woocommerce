@@ -1,3 +1,14 @@
+= 0.2.1 :: 2026-07-10 =
+* Fix duplicate custom rows (Webhook Url, Setup status) on the Blink settings page
+* Light visual cleanup of the non-custodial on-site pay page
+* Clarify that the custodial Blink dashboard callback endpoint must be enabled
+
+= 0.2.0 :: 2026-07-09 =
+* Add support for non-custodial Blink accounts via lightning address (LNURL-pay + LUD-21 verify)
+* Add "Account Type" setting to choose between custodial (API key) and non-custodial (lightning address)
+* Render Lightning invoice with QR code on an on-site pay page for non-custodial orders
+* Detect settlement for non-custodial orders by polling the LUD-21 verify endpoint
+
 = 0.1.3 :: 2024-11-29 =
 * Update PHP min version
 
