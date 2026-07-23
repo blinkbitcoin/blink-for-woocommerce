@@ -209,12 +209,13 @@ class BlinkApiHelper {
     $addressDomain = self::lnAddressDomain($this->lnAddress);
     $verify = BlinkLnurlClient::checkVerify($verifyUrl, $addressDomain);
 
+    // A settled invoice is always PAID; an unpaid invoice is only EXPIRED once
+    // past its expiry window.
     $status = 'PENDING';
     if ($verify['settled']) {
-      // A settled invoice is always PAID, even if the expiry window has passed.
       $status = 'PAID';
-    } elseif ($expiresAt > 0 && time() > $expiresAt) {
-      // Only mark EXPIRED once the invoice is past its expiry AND unpaid.
+    }
+    if ($status === 'PENDING' && $expiresAt > 0 && time() > $expiresAt) {
       $status = 'EXPIRED';
     }
 

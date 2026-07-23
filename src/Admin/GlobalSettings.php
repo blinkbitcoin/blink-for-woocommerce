@@ -54,34 +54,39 @@ class GlobalSettings extends \WC_Settings_Page {
     return $this->getGlobalSettings();
   }
 
+  private function connectedMarkup(): string {
+    return '<p class="blink-connection-success">Connected.</p>';
+  }
+
+  private function notConnectedMarkup(string $message): string {
+    return '<p class="blink-connection-error">' . $message . '</p>';
+  }
+
+  private function getSetupStatusMarkup(): string {
+    $accountType = get_option('blink_account_type', 'custodial');
+
+    if ($accountType === 'non_custodial') {
+      $lnAddress = get_option('blink_ln_address');
+      if ($lnAddress && BlinkApiHelper::verifyLnAddress($lnAddress)) {
+        return $this->connectedMarkup();
+      }
+      return $this->notConnectedMarkup(
+        'Not connected. Please configure your Blink lightning address.'
+      );
+    }
+
+    $env = get_option('blink_env');
+    $apiKey = get_option('blink_api_key');
+    if ($env && $apiKey && BlinkApiHelper::verifyApiKey($env, $apiKey)) {
+      return $this->connectedMarkup();
+    }
+    return $this->notConnectedMarkup('Not connected. Please configure your api key.');
+  }
+
   public function getGlobalSettings(): array {
     Logger::debug('Entering Global Settings form.');
 
-    // Check setup status and prepare output.
-    $storedApiKey = get_option('blink_api_key');
-    $storedBlinkEnv = get_option('blink_env');
-    $storedAccountType = get_option('blink_account_type', 'custodial');
-    $storedLnAddress = get_option('blink_ln_address');
-
-    if ($storedAccountType === 'non_custodial') {
-      $setupStatus = '<p class="blink-connection-error">
-          Not connected. Please configure your Blink lightning address.
-        </p>';
-      if ($storedLnAddress && BlinkApiHelper::verifyLnAddress($storedLnAddress)) {
-        $setupStatus = '<p class="blink-connection-success">Connected.</p>';
-      }
-    } else {
-      $setupStatus = '<p class="blink-connection-error">
-          Not connected. Please configure your api key.
-        </p>';
-      if (
-        $storedBlinkEnv &&
-        $storedApiKey &&
-        BlinkApiHelper::verifyApiKey($storedBlinkEnv, $storedApiKey)
-      ) {
-        $setupStatus = '<p class="blink-connection-success">Connected.</p>';
-      }
-    }
+    $setupStatus = $this->getSetupStatusMarkup();
 
     return [
       // Section connection.
@@ -212,13 +217,12 @@ class GlobalSettings extends \WC_Settings_Page {
   }
 
   /**
-   * On saving the settings form make sure to check if the API key works and register a webhook if needed.
+   * On saving the settings form make sure the configured account works.
    */
   public function save() {
-    // If we have url, storeID and apiKey we want to check if the api key works and register a webhook.
     Logger::debug('Saving GlobalSettings.');
 
-    // nonce validation is not required here because it is done by parent::save()
+    // Nonce validation is handled by parent::save().
     $accountType = !empty($_POST['blink_account_type'])
       ? sanitize_text_field(wp_unslash($_POST['blink_account_type']))
       : 'custodial';
@@ -228,49 +232,63 @@ class GlobalSettings extends \WC_Settings_Page {
     }
 
     if ($accountType === 'non_custodial') {
-      if (!empty($_POST['blink_ln_address'])) {
-        $lnAddress = sanitize_text_field(wp_unslash($_POST['blink_ln_address']));
-
-        if (!BlinkApiHelper::verifyLnAddress($lnAddress)) {
-          $messageException =
-            'Could not verify this Blink lightning address. Please check that it is valid and reachable (format: yourname@blink.sv).';
-          Notice::addNotice('error', $messageException);
-          Logger::debug($messageException, true);
-        }
-      } else {
-        $messageNotConnecting =
-          'Did not try to connect because the Blink lightning address is missing.';
-        Notice::addNotice('warning', $messageNotConnecting);
-        Logger::debug($messageNotConnecting);
-      }
-    } elseif (!empty($_POST['blink_env']) && !empty($_POST['blink_api_key'])) {
-      $apiEnv = sanitize_text_field(wp_unslash($_POST['blink_env']));
-      $apiKey = sanitize_text_field(wp_unslash($_POST['blink_api_key']));
-
-      if (!BlinkApiHelper::verifyApiKey($apiEnv, $apiKey)) {
-        $messageException =
-          'Error fetching data for this API key from server. Please check if the API key is valid.';
-        Notice::addNotice('error', $messageException);
-        Logger::debug($messageException, true);
-      }
-    } else {
-      $messageNotConnecting =
-        'Did not try to connect to Blink API because one of the required information was missing: Environment or api key';
-      Notice::addNotice('warning', $messageNotConnecting);
-      Logger::debug($messageNotConnecting);
+      $this->validateNonCustodialOnSave();
+    }
+    if ($accountType === 'custodial') {
+      $this->validateCustodialOnSave();
     }
 
     parent::save();
   }
 
-  public static function output_custom_markup_field($value) {
-    echo '<tr valign="top">';
-    if (!empty($value['title'])) {
-      echo '<th scope="row" class="titledesc">' . esc_html($value['title']) . '</th>';
-    } else {
-      echo '<th scope="row" class="titledesc">&nbsp;</th>';
+  private function validateNonCustodialOnSave(): void {
+    if (empty($_POST['blink_ln_address'])) {
+      $message = 'Did not try to connect because the Blink lightning address is missing.';
+      Notice::addNotice('warning', $message);
+      Logger::debug($message);
+      return;
     }
 
+    $lnAddress = sanitize_text_field(wp_unslash($_POST['blink_ln_address']));
+    if (BlinkApiHelper::verifyLnAddress($lnAddress)) {
+      return;
+    }
+
+    $message =
+      'Could not verify this Blink lightning address. Please check that it is valid and reachable (format: yourname@blink.sv).';
+    Notice::addNotice('error', $message);
+    Logger::debug($message, true);
+  }
+
+  private function validateCustodialOnSave(): void {
+    if (empty($_POST['blink_env']) || empty($_POST['blink_api_key'])) {
+      $message =
+        'Did not try to connect to Blink API because one of the required information was missing: Environment or api key';
+      Notice::addNotice('warning', $message);
+      Logger::debug($message);
+      return;
+    }
+
+    $apiEnv = sanitize_text_field(wp_unslash($_POST['blink_env']));
+    $apiKey = sanitize_text_field(wp_unslash($_POST['blink_api_key']));
+    if (BlinkApiHelper::verifyApiKey($apiEnv, $apiKey)) {
+      return;
+    }
+
+    $message =
+      'Error fetching data for this API key from server. Please check if the API key is valid.';
+    Notice::addNotice('error', $message);
+    Logger::debug($message, true);
+  }
+
+  public static function output_custom_markup_field($value) {
+    $title = '&nbsp;';
+    if (!empty($value['title'])) {
+      $title = esc_html($value['title']);
+    }
+
+    echo '<tr valign="top">';
+    echo '<th scope="row" class="titledesc">' . $title . '</th>';
     echo '<td class="forminp" id="' . esc_attr($value['id']) . '">';
     echo wp_kses_post($value['markup']);
     echo '</td>';
