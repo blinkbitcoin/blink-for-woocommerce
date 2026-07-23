@@ -74,10 +74,12 @@ class GlobalSettings extends \WC_Settings_Page {
       $setupStatus = '<p class="blink-connection-error">
           Not connected. Please configure your api key.
         </p>';
-      if ($storedBlinkEnv && $storedApiKey) {
-        if (BlinkApiHelper::verifyApiKey($storedBlinkEnv, $storedApiKey)) {
-          $setupStatus = '<p class="blink-connection-success">Connected.</p>';
-        }
+      if (
+        $storedBlinkEnv &&
+        $storedApiKey &&
+        BlinkApiHelper::verifyApiKey($storedBlinkEnv, $storedApiKey)
+      ) {
+        $setupStatus = '<p class="blink-connection-success">Connected.</p>';
       }
     }
 

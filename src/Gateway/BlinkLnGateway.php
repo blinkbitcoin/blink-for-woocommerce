@@ -113,14 +113,15 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
    * Get custom gateway icon, if any.
    */
   public function getIcon(): string {
-    $icon = null;
-    if ($mediaId = $this->get_option(self::ICON_MEDIA_OPTION)) {
-      if ($customIcon = wp_get_attachment_image_src($mediaId)[0]) {
-        $icon = $customIcon;
-      }
+    $defaultIcon = BLINK_PLUGIN_URL . 'assets/images/blink-logo.png';
+
+    $mediaId = $this->get_option(self::ICON_MEDIA_OPTION);
+    if (!$mediaId) {
+      return $defaultIcon;
     }
 
-    return $icon ?? BLINK_PLUGIN_URL . 'assets/images/blink-logo.png';
+    $customIcon = wp_get_attachment_image_src($mediaId);
+    return $customIcon[0] ?? $defaultIcon;
   }
 
   public function process_admin_options() {
@@ -160,7 +161,7 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
 
     $order = wc_get_order($order_id);
     if ($order->get_id() === 0) {
-      $message = 'Could not load order id ' . $orderId . ', aborting.';
+      $message = 'Could not load order id ' . $order_id . ', aborting.';
       Logger::debug($message, true);
       throw new \Exception(esc_html($message));
     }
@@ -348,21 +349,17 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
    * @return mixed Returns false if no valid invoice found or the invoice id.
    */
   protected function validInvoiceExists(\WC_Order $order): bool {
-    if ($invoiceId = $order->get_meta('blink_id')) {
-      try {
-        Logger::debug(
-          'Trying to fetch existing invoice from Blink for hash ' . $invoiceId
-        );
-        $invoice = $this->apiHelper->getInvoice($invoiceId);
-        $invalidStates = ['EXPIRED'];
-        if (in_array($invoice['status'], $invalidStates)) {
-          return false;
-        }
+    $invoiceId = $order->get_meta('blink_id');
+    if (!$invoiceId) {
+      return false;
+    }
 
-        return true;
-      } catch (\Throwable $e) {
-        Logger::debug($e->getMessage());
-      }
+    try {
+      Logger::debug('Trying to fetch existing invoice from Blink for hash ' . $invoiceId);
+      $invoice = $this->apiHelper->getInvoice($invoiceId);
+      return $invoice['status'] !== 'EXPIRED';
+    } catch (\Throwable $e) {
+      Logger::debug($e->getMessage());
     }
 
     return false;
@@ -434,53 +431,49 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
 
     Logger::debug('Protect order: ' . $protectOrders);
 
-    if ($protectOrders === 'yes') {
-      // Check if the order status is either 'processing' or 'completed'
-      if ($order->has_status(['processing', 'completed'])) {
-        $note = sprintf(
-          'Blink update received via %s, but the order is already processing or completed, skipping to update order status. Please manually check if everything is alright.',
-          $context
-        );
-        $order->add_order_note($note);
-        return $order->has_status('completed') ? 'PAID' : 'PENDING';
-      }
+    // If protection is on and the order is already progressing/done, leave it untouched.
+    if ($protectOrders === 'yes' && $order->has_status(['processing', 'completed'])) {
+      $note = sprintf(
+        'Blink update received via %s, but the order is already processing or completed, skipping to update order status. Please manually check if everything is alright.',
+        $context
+      );
+      $order->add_order_note($note);
+      return $order->has_status('completed') ? 'PAID' : 'PENDING';
     }
 
-    if ($invoiceId = $order->get_meta('blink_id')) {
-      // Get configured order states or fall back to defaults.
-      if (!($configuredOrderStates = get_option('blink_order_states'))) {
-        $configuredOrderStates = (new OrderStates())->getDefaultOrderStateMappings();
+    $invoiceId = $order->get_meta('blink_id');
+    if (!$invoiceId) {
+      return 'PENDING';
+    }
+
+    // Get configured order states or fall back to defaults.
+    if (!($configuredOrderStates = get_option('blink_order_states'))) {
+      $configuredOrderStates = (new OrderStates())->getDefaultOrderStateMappings();
+    }
+    Logger::debug('Configured Order States: ' . implode(', ', $configuredOrderStates));
+
+    try {
+      Logger::debug('Trying to fetch existing invoice from Blink for hash ' . $invoiceId);
+      // Non-custodial orders are settled by polling their LUD-21 verify URL.
+      $verifyUrl = $order->get_meta('blink_verify_url') ?: null;
+      $expiresAt = (int) $order->get_meta('blink_expires_at');
+      $invoice = $this->apiHelper->getInvoice($invoiceId, $verifyUrl, $expiresAt);
+      $invoiceStatus = $invoice['status'];
+      Logger::debug('Invoice status: ' . $invoiceStatus);
+
+      if ($invoiceStatus === 'EXPIRED') {
+        $this->updateWCOrderStatus($order, $configuredOrderStates[OrderStates::EXPIRED]);
+        $order->add_order_note(sprintf('Invoice expired (via %s).', $context));
+        return 'EXPIRED';
       }
-      Logger::debug('Configured Order States: ' . implode(', ', $configuredOrderStates));
 
-      try {
-        Logger::debug(
-          'Trying to fetch existing invoice from Blink for hash ' . $invoiceId
-        );
-        // Non-custodial orders are settled by polling their LUD-21 verify URL.
-        $verifyUrl = $order->get_meta('blink_verify_url') ?: null;
-        $expiresAt = (int) $order->get_meta('blink_expires_at');
-        $invoice = $this->apiHelper->getInvoice($invoiceId, $verifyUrl, $expiresAt);
-        $invoiceStatus = $invoice['status'];
-        Logger::debug('Invoice status: ' . $invoiceStatus);
-
-        if ($invoiceStatus === 'EXPIRED') {
-          $this->updateWCOrderStatus(
-            $order,
-            $configuredOrderStates[OrderStates::EXPIRED]
-          );
-          $order->add_order_note(sprintf('Invoice expired (via %s).', $context));
-          return 'EXPIRED';
-        }
-
-        if ($invoiceStatus === 'PAID') {
-          $this->updateWCOrderStatus($order, $configuredOrderStates[OrderStates::PAID]);
-          $order->add_order_note(sprintf('Invoice payment settled (via %s).', $context));
-          return 'PAID';
-        }
-      } catch (\Throwable $e) {
-        Logger::debug($e->getMessage(), true);
+      if ($invoiceStatus === 'PAID') {
+        $this->updateWCOrderStatus($order, $configuredOrderStates[OrderStates::PAID]);
+        $order->add_order_note(sprintf('Invoice payment settled (via %s).', $context));
+        return 'PAID';
       }
+    } catch (\Throwable $e) {
+      Logger::debug($e->getMessage(), true);
     }
 
     return 'PENDING';

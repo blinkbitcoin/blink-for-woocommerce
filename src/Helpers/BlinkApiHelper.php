@@ -53,10 +53,7 @@ class BlinkApiHelper {
       'blink' => 'https://api.blink.sv/graphql',
       'staging' => 'https://api.staging.galoy.io/graphql',
     ];
-    if ($env && isset($urlMapping[$env])) {
-      return $urlMapping[$env];
-    }
-    return $urlMapping['blink'];
+    return $urlMapping[$env] ?? $urlMapping['blink'];
   }
 
   public static function getPayUrl(string $env = null): string {
@@ -64,10 +61,7 @@ class BlinkApiHelper {
       'blink' => 'https://pay.blink.sv',
       'staging' => 'https://pay.staging.galoy.io',
     ];
-    if ($env && isset($urlMapping[$env])) {
-      return $urlMapping[$env];
-    }
-    return $urlMapping['blink'];
+    return $urlMapping[$env] ?? $urlMapping['blink'];
   }
 
   public static function getConfig(): array {
@@ -103,17 +97,13 @@ class BlinkApiHelper {
       return [];
     }
 
-    if ($url) {
-      return [
-        'account_type' => 'custodial',
-        'env' => $env,
-        'api_key' => $key,
-        'wallet_type' => $walletType,
-        'url' => $url,
-      ];
-    }
-
-    return [];
+    return [
+      'account_type' => 'custodial',
+      'env' => $env,
+      'api_key' => $key,
+      'wallet_type' => $walletType,
+      'url' => $url,
+    ];
   }
 
   /**
@@ -140,22 +130,10 @@ class BlinkApiHelper {
       return false;
     }
 
-    $config = self::getConfig();
     $url = self::getApiUrl($env);
 
-    if ($url) {
-      $config['env'] = $env;
-      $config['url'] = $url;
-      $config['api_key'] = $apiKey;
-    }
-
-    if (!$config) {
-      Logger::debug('Invalid config', true);
-      return false;
-    }
-
     try {
-      $client = new BlinkApiClient($config['url'], $config['api_key']);
+      $client = new BlinkApiClient($url, $apiKey);
       $scopes = $client->getAuthorizationScopes();
       $hasReceive = in_array('RECEIVE', $scopes);
       $hasWrite = in_array('WRITE', $scopes);
