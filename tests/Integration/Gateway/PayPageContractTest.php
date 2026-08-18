@@ -59,6 +59,7 @@ final class PayPageContractTest extends IntegrationTestCase {
     'invalid',
     'paid',
     'review',
+    'unconfirmed',
     'unreachable',
   ];
 

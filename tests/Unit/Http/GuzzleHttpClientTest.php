@@ -166,7 +166,10 @@ final class GuzzleHttpClientTest extends TestCase {
       new HttpRequestOptions(maxBytes: 1024)
     );
 
-    $this->assertTrue($response->truncated, 'one byte beyond the cap is still a cut body');
+    $this->assertTrue(
+      $response->truncated,
+      'one byte beyond the cap is still a cut body'
+    );
     $this->assertSame(1024, strlen($response->body));
   }
 

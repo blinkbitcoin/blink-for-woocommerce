@@ -65,19 +65,29 @@ describe('pay page', () => {
   });
 
   describe('deadline', () => {
+    // The deadline the page is given is the invoice expiry plus the same grace
+    // the server allows, so it lands exactly when the server first becomes
+    // willing to say EXPIRED. The page therefore keeps asking a bounded number
+    // of times past it rather than deciding on its own clock.
+    const POST_DEADLINE_POLLS = 6;
+
+    /** Long enough for the whole post-deadline budget to be spent. */
+    const DRAIN = 120000;
+
     /**
      * The original bug: wp_localize_script turns every value into a string, so
      * a `typeof deadline === 'number'` check was never true and the page
-     * polled forever. The value is coerced now, so a string still works.
+     * polled forever. The value is coerced now, so a string still works — an
+     * uncoerced deadline would poll well past the bounded budget.
      */
     it('honours a deadline delivered as a string', async () => {
       const past = String(Math.floor(Date.now() / 1000) - 10);
       await loadPayScript(defaultConfig({ deadline: past }));
 
-      await advance(3000);
+      await advance(DRAIN);
 
-      expect(globalThis.fetch).not.toHaveBeenCalled();
-      expect(statusText()).toContain('expired');
+      expect(globalThis.fetch).toHaveBeenCalledTimes(POST_DEADLINE_POLLS);
+      expect(statusText()).toContain('could not confirm');
     });
 
     it('honours a deadline delivered as a number', async () => {
@@ -85,10 +95,10 @@ describe('pay page', () => {
         defaultConfig({ deadline: Math.floor(Date.now() / 1000) - 10 }),
       );
 
-      await advance(3000);
+      await advance(DRAIN);
 
-      expect(globalThis.fetch).not.toHaveBeenCalled();
-      expect(statusText()).toContain('expired');
+      expect(globalThis.fetch).toHaveBeenCalledTimes(POST_DEADLINE_POLLS);
+      expect(statusText()).toContain('could not confirm');
     });
 
     it('keeps polling while the deadline is in the future', async () => {
@@ -99,7 +109,7 @@ describe('pay page', () => {
       expect(globalThis.fetch).toHaveBeenCalledTimes(1);
     });
 
-    it('stops once the deadline passes mid-session', async () => {
+    it('gives the server a bounded number of further chances past the deadline', async () => {
       await loadPayScript(
         defaultConfig({ deadline: Math.floor(Date.now() / 1000) + 10 }),
       );
@@ -107,11 +117,47 @@ describe('pay page', () => {
       await advance(3000);
       expect(globalThis.fetch).toHaveBeenCalledTimes(1);
 
-      await advance(60000);
-      const calls = globalThis.fetch.mock.calls.length;
+      // Where exactly the deadline falls between two jittered polls is not
+      // fixed, so the budget is counted precisely in the already-past-deadline
+      // tests above. What matters here is that crossing it mid-session ends
+      // polling rather than either stopping dead or running forever.
+      await advance(10000);
+      const atDeadline = globalThis.fetch.mock.calls.length;
 
-      await advance(60000);
-      expect(globalThis.fetch.mock.calls.length).toBe(calls);
+      await advance(DRAIN);
+      const spent = globalThis.fetch.mock.calls.length;
+      expect(spent).toBeGreaterThan(atDeadline);
+      expect(spent).toBeLessThanOrEqual(atDeadline + POST_DEADLINE_POLLS);
+
+      await advance(DRAIN);
+      expect(globalThis.fetch.mock.calls.length).toBe(spent);
+      expect(statusText()).toContain('could not confirm');
+    });
+
+    /**
+     * The whole point of the change: an unconfirmed payment must never be
+     * reported as expired, because "place the order again" is an instruction
+     * to pay twice.
+     */
+    it('does not claim the invoice expired when the server never confirmed it', async () => {
+      await loadPayScript(defaultConfig({ deadline: Math.floor(Date.now() / 1000) - 1 }));
+
+      await advance(DRAIN);
+
+      expect(statusText()).not.toContain('expired');
+      expect(statusText()).toContain('do not pay again');
+    });
+
+    it('still reports expiry when the server confirms it past the deadline', async () => {
+      globalThis.fetch = vi.fn(() =>
+        Promise.resolve(jsonResponse({ success: true, data: { status: 'EXPIRED' } })),
+      );
+
+      await loadPayScript(defaultConfig({ deadline: Math.floor(Date.now() / 1000) - 1 }));
+
+      await advance(DRAIN);
+
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
       expect(statusText()).toContain('expired');
     });
 
@@ -123,17 +169,29 @@ describe('pay page', () => {
       expect(globalThis.fetch).toHaveBeenCalledTimes(1);
     });
 
-    it('uses the translated expiry message when one is supplied', async () => {
-      await loadPayScript(
-        defaultConfig({
-          deadline: Math.floor(Date.now() / 1000) - 1,
-          i18n: { expired: 'Fakturan har gatt ut.' },
-        }),
+    it('uses the translated expiry message when the server reports EXPIRED', async () => {
+      globalThis.fetch = vi.fn(() =>
+        Promise.resolve(jsonResponse({ success: true, data: { status: 'EXPIRED' } })),
       );
+
+      await loadPayScript(defaultConfig({ i18n: { expired: 'Fakturan har gatt ut.' } }));
 
       await advance(3000);
 
       expect(statusText()).toBe('Fakturan har gatt ut.');
+    });
+
+    it('uses the translated unconfirmed message when one is supplied', async () => {
+      await loadPayScript(
+        defaultConfig({
+          deadline: Math.floor(Date.now() / 1000) - 1,
+          i18n: { unconfirmed: 'Vi kunde inte bekrafta betalningen.' },
+        }),
+      );
+
+      await advance(DRAIN);
+
+      expect(statusText()).toBe('Vi kunde inte bekrafta betalningen.');
     });
   });
 
@@ -520,9 +578,9 @@ describe('pay page', () => {
       config.deadline = Math.floor(Date.now() / 1000) - 1;
 
       await loadPayScript(config);
-      await advance(3000);
+      await advance(120000);
 
-      expect(statusText()).toContain('expired');
+      expect(statusText()).toContain('could not confirm');
     });
 
     it('falls back to the default interval when none is configured', async () => {

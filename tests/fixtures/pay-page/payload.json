@@ -13,6 +13,7 @@
         "copy": "Copy invoice",
         "paid": "Payment received! Redirecting\u2026",
         "expired": "This invoice has expired. Please place the order again.",
+        "unconfirmed": "We could not confirm this payment. If you have already paid, do not pay again \u2014 your order will be updated once the payment is confirmed.",
         "review": "Payment received. This order is being reviewed before it is completed.",
         "unreachable": "We cannot reach the payment server right now. Any payment you have made is safe.",
         "invalid": "This payment session is no longer valid. Please reload the page.",

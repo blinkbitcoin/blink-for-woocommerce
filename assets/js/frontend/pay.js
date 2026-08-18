@@ -20,8 +20,20 @@
   var JITTER = 0.25;
   var MAX_CONSECUTIVE_FAILURES = 10;
 
+  /**
+   * How many more times the server is asked after the local deadline passes.
+   *
+   * The deadline handed to this page is already the invoice expiry plus the
+   * same grace the server allows, so it falls exactly when the server first
+   * becomes willing to call the invoice dead. Stopping there meant giving up
+   * one request short of a real answer. Six polls is roughly two minutes at
+   * the delay ceiling.
+   */
+  var MAX_POST_DEADLINE_POLLS = 6;
+
   var delay = BASE_DELAY;
   var failures = 0;
+  var postDeadlinePolls = 0;
   var timer = null;
   var stopped = false;
 
@@ -221,12 +233,27 @@
 
   function poll() {
     if (pastDeadline()) {
-      stop(
-        text('expired', 'This invoice has expired. Please place the order again.'),
-        false,
-      );
+      // The server decides whether an invoice is dead, not this clock. Past
+      // the deadline it gets a bounded number of further chances to say so,
+      // and a definitive EXPIRED still ends polling through handle() with the
+      // usual message. Only when it will not answer is the outcome genuinely
+      // unknown -- and an unknown outcome must never tell a customer who may
+      // already have paid to pay again.
+      if (postDeadlinePolls >= MAX_POST_DEADLINE_POLLS) {
+        stop(
+          text(
+            'unconfirmed',
+            'We could not confirm this payment. If you have already paid, ' +
+              'do not pay again — your order will be updated once the payment ' +
+              'is confirmed.',
+          ),
+          false,
+        );
 
-      return;
+        return;
+      }
+
+      postDeadlinePolls++;
     }
 
     var body = new URLSearchParams();

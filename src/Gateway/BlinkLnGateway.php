@@ -589,6 +589,12 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
               'This invoice has expired. Please place the order again.',
               'blink-for-woocommerce'
             ),
+            // One literal, not a concatenation: the POT extractor silently
+            // skips a concatenated string, leaving it untranslatable forever.
+            'unconfirmed' => __(
+              'We could not confirm this payment. If you have already paid, do not pay again — your order will be updated once the payment is confirmed.',
+              'blink-for-woocommerce'
+            ),
             'review' => __(
               'Payment received. This order is being reviewed before it is completed.',
               'blink-for-woocommerce'
