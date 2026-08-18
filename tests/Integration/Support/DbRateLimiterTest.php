@@ -139,6 +139,39 @@ final class DbRateLimiterTest extends IntegrationTestCase {
     );
   }
 
+  public function test_garbage_collection_drains_more_than_one_batch(): void {
+    global $wpdb;
+    $expiredWindow = self::NOW - 2 * DAY_IN_SECONDS;
+    for ($i = 0; $i < 501; $i++) {
+      $wpdb->insert($wpdb->options, [
+        'option_name' =>
+          DbRateLimiter::PREFIX .
+          'bulk_' .
+          sprintf('%04d', $i) .
+          '_' .
+          sprintf('%010d', $expiredWindow),
+        'option_value' => '1',
+        'autoload' => 'no',
+      ]);
+    }
+    $this->limiter->hit('fresh', 5, 60);
+
+    $this->limiter->collectGarbage();
+
+    $this->assertSame(
+      '0',
+      (string) $wpdb->get_var(
+        "SELECT COUNT(*) FROM {$wpdb->options} WHERE option_name LIKE 'blink_rl_bulk_%'"
+      )
+    );
+    $this->assertSame(
+      '1',
+      (string) $wpdb->get_var(
+        "SELECT COUNT(*) FROM {$wpdb->options} WHERE option_name LIKE 'blink_rl_fresh_%'"
+      )
+    );
+  }
+
   public function test_garbage_collection_keeps_the_current_window(): void {
     global $wpdb;
     $this->limiter->hit('ip_a', 5, 60);

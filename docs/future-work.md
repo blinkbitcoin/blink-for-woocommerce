@@ -157,6 +157,14 @@ behavioural tests too, so the split needs those tests reorganised first.
 is to pull a branch worth pinning out of the adapter and into a seam the unit
 tier can reach.
 
+**Applied since.** Both decisions this branch added to `BlinkLnGateway` were
+moved out rather than left in the adapter: routing an order by its stored
+account type is now `InvoiceRepository::resolvesNonCustodial()`, and whether an
+existing invoice may be shown again is now `InvoiceReusePolicy` — five branches
+that decide whether a customer sees a QR code that cannot be paid. Both are
+under the coverage gate. The section stays open: the third tier still does not
+exist, so the gateway's remaining conditionals are still unmeasured.
+
 ---
 
 ## 7b. Remove the subversion dependency from CI
@@ -249,14 +257,18 @@ using it unconditionally would silently disable the lock on a default install.
 
 ## 12. Stablesats for non-custodial accounts
 
-**Now.** Non-custodial is Bitcoin-only. The settings screen still shows the
-wallet-type selector, which has no effect in this mode.
+**Now.** Non-custodial is Bitcoin-only. `BlinkApiHelper::getConfig()` hardcodes
+`wallet_type` to `bitcoin` in this mode and never reads the option.
 
-**Should be.** Either support USD-pegged payments, or hide the control when it
-does not apply.
+**Done since.** The wallet-type selector said nothing about which mode it
+applied to, so a merchant could pick USD, receive sats, and have no way to tell
+why. Its description now says custodial-only, matching how the API key and
+webhook fields already mark themselves.
 
-**The second half is worth doing regardless** — a setting that silently does
-nothing is a support ticket waiting to happen — and is small.
+**Should be.** Support USD-pegged payments, or hide the control outright rather
+than labelling it. Hiding it means the settings screen branching on the saved
+account type, which puts a new branch into `src/Admin` — the area §7 is about —
+so it wants doing alongside that, not before it.
 
 ---
 

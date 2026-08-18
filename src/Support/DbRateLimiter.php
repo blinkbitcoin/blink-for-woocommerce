@@ -61,30 +61,44 @@ final class DbRateLimiter implements RateLimiterInterface {
    */
   public function collectGarbage(): void {
     $cutoff = $this->clock->now() - self::RETENTION_SECONDS;
+    $cursor = self::PREFIX;
 
-    $names = $this->db->get_col(
-      $this->db->prepare(
-        "SELECT option_name FROM {$this->db->options} WHERE option_name LIKE %s LIMIT 500",
-        $this->db->esc_like(self::PREFIX) . '%'
-      )
-    );
-
-    if (!is_array($names)) {
-      return;
-    }
-
-    foreach ($names as $name) {
-      $windowStart = $this->windowStartFrom((string) $name);
-      if ($windowStart !== null && $windowStart < $cutoff) {
-        $this->run(
-          $this->db->prepare(
-            "DELETE FROM {$this->db->options} WHERE option_name = %s",
-            $name
-          )
-        );
-        wp_cache_delete((string) $name, 'options');
+    do {
+      $query = $this->db->prepare(
+        "SELECT option_name FROM {$this->db->options}
+         WHERE option_name LIKE %s AND option_name > %s
+         ORDER BY option_name ASC
+         LIMIT 500",
+        $this->db->esc_like(self::PREFIX) . '%',
+        $cursor
+      );
+      if ($query === null) {
+        return;
       }
-    }
+
+      $names = $this->db->get_col($query);
+      if (!is_array($names) || $names === []) {
+        return;
+      }
+
+      foreach ($names as $name) {
+        $name = (string) $name;
+        $windowStart = $this->windowStartFrom($name);
+        if ($windowStart !== null && $windowStart < $cutoff) {
+          $this->run(
+            $this->db->prepare(
+              "DELETE FROM {$this->db->options} WHERE option_name = %s",
+              $name
+            )
+          );
+          wp_cache_delete($name, 'options');
+        }
+      }
+
+      // Advance independently of deletion success. A failed delete must not
+      // make the next batch select the same rows forever.
+      $cursor = (string) end($names);
+    } while (count($names) === 500);
   }
 
   /**

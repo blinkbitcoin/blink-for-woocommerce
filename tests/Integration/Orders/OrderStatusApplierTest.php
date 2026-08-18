@@ -288,6 +288,33 @@ final class OrderStatusApplierTest extends IntegrationTestCase {
     $this->assertNotNull($reloaded->get_date_paid());
   }
 
+  public function test_mapped_payment_complete_hook_fires_only_once(): void {
+    update_option('blink_order_states', [
+      OrderStates::PAID => 'on-hold',
+      OrderStates::EXPIRED => 'cancelled',
+    ]);
+    $order = $this->makeOrder();
+    $fired = [];
+    add_action(
+      'woocommerce_payment_complete',
+      function ($orderId, $transactionId = '') use (&$fired): void {
+        $fired[] = [$orderId, $transactionId];
+      },
+      10,
+      2
+    );
+
+    $this->applier->apply($order, 'PAID', 'blink', true);
+    $this->applier->completePayment($order, 'txn-123');
+
+    $order = $this->reload($order);
+    $this->applier->apply($order, 'PAID', 'blink', true);
+    $this->applier->completePayment($order, 'txn-123');
+
+    $this->assertSame('on-hold', $this->reload($order)->get_status());
+    $this->assertSame([[$order->get_id(), 'txn-123']], $fired);
+  }
+
   public function test_payment_complete_declines_a_protected_order(): void {
     update_option('blink_protect_order_status', 'yes');
     $order = $this->makeOrder();

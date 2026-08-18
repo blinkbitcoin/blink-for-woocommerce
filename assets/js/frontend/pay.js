@@ -115,9 +115,14 @@
   }
 
   function schedule(ms) {
-    // No stopped-guard needed: stop() clears the pending timer, and every
-    // caller that resumes clears the flag first.
     clearTimer();
+
+    // Visibility can change while fetch() is in flight. Its continuation must
+    // not recreate the timer that the visibility handler just cleared.
+    if (stopped || document.hidden) {
+      return;
+    }
+
     timer = window.setTimeout(poll, ms);
   }
 

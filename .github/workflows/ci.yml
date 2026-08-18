@@ -419,6 +419,7 @@ jobs:
           key: playwright-${{ hashFiles('package-lock.json') }}
       - run: npx playwright install --with-deps chromium
       - name: Cache WordPress download
+        id: wp-cache
         uses: actions/cache@v4
         with:
           path: |

@@ -447,6 +447,30 @@ describe('pay page', () => {
       expect(globalThis.fetch.mock.calls.length).toBe(calls + 1);
     });
 
+    it('does not reschedule when a request finishes after the tab is hidden', async () => {
+      let resolveRequest;
+      globalThis.fetch = vi.fn(
+        () =>
+          new Promise((resolve) => {
+            resolveRequest = resolve;
+          }),
+      );
+      await loadPayScript();
+      await advance(3000);
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+
+      setHidden(true);
+      resolveRequest(jsonResponse({ success: true, data: { status: 'PENDING' } }));
+      await advance(120000);
+
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+
+      setHidden(false);
+      await advance(1);
+
+      expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+    });
+
     it('does not resume a session that has already finished', async () => {
       globalThis.fetch = vi.fn(() =>
         Promise.resolve(jsonResponse({ success: true, data: { status: 'EXPIRED' } })),

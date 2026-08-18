@@ -14,6 +14,7 @@ use Blink\WC\NonCustodial\Bolt11\InvoiceValidator;
 use Blink\WC\NonCustodial\DnsResolverInterface;
 use Blink\WC\NonCustodial\InvoiceFactory;
 use Blink\WC\NonCustodial\InvoiceRepository;
+use Blink\WC\NonCustodial\InvoiceReusePolicy;
 use Blink\WC\NonCustodial\LnurlClient;
 use Blink\WC\NonCustodial\LnurlClientInterface;
 use Blink\WC\NonCustodial\PollBudget;
@@ -139,6 +140,16 @@ final class Services {
     return $this->memo(
       __FUNCTION__,
       fn(): InvoiceRepository => new InvoiceRepository($this->clock())
+    );
+  }
+
+  public function invoiceReusePolicy(): InvoiceReusePolicy {
+    return $this->memo(
+      __FUNCTION__,
+      fn(): InvoiceReusePolicy => new InvoiceReusePolicy(
+        $this->invoiceRepository(),
+        $this->clock()
+      )
     );
   }
 

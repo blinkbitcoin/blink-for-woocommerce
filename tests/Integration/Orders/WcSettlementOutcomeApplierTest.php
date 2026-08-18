@@ -95,4 +95,30 @@ final class WcSettlementOutcomeApplierTest extends IntegrationTestCase {
     $this->assertSame('pending', $this->reload($order)->get_status());
     $this->assertSame([], $this->noteContents($order));
   }
+
+  public function test_paid_bookkeeping_uses_the_protection_state_before_mapping(): void {
+    update_option('blink_protect_order_status', 'yes');
+    $order = $this->makeOrder();
+    $invoice = $this->storeInvoice($order);
+    $fired = [];
+    add_action(
+      'woocommerce_payment_complete',
+      function ($orderId, $transactionId = '') use (&$fired): void {
+        $fired[] = [$orderId, $transactionId];
+      },
+      10,
+      2
+    );
+
+    $this->outcomeApplier->applyOutcome(
+      $this->record($order),
+      $this->outcome(SettlementStatus::Paid)
+    );
+
+    $reloaded = $this->reload($order);
+    $this->assertSame('processing', $reloaded->get_status());
+    $this->assertSame($invoice->paymentHash, $reloaded->get_transaction_id());
+    $this->assertNotNull($reloaded->get_date_paid());
+    $this->assertSame([[$order->get_id(), $invoice->paymentHash]], $fired);
+  }
 }

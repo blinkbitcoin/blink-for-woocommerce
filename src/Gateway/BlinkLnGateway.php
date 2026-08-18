@@ -195,11 +195,10 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
     // resulting null as "reuse this", redirecting the buyer to a Blink-hosted
     // checkout that does not exist. The setting only decides the type of an
     // order that has no invoice yet.
-    $repository = $this->services->invoiceRepository();
     $record = new WcOrderRecord($order);
-    $isNonCustodial = $repository->hasStoredAccountType($record)
-      ? $repository->isNonCustodial($record)
-      : $this->apiHelper->isNonCustodial();
+    $isNonCustodial = $this->services
+      ->invoiceRepository()
+      ->resolvesNonCustodial($record, $this->apiHelper->isNonCustodial());
 
     if ($isNonCustodial) {
       return $this->processPaymentNonCustodial($order);
@@ -262,7 +261,7 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
   protected function processPaymentNonCustodial(\WC_Order $order): array {
     $record = new WcOrderRecord($order);
 
-    if (!$this->hasReusableNonCustodialInvoice($order)) {
+    if (!$this->services->invoiceReusePolicy()->isReusable($record)) {
       // Built before anything stored is touched. Clearing first and creating
       // afterwards meant a failed creation left the order with no payment hash,
       // no verify URL and no account type, while the previous invoice stayed
@@ -336,37 +335,6 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
     // Background settlement starts here, so the order no longer depends on the
     // customer keeping the pay page open.
     $this->services->settlementScheduler()->onInvoiceCreated($record, $invoice);
-  }
-
-  /**
-   * Whether the order already has a non-custodial invoice that can still be paid.
-   *
-   * Deliberately decided from stored state alone. The previous implementation
-   * made a synchronous verify request here, which put a third-party HTTP call
-   * on the checkout submit path and, because a transport error surfaced as
-   * PENDING, treated an unreachable server as "this invoice is fine".
-   */
-  protected function hasReusableNonCustodialInvoice(\WC_Order $order): bool {
-    $record = new WcOrderRecord($order);
-    $repository = $this->services->invoiceRepository();
-
-    if ($repository->terminalStatus($record) !== null) {
-      return false;
-    }
-
-    $invoice = $repository->load($record);
-    if ($invoice === null) {
-      return false;
-    }
-
-    // Leave enough time for the customer to actually pay it.
-    $now = $this->services->clock()->now();
-    if ($invoice->expiresAt > 0 && $invoice->expiresAt - $now < 120) {
-      return false;
-    }
-
-    // An order edited since the invoice was made needs a new one.
-    return $repository->totalsUnchanged($record, $invoice);
   }
 
   public function process_refund($order_id, $amount = null, $reason = '') {

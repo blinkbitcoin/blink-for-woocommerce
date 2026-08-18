@@ -35,6 +35,53 @@ final class InvoiceRepositoryTest extends TestCase {
     $this->assertFalse($repository->isNonCustodial($order));
   }
 
+  public function testAnOrderWithNoInvoiceFollowsTheAccountTypeSetting(): void {
+    $repository = new InvoiceRepository(new FakeClock(1700000000));
+    $order = new FakeOrder(42, '10.00', 'USD');
+
+    $this->assertTrue($repository->resolvesNonCustodial($order, true));
+    $this->assertFalse($repository->resolvesNonCustodial($order, false));
+  }
+
+  public function testALegacyCustodialInvoiceOverridesTheNonCustodialSetting(): void {
+    $repository = new InvoiceRepository(new FakeClock(1700000000));
+    $order = new FakeOrder(42, '10.00', 'USD');
+    $order->setMeta(InvoiceRepository::PAYMENT_HASH, 'legacy-custodial-hash');
+
+    $this->assertFalse(
+      $repository->resolvesNonCustodial($order, true),
+      'blink_id predates account-type metadata and must preserve the custodial route'
+    );
+  }
+
+  /**
+   * The whole reason resolvesNonCustodial() exists. A merchant who switches the
+   * setting while an order is in flight would otherwise send that order down
+   * the other path: a non-custodial order routed custodially has its LNURL
+   * payment hash queried through the Blink API, and the buyer is redirected to
+   * a Blink-hosted checkout that was never created.
+   */
+  public function testAnOrderInFlightIgnoresASettingChangedUnderIt(): void {
+    $repository = new InvoiceRepository(new FakeClock(1700000000));
+
+    $custodialOrder = new FakeOrder(42, '10.00', 'USD');
+    $custodialOrder->setMeta(InvoiceRepository::ACCOUNT_TYPE, 'custodial');
+    $this->assertFalse(
+      $repository->resolvesNonCustodial($custodialOrder, true),
+      'a custodial order must stay custodial after the setting flips'
+    );
+
+    $nonCustodialOrder = new FakeOrder(43, '10.00', 'USD');
+    $nonCustodialOrder->setMeta(
+      InvoiceRepository::ACCOUNT_TYPE,
+      InvoiceRepository::ACCOUNT_TYPE_NON_CUSTODIAL
+    );
+    $this->assertTrue(
+      $repository->resolvesNonCustodial($nonCustodialOrder, false),
+      'a non-custodial order must stay non-custodial after the setting flips'
+    );
+  }
+
   private const NOW = 1700000000;
 
   private FakeClock $clock;

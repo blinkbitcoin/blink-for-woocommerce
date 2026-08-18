@@ -144,10 +144,16 @@ final class OrderStatusApplier {
    * TODO: the custodial path has the same gap and should be brought in line
    * once the change can be tested against a live Blink account.
    */
-  public function completePayment(\WC_Order $order, string $transactionId): void {
+  public function completePayment(
+    \WC_Order $order,
+    string $transactionId,
+    ?bool $wasProtected = null
+  ): void {
     // Another gateway already carried this order; do not stamp our payment
-    // over it. This mirrors apply(), which declines the same orders.
-    if ($this->isProtected($order)) {
+    // over it. Settlement callers pass the state captured before apply(),
+    // because Blink's own paid-state mapping may have just moved the order to
+    // processing. Other callers retain the existing current-state check.
+    if ($wasProtected ?? $this->isProtected($order)) {
       return;
     }
 
@@ -161,13 +167,16 @@ final class OrderStatusApplier {
     if ($transactionId !== '' && $order->get_transaction_id() === '') {
       $order->set_transaction_id($transactionId);
     }
-    if (!$order->get_date_paid('edit')) {
+    $wasCompleted = (bool) $order->get_date_paid('edit');
+    if (!$wasCompleted) {
       $order->set_date_paid(time());
     }
     $order->save();
 
-    // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WooCommerce's own hook, fired here because payment_complete() declines to.
-    do_action('woocommerce_payment_complete', $order->get_id(), $transactionId);
+    if (!$wasCompleted) {
+      // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WooCommerce's own hook, fired here because payment_complete() declines to.
+      do_action('woocommerce_payment_complete', $order->get_id(), $transactionId);
+    }
   }
 
   /** @return array<string,string> */

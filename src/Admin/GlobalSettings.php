@@ -133,7 +133,8 @@ class GlobalSettings extends \WC_Settings_Page {
           'stablesats' => 'USD',
         ],
         'default' => 'Blink',
-        'desc' => 'Blink Wallet',
+        'desc' =>
+          'Which of your Blink wallets receives the payment (custodial account type only). Non-custodial payments are always received in Bitcoin, and this setting is ignored.',
         'desc_tip' => true,
         'id' => 'blink_wallet_type',
       ],

@@ -364,6 +364,35 @@ final class NonCustodialCheckoutTest extends IntegrationTestCase {
     );
   }
 
+  /** A released custodial invoice has blink_id but no account-type marker. */
+  public function test_a_legacy_custodial_invoice_survives_a_non_custodial_setting_change(): void {
+    $gateway = new class extends BlinkLnGateway {
+      protected function validInvoiceExists(\WC_Order $order): bool {
+        return true;
+      }
+    };
+    $order = $this->makeOrder();
+    $order->update_meta_data(InvoiceRepository::PAYMENT_HASH, 'custodial-hash');
+    $order->update_meta_data(InvoiceRepository::PAYMENT_REQUEST, 'lnbc1custodial');
+    $order->update_meta_data(
+      'blink_redirect',
+      'https://pay.blink.sv/checkout/custodial-hash'
+    );
+    $order->save();
+
+    $result = $gateway->process_payment($order->get_id());
+    $reloaded = $this->reload($order);
+
+    $this->assertSame('success', $result['result']);
+    $this->assertStringContainsString('/checkout/custodial-hash', $result['redirect']);
+    $this->assertSame(
+      'custodial-hash',
+      $reloaded->get_meta(InvoiceRepository::PAYMENT_HASH)
+    );
+    $this->assertSame('', $reloaded->get_meta(InvoiceRepository::ACCOUNT_TYPE));
+    $this->assertSame('', $reloaded->get_meta(InvoiceRepository::VERIFY_URL));
+  }
+
   public function test_an_invoice_close_to_expiry_is_replaced(): void {
     $order = $this->makeOrder();
     $this->storeInvoice($order, ['expiresAt' => self::NOW + 30]);

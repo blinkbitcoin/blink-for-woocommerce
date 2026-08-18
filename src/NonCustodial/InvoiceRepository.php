@@ -87,6 +87,33 @@ final class InvoiceRepository {
     return (string) $order->getMeta(self::ACCOUNT_TYPE) !== '';
   }
 
+  /**
+   * Whether this order should be finished non-custodially.
+   *
+   * An order in flight has to be finished the way it was started, so a stored
+   * account type always wins. $settingDefault -- the merchant's current account
+   * type setting -- decides only for an order that has no invoice yet.
+   *
+   * It arrives as a bool rather than as BlinkApiHelper so that this class stays
+   * free of WordPress, which is what lets the unit tier reach these branches.
+   */
+  public function resolvesNonCustodial(OrderRecord $order, bool $settingDefault): bool {
+    if ($this->hasStoredAccountType($order)) {
+      return $this->isNonCustodial($order);
+    }
+
+    // Released custodial orders predate the account-type marker, but they do
+    // carry blink_id for webhook lookup. Treating one as a brand-new order
+    // after the merchant changes settings would replace the issued invoice
+    // and sever that webhook association. Non-custodial invoices always store
+    // their explicit marker alongside this shared payment-hash key.
+    if ((string) $order->getMeta(self::PAYMENT_HASH) !== '') {
+      return false;
+    }
+
+    return $settingDefault;
+  }
+
   public function load(OrderRecord $order): ?StoredInvoice {
     $paymentHash = (string) $order->getMeta(self::PAYMENT_HASH);
     $verifyUrl = (string) $order->getMeta(self::VERIFY_URL);
