@@ -231,6 +231,33 @@ final class InvoiceRepositoryTest extends TestCase {
   }
 
   /**
+   * What a foreground check is allowed to record: proof the endpoint answered,
+   * without spending any of the background job's budget.
+   */
+  public function testRecordingReachabilityClearsErrorsWithoutSpendingAnAttempt(): void {
+    $this->repository->recordAttempt($this->order, true);
+    $this->repository->recordAttempt($this->order, true);
+
+    $this->repository->recordEndpointReachable($this->order);
+
+    $this->assertSame(0, $this->repository->consecutiveErrors($this->order));
+    $this->assertSame(2, $this->repository->attempts($this->order));
+  }
+
+  public function testRecordingReachabilityWithNothingToClearDoesNotTouchTheOrder(): void {
+    $saves = $this->order->saves;
+
+    $this->repository->recordEndpointReachable($this->order);
+
+    $this->assertSame(
+      $saves,
+      $this->order->saves,
+      'no write when there is nothing to clear'
+    );
+    $this->assertSame(0, $this->repository->consecutiveErrors($this->order));
+  }
+
+  /**
    * The latch that stops the scheduler tick and the browser poll both applying
    * the same payment.
    */

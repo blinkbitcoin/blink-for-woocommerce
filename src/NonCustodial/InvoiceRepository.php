@@ -167,11 +167,36 @@ final class InvoiceRepository {
     return (int) $order->getMeta(self::ERRORS);
   }
 
+  /**
+   * Records a background check.
+   *
+   * Only the background job writes here, because these counters exist to
+   * decide when *it* should give up. A customer refreshing the pay page says
+   * nothing about how much work the background job has done, and letting it
+   * spend this budget used to kill background settlement mid-invoice.
+   */
   public function recordAttempt(OrderRecord $order, bool $wasError): void {
     $order->setMeta(self::ATTEMPTS, $this->attempts($order) + 1);
     // Errors are counted consecutively: one good answer means the endpoint is
     // reachable again, so the budget should not stay half spent.
     $order->setMeta(self::ERRORS, $wasError ? $this->consecutiveErrors($order) + 1 : 0);
+    $order->save();
+  }
+
+  /**
+   * Records that the endpoint answered, whoever asked it.
+   *
+   * The counterpart to the rule above, and deliberately asymmetric: a
+   * foreground check may not spend the background budget, but it may prove the
+   * endpoint is reachable. Clearing the error count on that proof can only
+   * prevent the background job giving up too early, never cause it.
+   */
+  public function recordEndpointReachable(OrderRecord $order): void {
+    if ($this->consecutiveErrors($order) === 0) {
+      return;
+    }
+
+    $order->setMeta(self::ERRORS, 0);
     $order->save();
   }
 

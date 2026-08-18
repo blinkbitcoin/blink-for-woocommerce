@@ -66,6 +66,33 @@ final class BackgroundSettlementTest extends IntegrationTestCase {
     $this->assertSame(1, $this->countNotesContaining($order, 'expired'));
   }
 
+  /**
+   * The customer story behind the shared-counter bug.
+   *
+   * A pay page left open makes far more checks than the background job ever
+   * will -- three a minute against roughly fifteen for the whole invoice. When
+   * both spent the same budget, twenty minutes of watching exhausted it, the
+   * scheduler stopped rescheduling, and a payment made after the customer
+   * closed the tab was never noticed.
+   */
+  public function test_a_watched_pay_page_does_not_end_background_settlement(): void {
+    $order = $this->makeOrder();
+    $this->storeInvoice($order);
+    $this->http->alwaysRespond(new HttpResponse(200, '{"settled":false}'));
+
+    $settlement = $this->services()->settlement();
+    for ($i = 0; $i < SettlementService::MAX_ATTEMPTS + 10; $i++) {
+      $this->clock->travel(20);
+      $settlement->poll($this->record($order));
+    }
+
+    // The customer pays and closes the tab; only the background job is left.
+    $this->http->queueJson(['settled' => true, 'preimage' => $this->preimage]);
+    $this->runDueAction($order->get_id());
+
+    $this->assertSame('processing', $this->reload($order)->get_status());
+  }
+
   public function test_a_delayed_first_check_recovers_payment_after_the_deadline(): void {
     $order = $this->makeOrder();
     $this->storeInvoice($order, ['expiresAt' => self::NOW + 60]);

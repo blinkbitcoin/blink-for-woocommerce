@@ -502,11 +502,11 @@ final class SettlementServiceTest extends TestCase {
     $this->http->alwaysRespond(HttpResponse::transportFailure('down'));
 
     for ($i = 0; $i < SettlementService::MAX_CONSECUTIVE_ERRORS; $i++) {
-      $this->service->poll($this->order);
+      $this->service->pollAsBackgroundCheck($this->order);
     }
     $requestsBefore = $this->http->requestCount();
 
-    $outcome = $this->service->poll($this->order);
+    $outcome = $this->service->pollAsBackgroundCheck($this->order);
 
     $this->assertSame(SettlementStatus::Unknown, $outcome->status);
     $this->assertStringContainsString('budget', $outcome->reason);
@@ -519,11 +519,11 @@ final class SettlementServiceTest extends TestCase {
     $this->http->alwaysRespond(HttpResponse::transportFailure('down'));
 
     for ($i = 0; $i < SettlementService::MAX_CONSECUTIVE_ERRORS + 2; $i++) {
-      $this->service->poll($this->order);
+      $this->service->pollAsBackgroundCheck($this->order);
     }
 
     $this->clock->travel(60 + SettlementService::EXPIRY_GRACE_SECONDS + 1);
-    $outcome = $this->service->poll($this->order);
+    $outcome = $this->service->pollAsBackgroundCheck($this->order);
 
     $this->assertSame(SettlementStatus::Unknown, $outcome->status);
     $this->assertNull($this->repository->terminalStatus($this->order));
@@ -533,11 +533,11 @@ final class SettlementServiceTest extends TestCase {
     $this->storeInvoice();
     for ($i = 0; $i < SettlementService::MAX_CONSECUTIVE_ERRORS - 1; $i++) {
       $this->http->queue(HttpResponse::transportFailure('down'));
-      $this->service->poll($this->order);
+      $this->service->pollAsBackgroundCheck($this->order);
     }
 
     $this->http->queueJson(['settled' => false]);
-    $this->service->poll($this->order);
+    $this->service->pollAsBackgroundCheck($this->order);
 
     $this->assertFalse($this->service->exhausted($this->order));
     $this->assertSame(0, $this->repository->consecutiveErrors($this->order));
@@ -547,10 +547,89 @@ final class SettlementServiceTest extends TestCase {
     $this->storeInvoice();
     $this->order->setMeta(InvoiceRepository::ATTEMPTS, SettlementService::MAX_ATTEMPTS);
 
-    $outcome = $this->service->poll($this->order);
+    $outcome = $this->service->pollAsBackgroundCheck($this->order);
 
     $this->assertSame(SettlementStatus::Unknown, $outcome->status);
     $this->assertSame(0, $this->http->requestCount());
+  }
+
+  // --------------------------------------------------- foreground vs background
+
+  /**
+   * The regression this split exists for. A pay page left open used to spend
+   * the background job's whole budget in about twenty minutes, after which the
+   * scheduler stopped rescheduling and a payment made later was never seen.
+   */
+  public function testForegroundPollsNeverSpendTheBackgroundBudget(): void {
+    $this->storeInvoice();
+    $this->http->alwaysRespond(new HttpResponse(200, '{"settled":false}'));
+
+    for ($i = 0; $i < SettlementService::MAX_ATTEMPTS + 10; $i++) {
+      $this->clock->travel(SettlementService::CACHE_FRESH_SECONDS + 1);
+      $this->service->poll($this->order);
+    }
+
+    $this->assertSame(0, $this->repository->attempts($this->order));
+    $this->assertFalse($this->service->exhausted($this->order));
+    $this->assertGreaterThan(
+      SettlementService::MAX_ATTEMPTS,
+      $this->http->requestCount(),
+      'the checks really were made'
+    );
+  }
+
+  /**
+   * The tighter of the two ceilings, and the same bug: eight failures from a
+   * watching browser used to end background settlement in under three minutes.
+   */
+  public function testForegroundFailuresDoNotCountTowardsGivingUp(): void {
+    $this->storeInvoice();
+    $this->http->alwaysRespond(HttpResponse::transportFailure('down'));
+
+    for ($i = 0; $i < SettlementService::MAX_CONSECUTIVE_ERRORS + 5; $i++) {
+      $this->service->poll($this->order);
+    }
+
+    $this->assertSame(0, $this->repository->consecutiveErrors($this->order));
+    $this->assertFalse($this->service->exhausted($this->order));
+  }
+
+  /**
+   * The deliberate asymmetry: a foreground check may not spend the budget, but
+   * it may prove the endpoint came back, which can only delay giving up.
+   */
+  public function testAForegroundAnswerClearsErrorsTheBackgroundAccrued(): void {
+    $this->storeInvoice();
+    for ($i = 0; $i < SettlementService::MAX_CONSECUTIVE_ERRORS - 1; $i++) {
+      $this->http->queue(HttpResponse::transportFailure('down'));
+      $this->service->pollAsBackgroundCheck($this->order);
+    }
+    $this->assertSame(
+      SettlementService::MAX_CONSECUTIVE_ERRORS - 1,
+      $this->repository->consecutiveErrors($this->order)
+    );
+
+    $attemptsBefore = $this->repository->attempts($this->order);
+    $this->http->queueJson(['settled' => false]);
+    $this->service->poll($this->order);
+
+    $this->assertSame(0, $this->repository->consecutiveErrors($this->order));
+    $this->assertSame(
+      $attemptsBefore,
+      $this->repository->attempts($this->order),
+      'clearing the error count must not also spend an attempt'
+    );
+  }
+
+  public function testAForegroundFailureLeavesAnExistingErrorCountAlone(): void {
+    $this->storeInvoice();
+    $this->http->queue(HttpResponse::transportFailure('down'));
+    $this->service->pollAsBackgroundCheck($this->order);
+
+    $this->http->queue(HttpResponse::transportFailure('down'));
+    $this->service->poll($this->order);
+
+    $this->assertSame(1, $this->repository->consecutiveErrors($this->order));
   }
 
   // ------------------------------------------------------------------- cache

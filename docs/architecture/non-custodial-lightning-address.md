@@ -70,6 +70,15 @@ expiry. After eight consecutive failures the plugin stops checking, leaves the
 order pending and logs why. A merchant finding an order that needs a human is
 recoverable; a customer whose paid order was cancelled is not.
 
+**The give-up budget belongs to the background job.** Only the scheduler's own
+checks count towards it. A customer refreshing the pay page says nothing about
+how much work the background job has done, and while both spent the same
+counters a watched pay page exhausted them mid-invoice and killed background
+settlement outright. What the pay page may still do is clear the consecutive
+failure count when the endpoint answers it, since that is direct proof the
+endpoint is reachable and can only delay giving up. Frequency of polling is
+bounded by `PollBudget` and the status cache, never by these counters.
+
 **One request at a time per order.** A lock whose lifetime exceeds the HTTP
 timeout means many browser tabs and a scheduler tick collapse into a single
 outbound request. The browser reads a cached observation (20 seconds) and only
@@ -128,8 +137,8 @@ manager must not be able to repoint it at a server that always answers "settled"
 | `_blink_order_currency` | string | InvoiceRepository | settlement                         | Currency at creation                                                                        |
 | `_blink_status`         | string | SettlementService | poll endpoint                      | Last observed status                                                                        |
 | `_blink_status_at`      | int    | SettlementService | poll endpoint                      | When it was observed                                                                        |
-| `_blink_attempts`       | int    | SettlementService | retry budget                       | Checks made                                                                                 |
-| `_blink_errors`         | int    | SettlementService | retry budget                       | Consecutive failures                                                                        |
+| `_blink_attempts`       | int    | SettlementService | background give-up                 | Background checks made; foreground polls never count                                        |
+| `_blink_errors`         | int    | SettlementService | background give-up                 | Consecutive background failures; any answer clears it                                       |
 | `_blink_settled_at`     | int    | SettlementService | idempotency latch                  | When settlement was first recorded                                                          |
 | `_blink_preimage`       | string | SettlementService | —                                  | Payment proof                                                                               |
 | `_blink_terminal`       | string | SettlementService | everything                         | Final state, short-circuits further work                                                    |

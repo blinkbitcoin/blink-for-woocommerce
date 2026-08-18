@@ -34,6 +34,15 @@ final class SettlementService {
   /** Grace after expiry, for clock skew and a last look. */
   public const EXPIRY_GRACE_SECONDS = 90;
 
+  /**
+   * A backstop, not a working budget.
+   *
+   * The scheduler's own timetable -- thirteen offsets plus a five-minute tail,
+   * against invoices capped at an hour -- tops out around fifteen checks, so a
+   * healthy order comes nowhere near this. It is here to bound a future path
+   * that reschedules faster than intended. It is deliberately not a defence
+   * against frequent polling: that belongs to PollBudget and the status cache.
+   */
   public const MAX_ATTEMPTS = 60;
 
   public const MAX_CONSECUTIVE_ERRORS = 8;
@@ -66,9 +75,31 @@ final class SettlementService {
   }
 
   /**
-   * Checks the invoice, taking the single-flight lock for the duration.
+   * Checks the invoice on behalf of the customer's pay page.
+   *
+   * Reports status and nothing more: it may not spend the budget that decides
+   * when the background job gives up. The two callers ask different questions
+   * -- "what is the status right now?" versus "have I done enough work on this
+   * order?" -- and answering the second with the first's traffic is what let a
+   * pay page left open kill background settlement mid-invoice.
    */
   public function poll(OrderRecord $order): SettlementOutcome {
+    return $this->check($order, false);
+  }
+
+  /**
+   * Checks the invoice on behalf of the scheduler.
+   *
+   * The only kind of check that counts towards giving up.
+   */
+  public function pollAsBackgroundCheck(OrderRecord $order): SettlementOutcome {
+    return $this->check($order, true);
+  }
+
+  /**
+   * Checks the invoice, taking the single-flight lock for the duration.
+   */
+  private function check(OrderRecord $order, bool $isBackgroundCheck): SettlementOutcome {
     $terminal = $this->repository->terminalStatus($order);
     if ($terminal !== null) {
       return new SettlementOutcome(
@@ -105,7 +136,11 @@ final class SettlementService {
 
     try {
       $result = $this->lnurl->verify($invoice->verifyUrl, $address);
-      $this->repository->recordAttempt($order, !$result->state->isConclusive());
+      if ($isBackgroundCheck) {
+        $this->repository->recordAttempt($order, !$result->state->isConclusive());
+      } elseif ($result->state->isConclusive()) {
+        $this->repository->recordEndpointReachable($order);
+      }
 
       // Written as a chain rather than a match: match on an enum still emits
       // an unhandled-case arm that can never run, which no test can cover.

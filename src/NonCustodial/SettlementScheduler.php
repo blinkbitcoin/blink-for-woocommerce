@@ -130,7 +130,7 @@ final class SettlementScheduler {
       return false;
     }
 
-    $outcome = $this->settlement->poll($order);
+    $outcome = $this->settlement->pollAsBackgroundCheck($order);
 
     // Applying the outcome is what makes background settlement worth running:
     // without it the order would be resolved in meta but never actually move.
