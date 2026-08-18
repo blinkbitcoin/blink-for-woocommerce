@@ -157,23 +157,22 @@ CI, which is the slowest possible feedback.
 
 ---
 
-## 8. Generate and shrink a PHPStan baseline
+## 8. Shrink the PHPStan baseline
 
-**Now.** PHPStan is configured at level 8 and wired into CI, but roughly two
-hundred findings exist across new and legacy code — many from `wpdb::prepare()`
-requiring a literal string, which the table-name interpolation pattern cannot
-satisfy.
+**Now.** PHPStan runs at level 8 and passes. New code has zero findings; the
+baseline holds 75 legacy ones, all in `BlinkLnGateway`, `BlinkApiClient`,
+`BlinkApiHelper`, `GlobalSettings`, `BlinkLnGatewayBlocks`, `OrderStates` and
+`Logger`.
 
-**Should be.** A committed baseline so the level-8 bar applies to new code from
-day one, with the baseline only ever shrinking.
+**Should be.** Empty.
 
-**Why it was not done now.** Generating it is quick; reviewing two hundred
-findings to be sure none is a real bug is not, and doing it carelessly would
-freeze a genuine defect into the baseline.
+**Rule.** The baseline may shrink and never grow. It contains no entry for
+`src/Http`, `src/NonCustodial`, `src/Orders`, `src/Support` or
+`src/Services.php`, and that property is worth checking in review — it is what
+stops new code being quietly excused.
 
-**Note.** Until the baseline exists, the `lint-php` CI job will fail. Either
-generate it or drop PHPStan from the required set before enabling branch
-protection.
+**Not yet reviewed.** Nobody has read the 75 for real defects. Doing so is
+worthwhile; anything found should be fixed rather than left frozen.
 
 ---
 
@@ -247,21 +246,20 @@ site that unhooks it by name. Low risk, non-zero, and unrelated to this work.
 
 ---
 
-## 14. Run the end-to-end suite in anger
+## 14. Keep the browser suite honest
 
-**Now.** Eighteen specs exist and parse, with a fake LNURL server running as an
-mu-plugin inside the wp-env test site. The CI job is defined.
+**Now.** Three specs, run and mutation-tested, about three seconds. They cover
+script loading, real QR rendering, and a real poll that navigates.
 
-**Not yet done.** The suite has not been executed against a running wp-env
-instance, so the specs are unverified against real WordPress. Expect the usual
-first-run friction: selectors, WooCommerce checkout details, the shape of the
-`wp action-scheduler run` output.
+**Watch for.** The temptation to add specs here for things the PHP or Vitest
+tiers can prove. The previous version of this suite grew to eighteen that way,
+and most of them could not fail. The rule in `docs/testing.md`: if a browser
+spec would still pass with the browser replaced by `curl`, it belongs in
+another tier.
 
-**This is the largest outstanding risk in the test work**, because an
-unexecuted test suite provides no assurance at all — only the appearance of it.
-It should be run and fixed before the end-to-end job is made a required check.
-
----
+**One loose thread.** The end-to-end site converts the order total through
+Blink's real public rate endpoint, so the suite depends on the network. It has
+not been a problem, but a scripted rate would make it hermetic.
 
 ## 15. Cover `WcOrderRecord` and `BlinkApiSatsRateProvider` directly
 

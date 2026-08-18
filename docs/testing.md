@@ -6,7 +6,7 @@ Three tiers, each answering a different question.
 |---|---|---|---|
 | Unit (`tests/Unit`) | Does this class behave correctly, including its edge cases? | No | milliseconds |
 | Integration (`tests/Integration`) | Does it work against real WordPress, WooCommerce and MySQL? | Yes | ~1 minute |
-| End to end (`tests/e2e`) | Does a customer actually get paid through? | Yes, in a browser | minutes |
+| End to end (`tests/e2e`) | Do the scripts load, the QR render, and a real poll navigate? | Yes, in a browser | ~3 seconds |
 | JavaScript (`tests/js`) | Does the pay page behave? | jsdom | seconds |
 
 ## Running them
@@ -24,7 +24,9 @@ composer test:integration
 XDEBUG_MODE=coverage bin/run-coverage.sh
 composer coverage:gate
 
-npx wp-env start && npm run test:e2e
+# End to end: a plain WordPress served by PHP's built-in server, no Docker.
+bash bin/install-e2e-site.sh
+npm run test:e2e
 ```
 
 `nix develop` provides PHP 8.3 with Xdebug, Composer, Node, subversion and a
@@ -84,6 +86,15 @@ $first = $this->service->poll($this->order);
 $this->assertSame(1, $this->http->requestCount());
 $this->assertSame(SettlementStatus::Unknown, $reentrant->status);
 ```
+
+**The PHP-to-JavaScript contract.** `PayPageContractTest` renders a real pay page,
+asserts the payload keys and DOM ids against explicit lists, and writes both to
+`tests/fixtures/pay-page/`. The Vitest suite loads that fixture rather than a
+hand-written copy, which had already drifted. Regenerate with
+`BLINK_UPDATE_FIXTURES=1`.
+
+This is what catches a payload key being renamed on one side only — a change
+that previously left all 620 tests green while breaking every real pay page.
 
 **Background settlement.** Integration tests fire the scheduler's hook directly
 with `do_action(SettlementScheduler::HOOK, $orderId)`, which is what Action
@@ -151,6 +162,25 @@ testable:
 
 The register is empty, which is the point: the code that would have needed
 exemptions is covered in the integration tier instead.
+
+## What belongs in the browser suite
+
+Almost nothing. The browser layer costs the most and proves the least, so it
+only holds assertions that no other tier can make:
+
+- the scripts enqueue and execute from inside `woocommerce_receipt_*`;
+- the vendored QR library renders in a real DOM;
+- a real poll, with a nonce the page minted, navigates the customer.
+
+Everything else — URL policy, invoice validation, settlement, budgets,
+concurrency — is proven faster and more precisely in PHP or Vitest. An earlier
+version of this suite had eighteen specs; sixteen duplicated tests elsewhere,
+and most could not fail at all because the orders they created were never taken
+through the gateway. If a browser spec would still pass with the browser
+replaced by `curl`, it is in the wrong tier.
+
+Every spec must be shown to fail. Break the thing it asserts and watch it go
+red before trusting it.
 
 ## Writing a test
 
