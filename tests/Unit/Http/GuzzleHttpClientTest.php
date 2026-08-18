@@ -137,7 +137,7 @@ final class GuzzleHttpClientTest extends TestCase {
     $this->assertSame(1024, strlen($response->body));
   }
 
-  public function testBodyExactlyAtTheCapIsTreatedAsTruncated(): void {
+  public function testBodyExactlyAtTheCapIsNotTruncated(): void {
     $client = $this->clientFor(new Response(200, [], str_repeat('a', 1024)));
 
     $response = $client->get(
@@ -145,7 +145,23 @@ final class GuzzleHttpClientTest extends TestCase {
       new HttpRequestOptions(maxBytes: 1024)
     );
 
-    $this->assertTrue($response->truncated, 'a body at the cap may be cut mid-token');
+    $this->assertFalse(
+      $response->truncated,
+      'a complete body that happens to be exactly the cap was not cut'
+    );
+    $this->assertSame(1024, strlen($response->body));
+  }
+
+  public function testBodyAtTheCapWithBytesStillPendingIsTruncated(): void {
+    $client = $this->clientFor(new Response(200, [], str_repeat('a', 1025)));
+
+    $response = $client->get(
+      'https://blink.sv/x',
+      new HttpRequestOptions(maxBytes: 1024)
+    );
+
+    $this->assertTrue($response->truncated, 'one byte beyond the cap is still a cut body');
+    $this->assertSame(1024, strlen($response->body));
   }
 
   public function testBodyUnderTheCapIsNotFlagged(): void {

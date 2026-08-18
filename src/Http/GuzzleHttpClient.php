@@ -100,7 +100,12 @@ final class GuzzleHttpClient implements HttpClientInterface {
     while (!$stream->eof()) {
       $remaining = $maxBytes - strlen($body);
       if ($remaining <= 0) {
-        return [$body, true];
+        // The cap is reached, but that alone does not mean the body was cut:
+        // a response of exactly maxBytes is complete. eof() cannot answer
+        // this, because it reports a read that hit the end rather than
+        // arrival at it, so ask for one more byte. Anything there means the
+        // body really is truncated and may be cut mid-token.
+        return [$body, $stream->read(1) !== ''];
       }
       $chunk = $stream->read(min(8192, $remaining));
       if ($chunk === '') {
@@ -109,10 +114,9 @@ final class GuzzleHttpClient implements HttpClientInterface {
       $body .= $chunk;
     }
 
-    // A body of exactly maxBytes is indistinguishable from a truncated one, so
-    // treat it as truncated rather than hand a caller a body that may be cut
-    // mid-token.
-    return [$body, strlen($body) >= $maxBytes];
+    // Reaching here means the stream ended on its own, so whatever was read is
+    // the whole body.
+    return [$body, false];
   }
 
   /**
