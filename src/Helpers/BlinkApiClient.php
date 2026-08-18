@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Blink\WC\Helpers;
 
+use Exception;
+
 class BlinkApiClient {
   private $apiUrl;
   private $token;
@@ -27,7 +29,12 @@ class BlinkApiClient {
     ]);
 
     // Make the HTTP POST request
-    $client = new \GuzzleHttp\Client();
+    // Without explicit timeouts Guzzle waits indefinitely, so a hung Blink
+    // API blocks the PHP worker handling a customer's checkout.
+    $client = new \GuzzleHttp\Client([
+      'connect_timeout' => 5,
+      'timeout' => 20,
+    ]);
     $response = $client->request('POST', $this->apiUrl, [
       'headers' => $headers,
       'body' => $body,

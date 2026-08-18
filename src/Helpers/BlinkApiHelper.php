@@ -147,34 +147,23 @@ class BlinkApiHelper {
   }
 
   /**
-   * Fetches the current status of an invoice.
+   * Fetches the current status of a CUSTODIAL invoice.
    *
-   * For non-custodial accounts a LUD-21 verify URL is required (there is no
-   * GraphQL status query for lightning-address payments). The returned array
-   * always contains a normalized `status` of PAID | PENDING | EXPIRED.
+   * Non-custodial settlement no longer comes through here: it is driven by
+   * SettlementService against the order's own stored verify URL and lightning
+   * address. Branching on the global account-type setting, as this method used
+   * to, meant that changing that setting stranded every order already in
+   * flight -- in both directions.
    *
-   * @param string      $paymentHash Payment hash of the invoice.
-   * @param string|null $verifyUrl   LUD-21 verify URL (non-custodial only).
-   * @param int         $expiresAt   Unix timestamp when the invoice expires (non-custodial; 0 = unknown).
+   * @return array<string,mixed>|null null when the status could not be read.
    */
-  public function getInvoice(
-    string $paymentHash,
-    string $verifyUrl = null,
-    int $expiresAt = 0
-  ) {
+  public function getInvoiceCustodial(string $paymentHash): ?array {
     Logger::debug('Start getInvoice for ' . $paymentHash);
-    if (!$paymentHash) {
-      Logger::debug('Invalid invoice hash');
-      return false;
-    }
 
-    if (!$this->configured) {
-      Logger::debug('Invalid config', true);
-      return false;
-    }
+    if (!$paymentHash || !$this->configured) {
+      Logger::debug('Invalid invoice hash or configuration', true);
 
-    if ($this->isNonCustodial()) {
-      return $this->getInvoiceNonCustodial($paymentHash, $verifyUrl, $expiresAt);
+      return null;
     }
 
     try {
@@ -182,53 +171,13 @@ class BlinkApiHelper {
       $client = new BlinkApiClient($config['url'], $config['api_key']);
       $invoice = $client->getInvoiceStatus($paymentHash);
       Logger::debug('End getInvoice for ' . $paymentHash);
-      return $invoice;
+
+      return is_array($invoice) ? $invoice : null;
     } catch (\Throwable $e) {
       Logger::debug('Error fetching invoice: ' . $e->getMessage(), true);
+
       return null;
     }
-  }
-
-  /**
-   * Non-custodial invoice status via the LUD-21 verify endpoint.
-   *
-   * Never falsely reports PAID or EXPIRED: transient transport errors and
-   * "not found" responses are reported as PENDING so callers keep polling
-   * rather than dropping a still-payable invoice.
-   */
-  private function getInvoiceNonCustodial(
-    string $paymentHash,
-    string $verifyUrl = null,
-    int $expiresAt = 0
-  ) {
-    if (!$verifyUrl) {
-      Logger::debug('Missing verify url for non-custodial invoice ' . $paymentHash);
-      return ['paymentHash' => $paymentHash, 'status' => 'PENDING'];
-    }
-
-    $addressDomain = self::lnAddressDomain($this->lnAddress);
-    $verify = BlinkLnurlClient::checkVerify($verifyUrl, $addressDomain);
-
-    // A settled invoice is always PAID; an unpaid invoice is only EXPIRED once
-    // past its expiry window.
-    $status = 'PENDING';
-    if ($verify['settled']) {
-      $status = 'PAID';
-    }
-    if ($status === 'PENDING' && $expiresAt > 0 && time() > $expiresAt) {
-      $status = 'EXPIRED';
-    }
-
-    Logger::debug(
-      'End getInvoice (non-custodial) for ' . $paymentHash . ' status: ' . $status
-    );
-
-    return [
-      'paymentHash' => $paymentHash,
-      'status' => $status,
-      'preimage' => $verify['preimage'],
-      'paymentRequest' => $verify['pr'],
-    ];
   }
 
   public function createInvoice($amount, $currency, $orderNumber) {

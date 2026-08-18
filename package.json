@@ -4,18 +4,31 @@
   "main": "Gruntfile.js",
   "author": "Blink",
   "scripts": {
-    "prettier:check": "prettier -c blink-for-woocommerce.php src",
-    "prettier:fix": "prettier -w blink-for-woocommerce.php src",
+    "prettier:check": "prettier -c blink-for-woocommerce.php src assets/js/frontend/pay.js assets/js/backend tests/js",
+    "prettier:fix": "prettier -w blink-for-woocommerce.php src assets/js/frontend/pay.js assets/js/backend tests/js",
     "start": "grunt default",
     "readme": "grunt readme",
-    "i18n": "grunt i18n"
+    "i18n": "grunt i18n",
+    "test:js": "vitest run",
+    "test:js:watch": "vitest",
+    "test:js:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "lint:js": "eslint assets/js/frontend/pay.js assets/js/frontend/blocks.js assets/js/backend tests/js",
+    "env:start": "wp-env start",
+    "env:stop": "wp-env stop"
   },
   "devDependencies": {
     "@prettier/plugin-php": "^0.22.2",
     "grunt": "^1.6.1",
     "grunt-wp-i18n": "^1.0.3",
     "grunt-wp-readme-to-markdown": "^2.1.0",
-    "prettier": "^3.3.3"
+    "prettier": "^3.3.3",
+    "@vitest/coverage-istanbul": "^2.1.8",
+    "vitest": "^2.1.8",
+    "jsdom": "^25.0.1",
+    "eslint": "^9.17.0",
+    "@playwright/test": "^1.49.1",
+    "@wordpress/env": "^10.13.0"
   },
   "prettier": {
     "plugins": [
