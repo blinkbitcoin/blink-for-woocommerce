@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Blink\WC\Tests\Integration\Support;
 
+use Blink\WC\NonCustodial\SystemDnsResolver;
 use Blink\WC\Support\SystemClock;
 use Blink\WC\Support\WcLogger;
 use Blink\WC\Support\WpRandomSource;
@@ -40,6 +41,27 @@ final class AdapterBoundaryTest extends WP_UnitTestCase {
       $this->assertGreaterThanOrEqual(0.0, $value);
       $this->assertLessThan(1.0, $value);
     }
+  }
+
+  public function test_dns_resolver_returns_ip_literals_without_a_lookup(): void {
+    $resolver = new SystemDnsResolver();
+
+    $this->assertSame(['93.184.216.34'], $resolver->resolve('93.184.216.34'));
+    $this->assertSame(['::1'], $resolver->resolve('::1'));
+  }
+
+  public function test_dns_resolver_resolves_a_local_name(): void {
+    $ips = (new SystemDnsResolver())->resolve('localhost');
+
+    $this->assertNotEmpty($ips, 'localhost must resolve via the hosts file');
+    foreach ($ips as $ip) {
+      $this->assertNotFalse(filter_var($ip, FILTER_VALIDATE_IP));
+    }
+  }
+
+  public function test_dns_resolver_returns_nothing_for_a_name_that_cannot_exist(): void {
+    // .invalid is reserved by RFC 6761 and must never resolve.
+    $this->assertSame([], (new SystemDnsResolver())->resolve('blink-test.invalid'));
   }
 
   public function test_debug_is_suppressed_when_debug_logging_is_off(): void {
