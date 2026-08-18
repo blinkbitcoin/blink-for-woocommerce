@@ -322,9 +322,28 @@ jobs:
   e2e:
     name: End to end
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 12
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: wordpress_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -proot"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
     steps:
       - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          extensions: mysqli
+          tools: composer:v2, wp-cli
+      - uses: ramsey/composer-install@v3
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -336,12 +355,31 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ hashFiles('package-lock.json') }}
       - run: npx playwright install --with-deps chromium
-      - name: Start the test site
-        run: npx wp-env start --update
-      - run: npm run test:e2e
-      - name: Collect environment logs
-        if: failure()
-        run: npx wp-env logs all > build/wp-env.log 2>&1 || true
+      - name: Cache WordPress download
+        uses: actions/cache@v4
+        with:
+          path: |
+            /tmp/wordpress
+            /tmp/wordpress-tests-lib
+          key: wp-${{ env.WP_VERSION_DEFAULT }}-${{ hashFiles('bin/install-wp-tests.sh') }}
+      - name: Install WordPress and WooCommerce
+        run: |
+          bash bin/install-wp-tests.sh wordpress_test root root '127.0.0.1:3306' ${{ env.WP_VERSION_DEFAULT }} true
+          bash bin/install-woocommerce.sh ${{ env.WC_VERSION_DEFAULT }}
+      # A plain WordPress served by PHP's built-in server: no Docker image
+      # pulls, and activating the plugin here is what caught it fatalling on
+      # activation.
+      - name: Build the end-to-end site
+        env:
+          WP_CORE_DIR: /tmp/wordpress
+          DB_HOST: 127.0.0.1:3306
+          DB_USER: root
+          DB_PASS: root
+        run: bash bin/install-e2e-site.sh
+      - name: Run the browser suite
+        env:
+          WP_CORE_DIR: /tmp/wordpress
+        run: npm run test:e2e
       - if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -349,7 +387,6 @@ jobs:
           path: |
             build/playwright-report
             build/test-results
-            build/wp-env.log
           retention-days: 7
 
   # The single required check. Marking each matrix leg required would mean

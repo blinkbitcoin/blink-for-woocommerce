@@ -14,8 +14,7 @@
     "test:js:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "lint:js": "eslint assets/js/frontend/pay.js assets/js/frontend/blocks.js assets/js/backend tests/js",
-    "env:start": "wp-env start",
-    "env:stop": "wp-env stop"
+    "test:e2e:setup": "bash bin/install-e2e-site.sh"
   },
   "devDependencies": {
     "@prettier/plugin-php": "^0.22.2",
@@ -27,8 +26,7 @@
     "vitest": "^2.1.8",
     "jsdom": "^25.0.1",
     "eslint": "^9.17.0",
-    "@playwright/test": "^1.49.1",
-    "@wordpress/env": "^10.13.0"
+    "@playwright/test": "^1.49.1"
   },
   "prettier": {
     "plugins": [

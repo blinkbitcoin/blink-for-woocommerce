@@ -1,97 +1,77 @@
-import { test as base, expect, type Page } from '@playwright/test';
+import { test as base, expect, type APIRequestContext } from '@playwright/test';
 
 /**
  * Helpers for driving the shop and the fake LNURL server.
  *
- * Everything goes through WP-CLI or the fake server's control endpoints rather
- * than the admin UI, so a spec fails because the payment flow broke rather than
- * because a settings screen was restyled.
+ * Everything goes over HTTP to control endpoints inside the test site. The
+ * previous version shelled out to a WP-CLI container for every read and write
+ * -- ten call sites, each paying process startup and a full WordPress
+ * bootstrap, eight to twelve times per spec.
  */
 
 export const BASE = process.env.WP_BASE_URL ?? 'http://localhost:8889';
 
-/** Runs a WP-CLI command inside the wp-env test container. */
-export async function wpCli(args: string): Promise<string> {
-  const { execFile } = await import('node:child_process');
-  const { promisify } = await import('node:util');
-  const run = promisify(execFile);
-
-  const { stdout } = await run(
-    'npx',
-    ['wp-env', 'run', 'tests-cli', '--', 'wp', ...args.split(' ')],
-    { maxBuffer: 10 * 1024 * 1024 }
-  );
-
-  return stdout.trim();
+export interface SeededOrder {
+  ok: boolean;
+  orderId: number;
+  orderKey: string;
+  payUrl: string;
+  paymentHash: string;
+  satoshis: number;
+  status: string;
+  error?: string;
 }
 
-export async function setOption(name: string, value: string): Promise<void> {
-  await wpCli(`option update ${name} ${value}`);
+export interface OrderState {
+  status: string;
+  paymentHash: string;
+  satoshis: number;
+  terminal: string;
+  notes: string[];
 }
 
-/** Points the shop at one of the fake server's scenarios. */
-export async function useLightningAddress(scenario: string): Promise<void> {
-  await setOption('blink_account_type', 'non_custodial');
-  await setOption('blink_ln_address', `${scenario}@localhost:8889`);
-  await setOption('blink_env', 'blink');
-  await setOption('blink_debug', 'yes');
+/**
+ * Creates an order and takes it through the real gateway.
+ *
+ * The previous harness created a bare order and never ran process_payment, so
+ * no invoice existed, the pay page rendered nothing, and the specs asserting
+ * "no invoice was created" passed for entirely the wrong reason.
+ */
+export async function seedOrder(request: APIRequestContext, total = '10.00'): Promise<SeededOrder> {
+  const response = await request.post(`${BASE}/blink-e2e/control/order?total=${total}`);
+  expect(response.ok()).toBeTruthy();
+
+  const order = (await response.json()) as SeededOrder;
+  expect(order.ok, `seeding failed: ${order.error ?? 'unknown'}`).toBeTruthy();
+  expect(order.paymentHash, 'the gateway did not create an invoice').not.toBe('');
+
+  return order;
 }
 
-export async function resetFakeServer(page: Page): Promise<void> {
-  await page.request.post(`${BASE}/blink-e2e/control/reset`);
+export async function orderState(
+  request: APIRequestContext,
+  orderId: number
+): Promise<OrderState> {
+  const response = await request.get(`${BASE}/blink-e2e/control/order-state?id=${orderId}`);
+  expect(response.ok()).toBeTruthy();
+
+  return (await response.json()) as OrderState;
 }
 
-export async function settle(page: Page, paymentHash: string): Promise<void> {
-  const response = await page.request.post(
-    `${BASE}/blink-e2e/control/settle?hash=${paymentHash}`
-  );
+/** Marks an invoice paid on the fake LNURL server. */
+export async function settle(request: APIRequestContext, paymentHash: string): Promise<void> {
+  const response = await request.post(`${BASE}/blink-e2e/control/settle?hash=${paymentHash}`);
   expect(response.ok()).toBeTruthy();
 }
 
-export async function failVerify(
-  page: Page,
-  paymentHash: string,
-  mode: 'http-500' | 'not-found' | 'timeout' = 'http-500'
-): Promise<void> {
-  await page.request.post(`${BASE}/blink-e2e/control/fail?hash=${paymentHash}&mode=${mode}`);
+/** Runs whatever settlement work is due, as the queue would. */
+export async function runScheduler(request: APIRequestContext): Promise<number> {
+  const response = await request.post(`${BASE}/blink-e2e/control/run-scheduler`);
+  expect(response.ok()).toBeTruthy();
+
+  return ((await response.json()) as { ran: number }).ran;
 }
 
-export async function requestLog(page: Page): Promise<Array<{ what: string }>> {
-  const response = await page.request.get(`${BASE}/blink-e2e/control/requests`);
-  const body = await response.json();
-
-  return body.requests ?? [];
-}
-
-/** Creates a pending order priced in a way the fake server will accept. */
-export async function createOrder(total = '10.00'): Promise<number> {
-  const id = await wpCli(
-    `wc shop_order create --status=pending --user=1 --porcelain --currency=USD`
-  );
-  const orderId = Number(id.split('\n').pop());
-  await wpCli(`wc shop_order update ${orderId} --user=1 --total=${total}`);
-
-  return orderId;
-}
-
-export async function orderStatus(orderId: number): Promise<string> {
-  return (await wpCli(`wc shop_order get ${orderId} --user=1 --field=status`)).trim();
-}
-
-export async function orderMeta(orderId: number, key: string): Promise<string> {
-  return (await wpCli(`post meta get ${orderId} ${key}`)).trim();
-}
-
-/** Runs any settlement checks that are due, the way the queue would. */
-export async function runScheduler(): Promise<void> {
-  await wpCli('action-scheduler run --group=blink');
-}
-
-export const test = base.extend({
-  page: async ({ page }, use) => {
-    await resetFakeServer(page);
-    await use(page);
-  },
-});
+export const test = base.extend({});
 
 export { expect };

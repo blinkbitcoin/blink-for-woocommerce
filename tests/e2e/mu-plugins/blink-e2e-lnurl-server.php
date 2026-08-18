@@ -4,11 +4,10 @@
  * Description: A fake LNURL-pay / LUD-21 server for end-to-end tests. Never shipped.
  *
  * Lives inside the test site rather than beside it, which is the whole trick:
- * wp-env serves it on http://localhost:8889, a host the plugin classifies as
- * local development. A server running on the host machine would only be
- * reachable as host.docker.internal -- neither local nor same-domain -- so the
- * plugin's own SSRF policy would reject every request and the harness would
- * only work by weakening production code.
+ * it is served from http://localhost:8889, a host the plugin classifies as
+ * local development. A server on a different origin would be neither local nor
+ * same-domain, so the plugin's own SSRF policy would reject every request and
+ * the harness would only work by weakening production code.
  *
  * The scenario is chosen by the identifier part of the lightning address, so
  * specs are self-describing and cannot race on shared state.
@@ -22,7 +21,11 @@ final class Blink_E2E_Lnurl_Server {
   private const OPTION_PREFIX = 'blink_e2e_';
 
   public static function boot(): void {
-    add_action('init', [self::class, 'route'], 0);
+    // wp_loaded, not init: the control endpoints call wc_get_order() and the
+    // real gateway, and at init priority 0 WooCommerce has not yet registered
+    // its data stores, so order lookups fail. wp_loaded still runs well before
+    // redirect_canonical would turn /.well-known/... into a 301.
+    add_action('wp_loaded', [self::class, 'route'], 0);
   }
 
   public static function route(): void {

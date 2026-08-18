@@ -403,7 +403,13 @@ function blink_register_settlement_hooks(): void {
   add_action(
     'woocommerce_order_status_changed',
     function ($order_id, $from, $to): void {
-      if (!in_array($to, ['cancelled', 'refunded', 'failed', 'completed', 'processing'], true)) {
+      if (
+        !in_array(
+          $to,
+          ['cancelled', 'refunded', 'failed', 'completed', 'processing'],
+          true
+        )
+      ) {
         return;
       }
 

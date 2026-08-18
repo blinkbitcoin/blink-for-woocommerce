@@ -551,7 +551,14 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
       return;
     }
 
-    // If the order is already paid (e.g. page reloaded), send to the received page.
+    // If the order is already paid (e.g. page reloaded), send to the received
+    // page.
+    //
+    // In practice WooCommerce gets there first: it refuses to render a payment
+    // form for an order that no longer needs payment, so this hook is never
+    // reached in that state. Kept as a guard rather than deleted, because it
+    // costs nothing and the alternative is relying on another plugin's
+    // behaviour to protect a payment page.
     if ($order->is_paid()) {
       wp_safe_redirect($order->get_checkout_order_received_url());
       exit();
