@@ -9,6 +9,7 @@ use Blink\WC\NonCustodial\SettlementScheduler;
 use Blink\WC\NonCustodial\SettlementService;
 use Blink\WC\NonCustodial\SettlementStatus;
 use Blink\WC\Tests\Support\IntegrationTestCase;
+use Automattic\WooCommerce\Utilities\OrderUtil;
 
 /**
  * Settlement without a browser.
@@ -249,6 +250,11 @@ final class BackgroundSettlementTest extends IntegrationTestCase {
    * modification is older than woocommerce_hold_stock_minutes, so the order has
    * to be aged before it will be considered at all.
    */
+  private function ordersAreInTheirOwnTable(): bool {
+    return class_exists(OrderUtil::class) &&
+      OrderUtil::custom_orders_table_usage_is_enabled();
+  }
+
   private function runTheStockTimerAgainst(\WC_Order $order): void {
     global $wpdb;
 
@@ -260,13 +266,28 @@ final class BackgroundSettlementTest extends IntegrationTestCase {
 
     // Aged in the database rather than through set_date_modified(), which the
     // order's own save() overwrites with the current time.
+    //
+    // Which table depends on where WooCommerce keeps orders: get_unpaid_orders()
+    // reads post_modified_gmt from the posts table, or date_updated_gmt from
+    // wc_orders under HPOS. Writing only to the posts table left the order
+    // un-aged on every HPOS run, so the assertion below -- the one that exists
+    // to stop these tests passing vacuously -- failed instead.
     $past = gmdate('Y-m-d H:i:s', time() - 3600);
-    $wpdb->update(
-      $wpdb->posts,
-      ['post_modified' => $past, 'post_modified_gmt' => $past],
-      ['ID' => $order->get_id()]
-    );
-    clean_post_cache($order->get_id());
+    if ($this->ordersAreInTheirOwnTable()) {
+      $wpdb->update(
+        $wpdb->prefix . 'wc_orders',
+        ['date_updated_gmt' => $past],
+        ['id' => $order->get_id()]
+      );
+      wp_cache_flush();
+    } else {
+      $wpdb->update(
+        $wpdb->posts,
+        ['post_modified' => $past, 'post_modified_gmt' => $past],
+        ['ID' => $order->get_id()]
+      );
+      clean_post_cache($order->get_id());
+    }
 
     // Without this the timer would simply not consider the order, and every
     // assertion about what it does or does not cancel would pass vacuously.
