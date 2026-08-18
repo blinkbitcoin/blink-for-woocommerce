@@ -39,6 +39,35 @@ final class OrderStatusApplierTest extends IntegrationTestCase {
     $this->assertSame(1, $this->countNotesContaining($order, 'settled (via webhook)'));
   }
 
+  /**
+   * The money moved and cannot be sent back automatically, so the order has to
+   * reflect it. What the merchant is not told automatically is whether the
+   * goods are still there.
+   */
+  public function test_paying_a_cancelled_order_credits_it_and_flags_the_stock(): void {
+    $order = $this->makeOrder();
+    $order->update_status('cancelled');
+
+    $this->applier->apply($order, 'PAID', 'scheduler');
+
+    $this->assertSame('processing', $this->reload($order)->get_status());
+    $this->assertSame(
+      1,
+      $this->countNotesContaining($order, 'arrived after the order was cancelled')
+    );
+  }
+
+  public function test_paying_a_pending_order_does_not_mention_cancellation(): void {
+    $order = $this->makeOrder();
+
+    $this->applier->apply($order, 'PAID', 'scheduler');
+
+    $this->assertSame(
+      0,
+      $this->countNotesContaining($order, 'arrived after the order was cancelled')
+    );
+  }
+
   public function test_expired_moves_the_order_to_the_mapped_state(): void {
     $order = $this->makeOrder();
 

@@ -243,10 +243,96 @@ final class BackgroundSettlementTest extends IntegrationTestCase {
   }
 
   /**
-   * An order paid or cancelled by any other route should stop costing
-   * outbound requests.
+   * Makes the order eligible for WooCommerce's unpaid-order timer and runs it.
+   *
+   * The timer selects pending orders created through checkout whose last
+   * modification is older than woocommerce_hold_stock_minutes, so the order has
+   * to be aged before it will be considered at all.
    */
-  public function test_a_status_change_elsewhere_cancels_scheduled_checks(): void {
+  private function runTheStockTimerAgainst(\WC_Order $order): void {
+    global $wpdb;
+
+    update_option('woocommerce_manage_stock', 'yes');
+    update_option('woocommerce_hold_stock_minutes', '1');
+
+    $order->set_created_via('checkout');
+    $order->save();
+
+    // Aged in the database rather than through set_date_modified(), which the
+    // order's own save() overwrites with the current time.
+    $past = gmdate('Y-m-d H:i:s', time() - 3600);
+    $wpdb->update(
+      $wpdb->posts,
+      ['post_modified' => $past, 'post_modified_gmt' => $past],
+      ['ID' => $order->get_id()]
+    );
+    clean_post_cache($order->get_id());
+
+    // Without this the timer would simply not consider the order, and every
+    // assertion about what it does or does not cancel would pass vacuously.
+    $this->assertContains(
+      (string) $order->get_id(),
+      array_map(
+        'strval',
+        \WC_Data_Store::load('order')->get_unpaid_orders(
+          strtotime('-1 MINUTES', current_time('timestamp'))
+        )
+      ),
+      'the order must actually be eligible for the stock timer'
+    );
+
+    wc_cancel_unpaid_orders();
+  }
+
+  /**
+   * WooCommerce holds stock for an hour by default and Blink invoices last up
+   * to an hour, so the stock timer and the invoice expire at almost the same
+   * moment -- and on any shop with a shorter hold-stock setting the timer wins.
+   * Cancelling took the order's settlement checks with it, so a customer who
+   * paid a still-valid QR code and closed the tab was never credited.
+   */
+  public function test_the_stock_timer_does_not_cancel_a_payable_invoice(): void {
+    $scheduler = $this->useFakeScheduler();
+    $order = $this->makeOrder();
+    $invoice = $this->storeInvoice($order);
+    $this->services()
+      ->settlementScheduler()
+      ->onInvoiceCreated($this->record($order), $invoice);
+    $scheduler->unscheduled = [];
+
+    $this->runTheStockTimerAgainst($order);
+
+    $this->assertSame('pending', $this->reload($order)->get_status());
+    $this->assertSame([], $scheduler->unscheduled, 'the checks must survive');
+
+    // And the payment the customer goes on to make is still credited.
+    $this->http->queueJson(['settled' => true, 'preimage' => $this->preimage]);
+    $this->runDueAction($order->get_id());
+
+    $this->assertSame('processing', $this->reload($order)->get_status());
+  }
+
+  /**
+   * The other half of the same rule: the reprieve is bounded by the invoice, so
+   * an order whose window has closed goes back to being ordinary stock
+   * management. This also proves the test above is not passing because the
+   * timer failed to consider the order at all.
+   */
+  public function test_the_stock_timer_still_cancels_once_the_invoice_is_dead(): void {
+    $order = $this->makeOrder();
+    $this->storeInvoice($order, ['expiresAt' => self::NOW + 60]);
+    $this->clock->travel(60 + SettlementService::EXPIRY_GRACE_SECONDS + 1);
+
+    $this->runTheStockTimerAgainst($order);
+
+    $this->assertSame('cancelled', $this->reload($order)->get_status());
+  }
+
+  /**
+   * A cancellation reaching a live invoice is now a shop manager's decision
+   * rather than the stock timer's, and a deliberate one is respected.
+   */
+  public function test_a_manual_status_change_cancels_scheduled_checks(): void {
     $scheduler = $this->useFakeScheduler();
     $order = $this->makeOrder();
     $invoice = $this->storeInvoice($order);

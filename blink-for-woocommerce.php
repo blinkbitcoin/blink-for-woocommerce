@@ -399,8 +399,34 @@ function blink_register_settlement_hooks(): void {
   );
 
   /**
+   * Hold off WooCommerce's unpaid-order timer while an invoice is still payable.
+   *
+   * That timer cancels pending orders once woocommerce_hold_stock_minutes has
+   * passed -- 60 by default, against invoices valid for up to 3600 seconds --
+   * and the cancellation used to take the order's settlement checks with it,
+   * losing payments made on a still-valid QR code. The veto releases itself
+   * once the invoice resolves or its window closes.
+   */
+  add_filter(
+    'woocommerce_cancel_unpaid_order',
+    function ($maycancel, $order) {
+      if (!$order instanceof \WC_Order) {
+        return $maycancel;
+      }
+
+      return \Blink\WC\Services::instance()
+        ->unpaidOrderGuard()
+        ->mayCancel(new \Blink\WC\NonCustodial\WcOrderRecord($order), (bool) $maycancel);
+    },
+    10,
+    2
+  );
+
+  /**
    * Stop checking an order that has been resolved by any other route -- paid
-   * through a different gateway, cancelled, refunded, or completed by hand.
+   * through a different gateway, refunded, completed by hand, or cancelled by
+   * a shop manager. WooCommerce's own stock timer no longer reaches here while
+   * an invoice is live, so a cancellation at this point is a human decision.
    */
   add_action(
     'woocommerce_order_status_changed',

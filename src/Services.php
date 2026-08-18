@@ -21,6 +21,7 @@ use Blink\WC\NonCustodial\SatsRateProviderInterface;
 use Blink\WC\NonCustodial\SettlementScheduler;
 use Blink\WC\NonCustodial\SettlementService;
 use Blink\WC\NonCustodial\SystemDnsResolver;
+use Blink\WC\NonCustodial\UnpaidOrderGuard;
 use Blink\WC\NonCustodial\UrlPolicy;
 use Blink\WC\NonCustodial\UrlPolicyInterface;
 use Blink\WC\NonCustodial\SettlementOutcomeApplier;
@@ -211,6 +212,16 @@ final class Services {
         $this->lock(),
         $this->clock(),
         $this->logger()
+      )
+    );
+  }
+
+  public function unpaidOrderGuard(): UnpaidOrderGuard {
+    return $this->memo(
+      __FUNCTION__,
+      fn(): UnpaidOrderGuard => new UnpaidOrderGuard(
+        $this->invoiceRepository(),
+        $this->clock()
       )
     );
   }

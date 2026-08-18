@@ -70,6 +70,16 @@ expiry. After eight consecutive failures the plugin stops checking, leaves the
 order pending and logs why. A merchant finding an order that needs a human is
 recoverable; a customer whose paid order was cancelled is not.
 
+**WooCommerce's stock timer defers to a payable invoice.** `wc_cancel_unpaid_orders()`
+cancels pending orders once `woocommerce_hold_stock_minutes` has passed -- 60 by
+default, against invoices that may be valid for 3600 seconds -- and that
+cancellation used to take the order's scheduled checks with it. The plugin now
+answers `woocommerce_cancel_unpaid_order` with `false` while a non-custodial
+invoice is unresolved and inside its window. The reprieve releases itself: once
+the invoice is terminal or past `expiresAt + EXPIRY_GRACE_SECONDS`, the timer
+cancels the order as it normally would. A cancellation that reaches a live
+invoice after that is a shop manager's decision, and it does stop the checks.
+
 **The give-up budget belongs to the background job.** Only the scheduler's own
 checks count towards it. A customer refreshing the pay page says nothing about
 how much work the background job has done, and while both spent the same

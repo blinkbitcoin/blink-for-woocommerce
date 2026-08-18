@@ -70,12 +70,29 @@ final class OrderStatusApplier {
     }
 
     if ($status === 'PAID') {
+      // Read before the status is written, so it describes what the order was
+      // when the payment arrived.
+      $wasCancelled = $order->has_status('cancelled');
+
       $this->updateStatus($order, $states[OrderStates::PAID]);
       $this->addNote(
         $order,
         sprintf('Invoice payment settled (via %s).', $context),
         $dedupeNotes
       );
+
+      // A Lightning payment cannot be reversed automatically, so crediting the
+      // order is right even here -- but the stock reservation was released when
+      // it was cancelled, and those units may have been sold since. That is a
+      // merchant's call, not something to silently paper over.
+      if ($wasCancelled) {
+        $this->addNote(
+          $order,
+          'This payment arrived after the order was cancelled. Stock was released at ' .
+            'cancellation, so check availability before fulfilling.',
+          $dedupeNotes
+        );
+      }
 
       return 'PAID';
     }
