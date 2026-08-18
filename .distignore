@@ -52,3 +52,14 @@ dist
 flake.nix
 flake.lock
 Dockerfile-php-build
+phpunit-unit.xml.dist
+phpstan.neon.dist
+phpstan-baseline.neon
+coverage-gate.json
+vitest.config.js
+playwright.config.ts
+.wp-env.json
+build
+docs
+CONTRIBUTING.md
+SECURITY.md
