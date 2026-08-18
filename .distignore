@@ -61,3 +61,10 @@ docs
 CONTRIBUTING.md
 SECURITY.md
 e2e-router.php
+eslint.config.js
+tsconfig.json
+typos.toml
+*.tmp.xml
+.prettierignore
+.wordpress-org
+.claude

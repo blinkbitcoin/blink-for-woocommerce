@@ -8,7 +8,7 @@
  * License:         MIT
  * License URI:     https://github.com/blinkbitcoin/blink-for-woocommerce/blob/main/license.txt
  * Requires PHP:    8.1
- * Requires at least: 6.0
+ * Requires at least: 6.5
  * Text Domain:     blink-for-woocommerce
  * Domain Path:     /languages
  * Version:         0.3.0
@@ -199,7 +199,9 @@ class BlinkWCPlugin {
     ) {
       $reviewMessage = sprintf(
         'Thank you for using Blink for WooCommerce! If you like the plugin, we would love if you %1$sleave us a review%2$s. %3$sRemind me later%4$s %5$sStop reminding me forever%6$s',
-        '<a href="https://wordpress.org/support/plugin/blink-for-woocommerce/reviews/?filter=5#new-post" target="_blank">',
+        // Deliberately not ?filter=5: WordPress.org rejects a plugin that links
+        // straight to the five-star form, and Plugin Check blocks on it.
+        '<a href="https://wordpress.org/support/plugin/blink-for-woocommerce/reviews/" target="_blank" rel="noopener">',
         '</a>',
         '<button class="blink-review-dismiss">',
         '</button>',
