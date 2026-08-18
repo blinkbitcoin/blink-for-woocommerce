@@ -133,7 +133,7 @@ final class SettlementServiceTest extends TestCase {
     $this->assertTrue($this->log->hasMessageContaining('does not hash', 'error'));
   }
 
-  public function testAnUnparseablePreimageIsRefused(): void {
+  public function testAnUnparsablePreimageIsRefused(): void {
     $this->storeInvoice();
     $this->http->queueJson(['settled' => true, 'preimage' => 'not-hex']);
 

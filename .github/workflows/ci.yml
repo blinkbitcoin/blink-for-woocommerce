@@ -134,6 +134,10 @@ jobs:
             /tmp/wordpress
             /tmp/wordpress-tests-lib
           key: wp-${{ matrix.wp }}-${{ hashFiles('bin/install-wp-tests.sh') }}
+      - name: Install subversion
+        # bin/install-wp-tests.sh fetches the WordPress test library over svn,
+        # which the runner images no longer include.
+        run: sudo apt-get update && sudo apt-get install -y subversion
       - name: Install WordPress test library
         run: bash bin/install-wp-tests.sh wordpress_test root root '127.0.0.1:3306' ${{ matrix.wp }} true
       - name: Install WooCommerce
@@ -268,6 +272,10 @@ jobs:
             /tmp/wordpress
             /tmp/wordpress-tests-lib
           key: wp-${{ env.WP_VERSION_DEFAULT }}-${{ hashFiles('bin/install-wp-tests.sh') }}
+      - name: Install subversion
+        # bin/install-wp-tests.sh fetches the WordPress test library over svn,
+        # which the runner images no longer include.
+        run: sudo apt-get update && sudo apt-get install -y subversion
       - name: Install WordPress test library
         run: bash bin/install-wp-tests.sh wordpress_test root root '127.0.0.1:3306' ${{ env.WP_VERSION_DEFAULT }} true
       - name: Install WooCommerce
@@ -364,6 +372,10 @@ jobs:
             /tmp/wordpress
             /tmp/wordpress-tests-lib
           key: wp-${{ env.WP_VERSION_DEFAULT }}-${{ hashFiles('bin/install-wp-tests.sh') }}
+      - name: Install subversion
+        # bin/install-wp-tests.sh fetches the WordPress test library over svn,
+        # which the runner images no longer include.
+        run: sudo apt-get update && sudo apt-get install -y subversion
       - name: Install WordPress and WooCommerce
         run: |
           bash bin/install-wp-tests.sh wordpress_test root root '127.0.0.1:3306' ${{ env.WP_VERSION_DEFAULT }} true

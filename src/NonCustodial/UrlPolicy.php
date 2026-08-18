@@ -54,7 +54,7 @@ final class UrlPolicy implements UrlPolicyInterface {
     // phpcs:ignore WordPress.WP.AlternativeFunctions.parse_url_parse_url -- wp_parse_url() only compensates for PHP < 5.4.7, and this class must stay free of WordPress.
     $parts = parse_url($url);
     if (!is_array($parts) || empty($parts['host'])) {
-      return UrlDecision::deny('unparseable');
+      return UrlDecision::deny('unparsable');
     }
 
     // Credentials in the authority are a parser-confusion vector and no LNURL
@@ -153,6 +153,24 @@ final class UrlPolicy implements UrlPolicyInterface {
    * environments, so they are checked explicitly.
    */
   private function isPublicIp(string $ip): bool {
+    // Unwrap IPv4-in-IPv6 forms *before* any range check. The order matters
+    // for two separate reasons:
+    //
+    // filter_var does not apply the IPv4 private ranges to a mapped address,
+    // so ::ffff:127.0.0.1 would read as public. And whether the mapped block
+    // counts as "reserved" is platform-dependent -- on Linux the reserved
+    // flag rejects ::ffff:93.184.216.34, a perfectly public address, while on
+    // macOS it does not. Normalising first makes the answer identical
+    // everywhere, which for a security check is the point.
+    if (preg_match('/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i', $ip, $m)) {
+      return $this->isPublicIp($m[1]);
+    }
+
+    // NAT64 (64:ff9b::/96) wraps an IPv4 address the same way.
+    if (preg_match('/^64:ff9b::(\d+\.\d+\.\d+\.\d+)$/i', $ip, $m)) {
+      return $this->isPublicIp($m[1]);
+    }
+
     if (
       filter_var(
         $ip,
@@ -161,17 +179,6 @@ final class UrlPolicy implements UrlPolicyInterface {
       ) === false
     ) {
       return false;
-    }
-
-    // IPv4-mapped IPv6 (::ffff:127.0.0.1): filter_var does not apply the IPv4
-    // private ranges to the mapped form, so unwrap and re-check.
-    if (preg_match('/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i', $ip, $m)) {
-      return $this->isPublicIp($m[1]);
-    }
-
-    // NAT64 (64:ff9b::/96) wraps an IPv4 address the same way.
-    if (preg_match('/^64:ff9b::(\d+\.\d+\.\d+\.\d+)$/i', $ip, $m)) {
-      return $this->isPublicIp($m[1]);
     }
 
     // Carrier-grade NAT, not covered by FILTER_FLAG_NO_RES_RANGE.

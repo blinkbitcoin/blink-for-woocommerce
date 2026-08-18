@@ -129,7 +129,7 @@ final class UrlPolicyTest extends TestCase {
     $decision = $this->policy->check($url, $this->address());
 
     $this->assertFalse($decision->allowed);
-    $this->assertContains($decision->reason, ['scheme not http(s)', 'unparseable']);
+    $this->assertContains($decision->reason, ['scheme not http(s)', 'unparsable']);
   }
 
   /** @return array<string,array{string}> */
@@ -143,14 +143,14 @@ final class UrlPolicyTest extends TestCase {
   }
 
   /**
-   * @dataProvider unparseable
+   * @dataProvider unparsable
    */
-  public function testRejectsUnparseableUrls(string $url): void {
+  public function testRejectsUnparsableUrls(string $url): void {
     $this->assertFalse($this->policy->check($url, $this->address())->allowed);
   }
 
   /** @return array<string,array{string}> */
-  public static function unparseable(): array {
+  public static function unparsable(): array {
     return [
       'empty' => [''],
       'garbage' => ['not a url'],

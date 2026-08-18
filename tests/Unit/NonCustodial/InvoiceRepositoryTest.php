@@ -337,7 +337,7 @@ final class InvoiceRepositoryTest extends TestCase {
     $this->assertSame('blink.sv', $address->host);
   }
 
-  public function testStoredInvoiceWithAnUnparseableAddressReturnsNull(): void {
+  public function testStoredInvoiceWithAnUnparsableAddressReturnsNull(): void {
     $this->assertNull($this->invoice(['lnAddress' => 'not an address'])->address());
   }
 }

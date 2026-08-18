@@ -20,6 +20,11 @@ module.exports = function (grunt) {
           '!bin/**/*',
           '!node_modules/**/*',
           '!tests/**/*',
+          // Without this the task rewrites every dependency, corrupting them.
+          // It mangled the 110,000-line WordPress stubs file into a syntax
+          // error, which then broke static analysis.
+          '!vendor/**/*',
+          '!build/**/*',
         ],
       },
     },
@@ -36,7 +41,14 @@ module.exports = function (grunt) {
       target: {
         options: {
           domainPath: '/languages',
-          exclude: ['.git/*', 'bin/*', 'node_modules/*', 'tests/*'],
+          exclude: [
+            '.git/*',
+            'bin/*',
+            'node_modules/*',
+            'tests/*',
+            'vendor/*',
+            'build/*',
+          ],
           mainFile: 'blink-for-woocommerce.php',
           potFilename: 'blink-for-woocommerce.pot',
           potHeaders: {
