@@ -2,26 +2,28 @@
 <phpunit
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
-    bootstrap="tests/bootstrap.php"
+    bootstrap="tests/bootstrap-unit.php"
     backupGlobals="false"
     beStrictAboutTestsThatDoNotTestAnything="true"
+    beStrictAboutOutputDuringTests="true"
     failOnRisky="true"
     failOnWarning="true"
     colors="true"
-    cacheResultFile="build/.phpunit.result.cache">
+    cacheResultFile="build/.phpunit-unit.result.cache">
 
   <testsuites>
-    <testsuite name="integration">
-      <directory suffix="Test.php">tests/Integration</directory>
+    <testsuite name="unit">
+      <directory suffix="Test.php">tests/Unit</directory>
     </testsuite>
   </testsuites>
 
+  <!-- pathCoverage needs Xdebug; it is ignored (line-only) under pcov. -->
   <coverage pathCoverage="true" processUncoveredFiles="true">
     <include>
       <directory suffix=".php">src</directory>
     </include>
     <report>
-      <php outputFile="build/cov/integration.cov"/>
+      <php outputFile="build/cov/unit.cov"/>
     </report>
   </coverage>
 
