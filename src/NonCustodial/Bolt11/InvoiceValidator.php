@@ -108,13 +108,17 @@ final class InvoiceValidator {
       );
     }
 
-    // Clamp rather than reject: a server issuing a longer expiry than asked
-    // for is generous, not hostile, but the plugin should not promise to hold
-    // the order open for longer than it intended to.
-    $expiresAt = min(
-      $invoice->expiresAt(),
-      $invoice->timestamp + $expectation->maxExpirySeconds
-    );
+    // Never stop tracking an invoice while it remains payable. An invoice
+    // longer than the shop is willing to hold the order open is refused before
+    // it can be shown to the customer.
+    if ($invoice->expirySeconds > $expectation->maxExpirySeconds) {
+      return ValidationResult::fail(
+        'BOLT11_TOO_LONG',
+        'invoice expiry exceeds the maximum supported lifetime'
+      );
+    }
+
+    $expiresAt = $invoice->expiresAt();
 
     if ($expiresAt - $now < $expectation->minRemainingSeconds) {
       return ValidationResult::fail(

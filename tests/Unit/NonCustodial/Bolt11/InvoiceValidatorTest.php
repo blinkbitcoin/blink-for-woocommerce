@@ -315,11 +315,7 @@ final class InvoiceValidatorTest extends TestCase {
     $this->assertSame('BOLT11_TOO_SHORT', $result->code);
   }
 
-  /**
-   * A generous server is not a hostile one, but the shop should not hold an
-   * order open longer than it meant to.
-   */
-  public function testAnOverlyLongExpiryIsClampedRatherThanRejected(): void {
+  public function testAnOverlyLongExpiryIsRejected(): void {
     $invoice = Bolt11Encoder::create('lnbc100u')
       ->timestamp(self::NOW)
       ->tagHex('p', self::HASH)
@@ -329,12 +325,8 @@ final class InvoiceValidatorTest extends TestCase {
 
     $result = $this->validator->validate($invoice, $this->expectation());
 
-    $this->assertTrue($result->valid);
-    $this->assertSame(
-      self::NOW + 3600,
-      $result->expiresAt,
-      'expiry should clamp to the maximum'
-    );
+    $this->assertFalse($result->valid);
+    $this->assertSame('BOLT11_TOO_LONG', $result->code);
   }
 
   public function testExpiryFollowsTheInvoiceWhenShorterThanTheMaximum(): void {
