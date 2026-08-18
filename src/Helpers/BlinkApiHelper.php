@@ -56,7 +56,20 @@ class BlinkApiHelper {
       'blink' => 'https://api.blink.sv/graphql',
       'staging' => 'https://api.staging.galoy.io/graphql',
     ];
-    return $urlMapping[$env] ?? $urlMapping['blink'];
+    $url = $urlMapping[$env] ?? $urlMapping['blink'];
+
+    /**
+     * Filters the Blink GraphQL endpoint.
+     *
+     * Galoy is open source and self-hosted instances exist, which the two
+     * hard-coded environments cannot express. It is also the seam the tests
+     * use to exercise the error handling around this client without calling
+     * the real API from a test run.
+     *
+     * @param string      $url the resolved endpoint
+     * @param string|null $env the configured environment name
+     */
+    return (string) apply_filters('blink_api_url', $url, $env);
   }
 
   public static function getPayUrl(string $env = null): string {

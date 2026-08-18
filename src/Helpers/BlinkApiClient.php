@@ -31,10 +31,26 @@ class BlinkApiClient {
     // Make the HTTP POST request
     // Without explicit timeouts Guzzle waits indefinitely, so a hung Blink
     // API blocks the PHP worker handling a customer's checkout.
-    $client = new \GuzzleHttp\Client([
+    $options = [
       'connect_timeout' => 5,
       'timeout' => 20,
-    ]);
+    ];
+
+    /**
+     * Filters the Guzzle handler used for Blink API requests.
+     *
+     * Every custodial call funnels through here, so this one seam makes the
+     * whole client testable without reaching the real API. Production leaves
+     * it null and gets Guzzle's default handler.
+     *
+     * @param callable|null $handler
+     */
+    $handler = apply_filters('blink_api_http_handler', null);
+    if ($handler !== null) {
+      $options['handler'] = $handler;
+    }
+
+    $client = new \GuzzleHttp\Client($options);
     $response = $client->request('POST', $this->apiUrl, [
       'headers' => $headers,
       'body' => $body,
