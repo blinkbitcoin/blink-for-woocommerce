@@ -92,7 +92,10 @@ final class UrlPolicy implements UrlPolicyInterface {
       return UrlDecision::deny('ip literal host');
     }
 
-    if (!$this->isContainedBy($host, $address->host) && !$this->isExplicitlyAllowed($host)) {
+    if (
+      !$this->isContainedBy($host, $address->host) &&
+      !$this->isExplicitlyAllowed($host)
+    ) {
       return UrlDecision::deny('host outside the address domain');
     }
 

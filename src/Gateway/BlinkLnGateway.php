@@ -367,9 +367,9 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
       // Load the order by metadata field Blink_id
       $orders = wc_get_orders([
         // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- the webhook has only the payment hash to identify the order by.
-      'meta_key' => 'blink_id',
+        'meta_key' => 'blink_id',
         // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value -- see above.
-      'meta_value' => $invoiceId,
+        'meta_value' => $invoiceId,
       ]);
 
       // Abort if no orders found

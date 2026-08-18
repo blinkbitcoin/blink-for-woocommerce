@@ -47,17 +47,20 @@ describe('pay page', () => {
     });
 
     it('posts the order identity the endpoint expects', async () => {
-      await loadPayScript();
+      // Asserted against the config the page actually shipped, so renaming a
+      // payload field cannot leave this test passing against stale literals.
+      const config = defaultConfig();
+      await loadPayScript(config);
       await advance(3000);
 
       const [url, options] = globalThis.fetch.mock.calls[0];
-      expect(url).toBe('https://shop.test/wp-admin/admin-ajax.php');
+      expect(url).toBe(config.ajaxUrl);
       expect(options.method).toBe('POST');
       expect(options.credentials).toBe('same-origin');
       expect(options.body).toContain('action=blink_check_invoice');
-      expect(options.body).toContain('nonce=abc123');
-      expect(options.body).toContain('order_id=42');
-      expect(options.body).toContain('order_key=wc_order_key');
+      expect(options.body).toContain(`nonce=${config.nonce}`);
+      expect(options.body).toContain(`order_id=${config.orderId}`);
+      expect(options.body).toContain(`order_key=${config.orderKey}`);
     });
   });
 
