@@ -41,7 +41,7 @@ final class InvoiceValidator {
     }
 
     $allowedNetworks = $expectation->allowTestNetworks
-      ? ['bc', 'tb', 'bcrt', 'sb']
+      ? ['bc', 'tb', 'tbs', 'bcrt', 'sb']
       : ['bc'];
     if (!in_array($invoice->network, $allowedNetworks, true)) {
       return ValidationResult::fail(

@@ -110,6 +110,21 @@ final class InvoiceValidatorTest extends TestCase {
     $this->assertTrue($result->valid, $result->code);
   }
 
+  public function testAllowsASignetInvoiceForALocalDevelopmentAddress(): void {
+    $invoice = Bolt11Encoder::create('lntbs100u')
+      ->timestamp(self::NOW - 10)
+      ->tagHex('p', self::HASH)
+      ->tagHex('h', hash('sha256', self::METADATA))
+      ->build();
+
+    $result = $this->validator->validate(
+      $invoice,
+      $this->expectation(['allowTestNetworks' => true])
+    );
+
+    $this->assertTrue($result->valid, $result->code);
+  }
+
   public function testRejectsAnAmountlessInvoice(): void {
     $invoice = Bolt11Encoder::create('lnbc')
       ->timestamp(self::NOW - 10)

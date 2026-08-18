@@ -299,7 +299,7 @@ final class InvoiceFactoryTest extends TestCase {
     $this->assertSame('BOLT11_WRONG_NETWORK', $result->code);
   }
 
-  public function testAcceptsATestnetInvoiceForALocalDevelopmentAddress(): void {
+  public function testAcceptsASignetInvoiceForALocalDevelopmentAddress(): void {
     $local = LnAddress::parse('ok@localhost:8889');
     $this->http->queueJson([
       'tag' => 'payRequest',
@@ -307,7 +307,7 @@ final class InvoiceFactoryTest extends TestCase {
       'metadata' => self::METADATA,
     ]);
     $this->http->queueJson([
-      'pr' => $this->invoiceFor(3600, 'lntb100u'),
+      'pr' => $this->invoiceFor(3600, 'lntbs100u'),
       'verify' => 'http://localhost:8889/verify/' . self::HASH,
     ]);
 
