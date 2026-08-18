@@ -364,68 +364,75 @@ register_activation_hook(__FILE__, function () {
 
 // Initialize payment gateways and plugin.
 /**
- * Background settlement for non-custodial orders.
+ * Registers the background settlement hooks.
  *
- * Registered here rather than on the gateway, because the gateway is only
- * constructed on checkout-ish requests while the scheduler runs its queue in
- * its own request, where no gateway exists.
- */
-add_action(
-  \Blink\WC\NonCustodial\SettlementScheduler::HOOK,
-  function ($order_id): void {
-    $order = wc_get_order((int) $order_id);
-    if (!$order instanceof \WC_Order) {
-      return;
-    }
-
-    \Blink\WC\Services::instance()
-      ->settlementScheduler()
-      ->tick(new \Blink\WC\NonCustodial\WcOrderRecord($order));
-  },
-  10,
-  1
-);
-
-/**
- * Housekeeping for the lock and rate-limiter rows.
+ * Deliberately inside a function rather than at file scope: the plugin's
+ * autoloader is only required at plugins_loaded, so referencing a plugin class
+ * -- even just a class constant -- while this file is being included fatals on
+ * activation. That is exactly what happened, and it took activating the plugin
+ * on a real site to notice, because the test bootstrap loads Composer first.
  *
- * Both are written on a hot path and expire by time rather than by deletion,
- * so without this they accumulate in wp_options indefinitely. They are stored
- * with autoload disabled, so the cost is table size rather than page loads.
+ * Hooked at plugins_loaded priority 1, immediately after init_blink_plugin()
+ * has loaded the autoloader at priority 0.
  */
-add_action('blink_cleanup', function (): void {
-  \Blink\WC\Services::instance()->lock()->collectGarbage();
-  \Blink\WC\Services::instance()->rateLimiter()->collectGarbage();
-});
+function blink_register_settlement_hooks(): void {
+  if (!class_exists(\Blink\WC\NonCustodial\SettlementScheduler::class)) {
+    return;
+  }
 
-add_action('init', function (): void {
+  add_action(
+    \Blink\WC\NonCustodial\SettlementScheduler::HOOK,
+    function ($order_id): void {
+      $order = wc_get_order((int) $order_id);
+      if (!$order instanceof \WC_Order) {
+        return;
+      }
+
+      \Blink\WC\Services::instance()
+        ->settlementScheduler()
+        ->tick(new \Blink\WC\NonCustodial\WcOrderRecord($order));
+    },
+    10,
+    1
+  );
+
+  /**
+   * Stop checking an order that has been resolved by any other route -- paid
+   * through a different gateway, cancelled, refunded, or completed by hand.
+   */
+  add_action(
+    'woocommerce_order_status_changed',
+    function ($order_id, $from, $to): void {
+      if (!in_array($to, ['cancelled', 'refunded', 'failed', 'completed', 'processing'], true)) {
+        return;
+      }
+
+      \Blink\WC\Services::instance()->settlementScheduler()->cancel((int) $order_id);
+    },
+    10,
+    3
+  );
+
+  /**
+   * Housekeeping for the lock and rate-limiter rows. Both are written on a hot
+   * path and expire by time rather than by deletion, so without this they
+   * accumulate in wp_options indefinitely.
+   */
+  add_action('blink_cleanup', function (): void {
+    \Blink\WC\Services::instance()->lock()->collectGarbage();
+    \Blink\WC\Services::instance()->rateLimiter()->collectGarbage();
+  });
+
   if (!wp_next_scheduled('blink_cleanup')) {
     wp_schedule_event(time() + HOUR_IN_SECONDS, 'daily', 'blink_cleanup');
   }
-});
+}
+
+add_action('plugins_loaded', 'blink_register_settlement_hooks', 1);
 
 register_deactivation_hook(__FILE__, function (): void {
   wp_clear_scheduled_hook('blink_cleanup');
 });
-
-/**
- * Stop checking an order that has been resolved by any other route -- paid
- * through a different gateway, cancelled, refunded, or completed by hand.
- */
-add_action(
-  'woocommerce_order_status_changed',
-  function ($order_id, $from, $to): void {
-    if (
-      !in_array($to, ['cancelled', 'refunded', 'failed', 'completed', 'processing'], true)
-    ) {
-      return;
-    }
-
-    \Blink\WC\Services::instance()->settlementScheduler()->cancel((int) $order_id);
-  },
-  10,
-  3
-);
 
 add_filter('woocommerce_payment_gateways', ['BlinkWCPlugin', 'initPaymentGateways']);
 add_action('plugins_loaded', 'init_blink_plugin', 0);

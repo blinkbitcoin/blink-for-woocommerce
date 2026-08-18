@@ -50,6 +50,18 @@ final class Blink_E2E_Lnurl_Server {
     if ($path === '/blink-e2e/control/requests') {
       self::requestLog();
     }
+    if ($path === '/blink-e2e/control/order') {
+      self::seedOrder();
+    }
+    if ($path === '/blink-e2e/control/order-state') {
+      self::orderState();
+    }
+    if ($path === '/blink-e2e/control/settings') {
+      self::settings();
+    }
+    if ($path === '/blink-e2e/control/run-scheduler') {
+      self::runScheduler();
+    }
   }
 
   // ------------------------------------------------------------- endpoints
@@ -191,6 +203,111 @@ final class Blink_E2E_Lnurl_Server {
     $mode = isset($_REQUEST['mode']) ? sanitize_text_field(wp_unslash($_REQUEST['mode'])) : 'http-500';
     update_option(self::OPTION_PREFIX . 'fail_' . $hash, $mode);
     self::json(['ok' => true, 'failing' => $hash, 'mode' => $mode]);
+  }
+
+  /**
+   * Creates an order and takes it through the real gateway.
+   *
+   * This is the part the previous harness skipped: it created a bare order and
+   * never ran process_payment, so no invoice existed, the pay page rendered
+   * nothing, and the specs asserting "no invoice" passed for the wrong reason.
+   */
+  private static function seedOrder(): void {
+    $total = isset($_REQUEST['total'])
+      ? (float) sanitize_text_field(wp_unslash($_REQUEST['total']))
+      : 10.0;
+
+    $order = wc_create_order();
+    $order->set_currency('USD');
+    $order->set_total((string) $total);
+    $order->set_payment_method('blink_default');
+    $order->set_status('pending');
+    $order->save();
+
+    $gateways = WC()->payment_gateways()->payment_gateways();
+    $gateway = $gateways['blink_default'] ?? null;
+    if ($gateway === null) {
+      status_header(500);
+      self::json(['error' => 'the Blink gateway is not registered']);
+    }
+
+    try {
+      $result = $gateway->process_payment($order->get_id());
+    } catch (\Throwable $e) {
+      self::json([
+        'ok' => false,
+        'orderId' => $order->get_id(),
+        'error' => $e->getMessage(),
+      ]);
+    }
+
+    $order = wc_get_order($order->get_id());
+
+    self::json([
+      'ok' => true,
+      'orderId' => $order->get_id(),
+      'orderKey' => $order->get_order_key(),
+      'payUrl' => $order->get_checkout_payment_url(true),
+      'paymentHash' => (string) $order->get_meta('blink_id'),
+      'satoshis' => (int) $order->get_meta('_blink_satoshis'),
+      'status' => $order->get_status(),
+      'redirect' => $result['redirect'] ?? null,
+    ]);
+  }
+
+  private static function orderState(): void {
+    $id = isset($_REQUEST['id']) ? absint($_REQUEST['id']) : 0;
+    $order = $id ? wc_get_order($id) : null;
+
+    if (!$order instanceof \WC_Order) {
+      status_header(404);
+      self::json(['error' => 'no such order']);
+    }
+
+    self::json([
+      'status' => $order->get_status(),
+      'paymentHash' => (string) $order->get_meta('blink_id'),
+      'satoshis' => (int) $order->get_meta('_blink_satoshis'),
+      'terminal' => (string) $order->get_meta('_blink_terminal'),
+      'notes' => array_map(
+        static fn($note): string => trim($note->content),
+        wc_get_order_notes(['order_id' => $order->get_id(), 'limit' => 20])
+      ),
+    ]);
+  }
+
+  private static function settings(): void {
+    foreach (['blink_account_type', 'blink_ln_address', 'blink_env', 'blink_debug'] as $key) {
+      if (isset($_REQUEST[$key])) {
+        update_option($key, sanitize_text_field(wp_unslash($_REQUEST[$key])));
+      }
+    }
+
+    self::json([
+      'ok' => true,
+      'blink_account_type' => get_option('blink_account_type'),
+      'blink_ln_address' => get_option('blink_ln_address'),
+    ]);
+  }
+
+  /** Runs whatever settlement work is due, as the queue would. */
+  private static function runScheduler(): void {
+    $ran = 0;
+    if (class_exists('\ActionScheduler')) {
+      $store = \ActionScheduler::store();
+      $runner = \ActionScheduler::runner();
+      $due = $store->query_actions([
+        'status' => \ActionScheduler_Store::STATUS_PENDING,
+        'group' => 'blink',
+        'per_page' => 50,
+      ]);
+      foreach ($due as $actionId) {
+        $runner->process_action((int) $actionId, 'blink-e2e');
+        $ran++;
+      }
+    }
+
+    self::json(['ok' => true, 'ran' => $ran]);
   }
 
   private static function reset(): void {
