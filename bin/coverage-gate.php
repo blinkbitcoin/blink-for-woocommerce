@@ -28,6 +28,19 @@ if (!is_file($reportPath)) {
   fwrite(STDERR, "Coverage export not found at {$reportPath}\nRun bin/run-coverage.sh first.\n");
   exit(1);
 }
+// The input is php-code-coverage's own export, which this script include()s.
+// Checking the extension first turns "somebody passed the Cobertura XML" into
+// a one-line explanation instead of the whole XML document echoed to stdout,
+// which is how that mistake presented for weeks.
+if (!str_ends_with($reportPath, '.cov') && !str_ends_with($reportPath, '.php')) {
+  fwrite(
+    STDERR,
+    "Expected php-code-coverage's PHP export (.cov), got {$reportPath}\n" .
+    "The Cobertura and Clover reports record weaker condition coverage and\n" .
+    "cannot satisfy this gate. Run bin/run-coverage.sh and pass merged.cov.\n"
+  );
+  exit(1);
+}
 if (!is_file($configPath)) {
   fwrite(STDERR, "Missing {$configPath}\n");
   exit(1);

@@ -66,8 +66,15 @@ jobs:
         with:
           php-version: ${{ matrix.php }}
           coverage: none
-      - name: Lint every source file
-        run: find src blink-for-woocommerce.php -name '*.php' -print0 | xargs -0 -n1 -P4 php -l
+      # tests and bin are linted too, not just src: the suites run on every PHP
+      # in this matrix, so a test file using a feature the floor lacks breaks
+      # the build. A constant in a trait -- 8.2 and later only -- did exactly
+      # that, and it surfaced as a fatal seven minutes into the integration job
+      # rather than here, twenty seconds in.
+      - name: Lint every PHP file that runs on this version
+        run: |
+          find src tests bin blink-for-woocommerce.php -name '*.php' -print0 \
+            | xargs -0 -n1 -P4 php -l
 
   unit:
     name: Unit PHP ${{ matrix.php }}

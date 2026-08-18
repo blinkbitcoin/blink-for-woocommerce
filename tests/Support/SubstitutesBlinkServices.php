@@ -21,7 +21,6 @@ use Blink\WC\Tests\Support\Fake\FixedSatsRateProvider;
  */
 trait SubstitutesBlinkServices {
   /** Fixed point in time every substituted clock starts from. */
-  public const NOW = 1700000000;
 
   protected FakeClock $clock;
   protected FakeHttpClient $http;
@@ -33,7 +32,7 @@ trait SubstitutesBlinkServices {
 
   protected function substituteBlinkServices(): void {
     $this->paymentHash = hash('sha256', (string) hex2bin($this->preimage));
-    $this->clock = new FakeClock(self::NOW);
+    $this->clock = new FakeClock(TestTime::NOW);
     $this->http = new FakeHttpClient();
 
     add_filter('blink_service_clock', fn() => $this->clock);
@@ -105,8 +104,8 @@ trait SubstitutesBlinkServices {
       $overrides['lnAddress'] ?? 'shop@blink.sv',
       $overrides['amountMsat'] ?? 10000000,
       $overrides['satoshis'] ?? 10000,
-      $overrides['createdAt'] ?? self::NOW,
-      $overrides['expiresAt'] ?? self::NOW + 3600,
+      $overrides['createdAt'] ?? TestTime::NOW,
+      $overrides['expiresAt'] ?? TestTime::NOW + 3600,
       $overrides['orderTotal'] ?? (string) $order->get_total(),
       $overrides['orderCurrency'] ?? (string) $order->get_currency()
     );

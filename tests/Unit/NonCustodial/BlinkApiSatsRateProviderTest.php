@@ -68,12 +68,12 @@ final class BlinkApiSatsRateProviderTest extends TestCase {
   }
 
   public function testAThrownErrorIsLogged(): void {
-    $this->provider(new \RuntimeException('GraphQL query failed'))
-      ->toSatoshis(10.0, 'USD');
-
-    $this->assertTrue(
-      $this->log->hasMessageContaining('GraphQL query failed', 'error')
+    $this->provider(new \RuntimeException('GraphQL query failed'))->toSatoshis(
+      10.0,
+      'USD'
     );
+
+    $this->assertTrue($this->log->hasMessageContaining('GraphQL query failed', 'error'));
   }
 
   public function testAMissingAmountBecomesNoRate(): void {

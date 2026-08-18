@@ -8,6 +8,7 @@ use Blink\WC\Gateway\BlinkLnGateway;
 use Blink\WC\Http\HttpResponse;
 use Blink\WC\NonCustodial\SettlementService;
 use Blink\WC\Tests\Support\SubstitutesBlinkServices;
+use Blink\WC\Tests\Support\TestTime;
 use WPAjaxDieContinueException;
 use WPAjaxDieStopException;
 use WP_Ajax_UnitTestCase;
@@ -23,6 +24,9 @@ use WP_Ajax_UnitTestCase;
  */
 final class AjaxCheckInvoiceTest extends WP_Ajax_UnitTestCase {
   use SubstitutesBlinkServices;
+
+  /** Re-exposed from TestTime: a trait cannot hold a constant on PHP 8.1. */
+  public const NOW = TestTime::NOW;
 
   private BlinkLnGateway $gateway;
 

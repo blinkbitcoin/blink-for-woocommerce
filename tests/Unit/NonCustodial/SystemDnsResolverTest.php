@@ -121,14 +121,13 @@ final class SystemDnsResolverTest extends TestCase {
 
   public function testTheDefaultAaaaLookupRunsWhereTheFunctionIsAvailable(): void {
     $seen = [];
-    $result = SystemDnsResolver::lookupAaaa(
-      'blink-test.invalid',
-      static function (string $name) use (&$seen): bool {
-        $seen[] = $name;
+    $result = SystemDnsResolver::lookupAaaa('blink-test.invalid', static function (
+      string $name
+    ) use (&$seen): bool {
+      $seen[] = $name;
 
-        return function_exists($name);
-      }
-    );
+      return function_exists($name);
+    });
 
     $this->assertSame(['dns_get_record'], $seen);
     // An unresolvable name yields no records; the point is that it was tried.

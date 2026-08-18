@@ -224,7 +224,9 @@ final class DbRateLimiterTest extends IntegrationTestCase {
 
   public function test_a_name_with_an_expired_window_is_deleted(): void {
     $db = new StubWpdb();
-    $db->colResult = [DbRateLimiter::PREFIX . 'ip_a_' . sprintf('%010d', self::NOW - 200000)];
+    $db->colResult = [
+      DbRateLimiter::PREFIX . 'ip_a_' . sprintf('%010d', self::NOW - 200000),
+    ];
     $limiter = new DbRateLimiter($db, new FakeClock(self::NOW));
 
     $limiter->collectGarbage();

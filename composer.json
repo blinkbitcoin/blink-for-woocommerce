@@ -49,7 +49,7 @@
       "@test:integration"
     ],
     "coverage": "bin/run-coverage.sh",
-    "coverage:gate": "php bin/coverage-gate.php build/coverage/cobertura.xml",
+    "coverage:gate": "php bin/coverage-gate.php",
     "lint:phpcs": "phpcs",
     "lint:phpcbf": "phpcbf",
     "lint:phpstan": "phpstan analyse --memory-limit=1G",

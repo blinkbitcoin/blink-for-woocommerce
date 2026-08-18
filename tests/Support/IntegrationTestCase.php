@@ -17,6 +17,9 @@ use WP_UnitTestCase;
 abstract class IntegrationTestCase extends WP_UnitTestCase {
   use SubstitutesBlinkServices;
 
+  /** Re-exposed from TestTime: a trait cannot hold a constant on PHP 8.1. */
+  public const NOW = TestTime::NOW;
+
   public function set_up() {
     parent::set_up();
     $this->substituteBlinkServices();
