@@ -17,6 +17,9 @@ final class FakeOrder implements OrderRecord {
   /** @var array<string,mixed> */
   public array $meta = [];
 
+  /** @var list<string> */
+  public array $notes = [];
+
   public int $saves = 0;
 
   public function __construct(
@@ -52,6 +55,10 @@ final class FakeOrder implements OrderRecord {
 
   public function currency(): string {
     return $this->currency;
+  }
+
+  public function addNote(string $note): void {
+    $this->notes[] = $note;
   }
 
   public function setTotal(string $total): self {

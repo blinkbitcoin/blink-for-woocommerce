@@ -404,8 +404,9 @@ function blink_register_settlement_hooks(): void {
    * That timer cancels pending orders once woocommerce_hold_stock_minutes has
    * passed -- 60 by default, against invoices valid for up to 3600 seconds --
    * and the cancellation used to take the order's settlement checks with it,
-   * losing payments made on a still-valid QR code. The veto releases itself
-   * once the invoice resolves or its window closes.
+   * losing payments made on a still-valid QR code. The veto releases once the
+   * invoice resolves, or once its window closes with a conclusive answer about
+   * whether it was paid. An order nobody could get an answer about is held.
    */
   add_filter(
     'woocommerce_cancel_unpaid_order',
@@ -427,17 +428,16 @@ function blink_register_settlement_hooks(): void {
    * through a different gateway, refunded, completed by hand, or cancelled by
    * a shop manager. WooCommerce's own stock timer no longer reaches here while
    * an invoice is live, so a cancellation at this point is a human decision.
+   *
+   * 'failed' is deliberately absent. WooCommerce sets it when *another*
+   * gateway attempt on the same order errors, which says nothing about the
+   * Lightning invoice: the customer can still pay the BOLT11 they already have
+   * open, and tearing the schedule down here left that payment uncredited.
    */
   add_action(
     'woocommerce_order_status_changed',
     function ($order_id, $from, $to): void {
-      if (
-        !in_array(
-          $to,
-          ['cancelled', 'refunded', 'failed', 'completed', 'processing'],
-          true
-        )
-      ) {
+      if (!in_array($to, ['cancelled', 'refunded', 'completed', 'processing'], true)) {
         return;
       }
 

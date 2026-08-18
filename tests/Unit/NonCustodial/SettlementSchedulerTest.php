@@ -238,6 +238,42 @@ final class SettlementSchedulerTest extends TestCase {
     );
   }
 
+  /**
+   * Jitter used to be applied to the whole offset from createdAt rather than
+   * to the interval, so its spread grew with the age of the invoice. In the
+   * five-minute tail a 3600-second-old invoice drew +/-975 seconds against a
+   * 300-second interval: the next check landed anywhere from the floor to a
+   * quarter of an hour out, and MAX_ATTEMPTS is documented against a schedule
+   * that assumes neither.
+   *
+   * @dataProvider tailJitterDraws
+   */
+  public function testTailChecksStayWithinOneIntervalOfJitter(
+    float $draw,
+    int $expected
+  ): void {
+    $this->storeInvoice(7200);
+    $scheduler = $this->makeScheduler(array_fill(0, 10, $draw));
+    $this->http->alwaysRespond(new HttpResponse(200, '{"settled":false}'));
+
+    // Past the last scheduled offset, so the tail interval decides.
+    $this->clock->freezeAt(self::NOW + 3600);
+    $scheduler->tick($this->order);
+
+    $latest = end($this->scheduler->scheduled);
+    $this->assertSame(self::NOW + 3600 + $expected, $latest['timestamp']);
+  }
+
+  /** @return array<string,array{float,int}> */
+  public function tailJitterDraws(): array {
+    // 300s tail interval, +/-25%.
+    return [
+      'earliest' => [0.0, 225],
+      'midpoint' => [0.5, 300],
+      'latest' => [1.0, 375],
+    ];
+  }
+
   public function testAScheduledCheckIsNeverDueInThePast(): void {
     $invoice = $this->storeInvoice(7200);
     $scheduler = $this->makeScheduler(array_fill(0, 10, 0.0));

@@ -64,6 +64,7 @@ final class InvoiceRepository {
     self::SETTLED_AT,
     self::PREIMAGE,
     self::TERMINAL,
+    UnpaidOrderGuard::HOLD_NOTICE,
     'blink_redirect',
   ];
 
@@ -72,6 +73,18 @@ final class InvoiceRepository {
 
   public function isNonCustodial(OrderRecord $order): bool {
     return $order->getMeta(self::ACCOUNT_TYPE) === self::ACCOUNT_TYPE_NON_CUSTODIAL;
+  }
+
+  /**
+   * Whether this order was created under a known account type.
+   *
+   * Distinct from isNonCustodial(), which cannot tell a custodial order from
+   * an order that has no invoice at all. The gateway needs that distinction to
+   * route an existing order by what it is rather than by what the merchant has
+   * since switched the setting to.
+   */
+  public function hasStoredAccountType(OrderRecord $order): bool {
+    return (string) $order->getMeta(self::ACCOUNT_TYPE) !== '';
   }
 
   public function load(OrderRecord $order): ?StoredInvoice {
@@ -246,7 +259,26 @@ final class InvoiceRepository {
     }
 
     return $order->currency() === $invoice->orderCurrency &&
-      // Compare numerically: WooCommerce may hand back "10.00" or "10".
-      abs((float) $order->total() - (float) $invoice->orderTotal) < 0.00001;
+      self::normaliseTotal($order->total()) ===
+        self::normaliseTotal($invoice->orderTotal);
+  }
+
+  /**
+   * Puts a WooCommerce total into one comparable form.
+   *
+   * Both sides originate from WC_Order::get_total(), so they differ only in
+   * trailing zeros -- "10.00" against "10". Comparing as normalised decimal
+   * strings keeps that tolerance and no more. The previous fixed epsilon of
+   * 0.00001 was roughly a thousand satoshis against a BTC-denominated store,
+   * so an order edited from 0.00001000 to 0.00001900 BTC read as unchanged and
+   * could be completed on the invoice for the lower amount.
+   */
+  private static function normaliseTotal(string $total): string {
+    $trimmed = trim($total);
+    if (!str_contains($trimmed, '.')) {
+      return $trimmed;
+    }
+
+    return rtrim(rtrim($trimmed, '0'), '.');
   }
 }

@@ -45,4 +45,8 @@ final class WcOrderRecord implements OrderRecord {
   public function currency(): string {
     return (string) $this->order->get_currency();
   }
+
+  public function addNote(string $note): void {
+    $this->order->add_order_note($note);
+  }
 }

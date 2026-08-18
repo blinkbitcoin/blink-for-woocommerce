@@ -13,6 +13,28 @@ use Blink\WC\Tests\Support\Fake\FakeOrder;
 use PHPUnit\Framework\TestCase;
 
 final class InvoiceRepositoryTest extends TestCase {
+  public function testAnOrderWithNoInvoiceHasNoStoredAccountType(): void {
+    $clock = new FakeClock(1700000000);
+    $repository = new InvoiceRepository($clock);
+    $order = new FakeOrder(42, '10.00', 'USD');
+
+    $this->assertFalse($repository->hasStoredAccountType($order));
+    $this->assertFalse($repository->isNonCustodial($order));
+  }
+
+  public function testACustodialOrderHasAStoredAccountTypeThatIsNotNonCustodial(): void {
+    $clock = new FakeClock(1700000000);
+    $repository = new InvoiceRepository($clock);
+    $order = new FakeOrder(42, '10.00', 'USD');
+    $order->setMeta(InvoiceRepository::ACCOUNT_TYPE, 'custodial');
+
+    $this->assertTrue(
+      $repository->hasStoredAccountType($order),
+      'the gateway needs this to tell a custodial order from a brand new one'
+    );
+    $this->assertFalse($repository->isNonCustodial($order));
+  }
+
   private const NOW = 1700000000;
 
   private FakeClock $clock;
@@ -328,6 +350,44 @@ final class InvoiceRepositoryTest extends TestCase {
 
     $this->assertFalse(
       $this->repository->totalsUnchanged($this->order, $this->invoice())
+    );
+  }
+
+  /**
+   * The safeguard was defeated for any store priced in bitcoin: the old fixed
+   * tolerance of 0.00001 is close to a thousand satoshis, so an edit well
+   * inside it let the order complete on the invoice for the lower amount.
+   */
+  public function testASmallChangeToABitcoinTotalIsDetected(): void {
+    $this->order->setTotal('0.00001900')->setCurrency('BTC');
+
+    $this->assertFalse(
+      $this->repository->totalsUnchanged(
+        $this->order,
+        $this->invoice(['orderTotal' => '0.00001000', 'orderCurrency' => 'BTC'])
+      )
+    );
+  }
+
+  public function testTrailingZerosOnABitcoinTotalAreStillNotAChange(): void {
+    $this->order->setTotal('0.00001')->setCurrency('BTC');
+
+    $this->assertTrue(
+      $this->repository->totalsUnchanged(
+        $this->order,
+        $this->invoice(['orderTotal' => '0.00001000', 'orderCurrency' => 'BTC'])
+      )
+    );
+  }
+
+  public function testAWholeNumberTotalMatchesItsPaddedForm(): void {
+    $this->order->setTotal('10.000');
+
+    $this->assertTrue(
+      $this->repository->totalsUnchanged(
+        $this->order,
+        $this->invoice(['orderTotal' => '10'])
+      )
     );
   }
 

@@ -225,28 +225,75 @@ final class OrderStatusApplierTest extends IntegrationTestCase {
 
   // -------------------------------------------------------- payment_complete
 
-  public function test_payment_complete_runs_only_when_the_paid_state_is_unmapped(): void {
+  public function test_payment_complete_runs_when_the_paid_state_is_unmapped(): void {
     update_option('blink_order_states', [
       OrderStates::PAID => OrderStates::IGNORE,
       OrderStates::EXPIRED => OrderStates::IGNORE,
     ]);
     $order = $this->makeOrder();
 
-    $this->applier->completePaymentIfUnmapped($order, 'txn-123');
+    $this->applier->completePayment($order, 'txn-123');
 
     $reloaded = $this->reload($order);
     $this->assertSame('txn-123', $reloaded->get_transaction_id());
     $this->assertNotNull($reloaded->get_date_paid());
   }
 
-  public function test_payment_complete_defers_to_an_explicit_merchant_mapping(): void {
+  /**
+   * The regression. On a default install PAID maps to wc-processing, so the
+   * old gate never ran and _date_paid, the transaction id and the
+   * woocommerce_payment_complete hook were all skipped for every order.
+   */
+  public function test_payment_complete_runs_under_the_shipped_default_mapping(): void {
+    delete_option('blink_order_states');
+    $order = $this->makeOrder();
+    $fired = [];
+    add_action(
+      'woocommerce_payment_complete',
+      function ($orderId, $transactionId = '') use (&$fired): void {
+        $fired[] = [$orderId, $transactionId];
+      },
+      10,
+      2
+    );
+
+    $this->applier->apply($order, 'PAID', 'blink', true);
+    $this->applier->completePayment($order, 'txn-123');
+
+    $reloaded = $this->reload($order);
+    $this->assertSame('processing', $reloaded->get_status());
+    $this->assertSame('txn-123', $reloaded->get_transaction_id());
+    $this->assertNotNull($reloaded->get_date_paid());
+    $this->assertCount(1, $fired);
+    $this->assertSame([$order->get_id(), 'txn-123'], $fired[0]);
+  }
+
+  public function test_payment_complete_leaves_an_explicit_merchant_mapping_alone(): void {
     update_option('blink_order_states', [
-      OrderStates::PAID => 'completed',
+      OrderStates::PAID => 'on-hold',
       OrderStates::EXPIRED => 'cancelled',
     ]);
     $order = $this->makeOrder();
 
-    $this->applier->completePaymentIfUnmapped($order, 'txn-123');
+    $this->applier->apply($order, 'PAID', 'blink', true);
+    $this->applier->completePayment($order, 'txn-123');
+
+    $reloaded = $this->reload($order);
+    $this->assertSame(
+      'on-hold',
+      $reloaded->get_status(),
+      'the bookkeeping must not overrule the merchant\'s mapping'
+    );
+    $this->assertSame('txn-123', $reloaded->get_transaction_id());
+    $this->assertNotNull($reloaded->get_date_paid());
+  }
+
+  public function test_payment_complete_declines_a_protected_order(): void {
+    update_option('blink_protect_order_status', 'yes');
+    $order = $this->makeOrder();
+    $order->update_status('completed');
+
+    $this->applier->completePayment($order, 'txn-123');
 
     $this->assertSame('', $this->reload($order)->get_transaction_id());
   }

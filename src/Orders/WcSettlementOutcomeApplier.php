@@ -43,10 +43,7 @@ final class WcSettlementOutcomeApplier implements SettlementOutcomeApplier {
 
     if ($outcome->status === SettlementStatus::Paid) {
       $invoice = $this->repository->load($order);
-      $this->applier->completePaymentIfUnmapped(
-        $wcOrder,
-        (string) $invoice?->paymentHash
-      );
+      $this->applier->completePayment($wcOrder, (string) $invoice?->paymentHash);
     }
   }
 }

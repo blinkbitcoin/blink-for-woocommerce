@@ -620,14 +620,34 @@ final class LnurlClientTest extends TestCase {
     );
   }
 
-  /** A truthy-but-not-true value must not be read as payment. */
-  public function testNonBooleanSettledValueIsNotTreatedAsPaid(): void {
-    $this->http->queueJson(['settled' => 'yes']);
+  /**
+   * A truthy-but-not-true value must not be read as payment -- and must not be
+   * read as non-payment either. Reporting it as unsettled expired the order
+   * once the grace period passed, which cancels an order that may well have
+   * been paid. Inconclusive is the only answer that risks neither.
+   *
+   * @dataProvider unreadableSettledValues
+   *
+   * @param mixed $value
+   */
+  public function testAnUnreadableSettledValueIsInconclusive($value): void {
+    $this->http->queueJson(['settled' => $value]);
 
     $this->assertSame(
-      VerifyState::Unsettled,
+      VerifyState::TransportError,
       $this->client->verify(self::VERIFY_URL, $this->address)->state
     );
+  }
+
+  /** @return array<string,array{mixed}> */
+  public function unreadableSettledValues(): array {
+    return [
+      'yes' => ['yes'],
+      'string true' => ['true'],
+      'integer one' => [1],
+      'integer zero' => [0],
+      'array' => [['settled' => true]],
+    ];
   }
 
   public function testSettledWithoutAPreimageIsStillSettled(): void {

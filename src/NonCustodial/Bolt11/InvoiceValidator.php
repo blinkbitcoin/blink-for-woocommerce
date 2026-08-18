@@ -74,10 +74,19 @@ final class InvoiceValidator {
       return ValidationResult::fail('BOLT11_NO_HASH', 'invoice carries no payment hash');
     }
 
-    if (
-      $expectation->verifyUrlPaymentHash !== null &&
-      !hash_equals($expectation->verifyUrlPaymentHash, $invoice->paymentHash)
-    ) {
+    // Skipping this when the hash could not be read from the verify URL would
+    // leave nothing tying that URL to the invoice on screen. A verify URL
+    // pointing at a different, already-settled invoice answers "settled" with
+    // no preimage, which settlement tolerates by design, and the order would
+    // complete without a payment.
+    if ($expectation->verifyUrlPaymentHash === null) {
+      return ValidationResult::fail(
+        'BOLT11_HASH_UNBINDABLE',
+        'verify URL carries no payment hash to check the invoice against'
+      );
+    }
+
+    if (!hash_equals($expectation->verifyUrlPaymentHash, $invoice->paymentHash)) {
       return ValidationResult::fail(
         'BOLT11_HASH_MISMATCH',
         'invoice payment hash does not match the verify URL'

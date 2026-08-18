@@ -26,4 +26,6 @@ interface OrderRecord {
   public function total(): string;
 
   public function currency(): string;
+
+  public function addNote(string $note): void;
 }

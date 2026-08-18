@@ -147,6 +147,36 @@ final class UrlPolicy implements UrlPolicyInterface {
   }
 
   /**
+   * The IPv4 address wrapped inside ::ffff:/96 or 64:ff9b::/96, if any.
+   *
+   * Both prefixes carry the IPv4 address in the final four bytes.
+   */
+  private function unwrapIpv4(string $ip): ?string {
+    $packed = @inet_pton($ip);
+    if ($packed === false || strlen($packed) !== 16) {
+      return null;
+    }
+
+    $prefixes = [
+      // ::ffff:0:0/96
+      "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff",
+      // 64:ff9b::/96
+      "\x00\x64\xff\x9b\x00\x00\x00\x00\x00\x00\x00\x00",
+    ];
+
+    foreach ($prefixes as $prefix) {
+      if (strncmp($packed, $prefix, 12) === 0) {
+        /** @var array<int,int> $bytes */
+        $bytes = unpack('C4', substr($packed, 12));
+
+        return implode('.', $bytes);
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * Whether an address is safe to connect to from the shop's server.
    *
    * filter_var's own flags miss several ranges that matter in hosting
@@ -162,13 +192,15 @@ final class UrlPolicy implements UrlPolicyInterface {
     // flag rejects ::ffff:93.184.216.34, a perfectly public address, while on
     // macOS it does not. Normalising first makes the answer identical
     // everywhere, which for a security check is the point.
-    if (preg_match('/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i', $ip, $m)) {
-      return $this->isPublicIp($m[1]);
-    }
-
-    // NAT64 (64:ff9b::/96) wraps an IPv4 address the same way.
-    if (preg_match('/^64:ff9b::(\d+\.\d+\.\d+\.\d+)$/i', $ip, $m)) {
-      return $this->isPublicIp($m[1]);
+    // Unwrapped from the packed form rather than by matching text. inet_ntop
+    // only writes the dotted tail for ::ffff:/96, never for 64:ff9b::/96, so
+    // the textual NAT64 match never fired for an address that came back from
+    // DNS -- while the form that does occur, 64:ff9b::a9fe:a9fe for
+    // 169.254.169.254, is not in filter_var's reserved set and was pinned into
+    // the request as a public address.
+    $unwrapped = $this->unwrapIpv4($ip);
+    if ($unwrapped !== null) {
+      return $this->isPublicIp($unwrapped);
     }
 
     if (

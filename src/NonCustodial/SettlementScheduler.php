@@ -224,7 +224,13 @@ final class SettlementScheduler {
       $next = $elapsed + self::TAIL_INTERVAL;
     }
 
-    $timestamp = $invoice->createdAt + $this->jitter->apply($next);
+    // Jitter belongs on the interval, not on the offset from createdAt. Applied
+    // to the offset it scaled with the age of the invoice: in the tail, where
+    // $next is $elapsed + 300, a 3000-second-old invoice drew +/-825 seconds
+    // against a 300-second interval, so checks oscillated between the floor
+    // below and gaps of a quarter of an hour -- and MAX_ATTEMPTS is documented
+    // against a schedule that assumes neither.
+    $timestamp = $invoice->createdAt + $elapsed + $this->jitter->apply($next - $elapsed);
 
     // Never schedule beyond the point where the order can still be resolved.
     $deadline = $invoice->expiresAt + SettlementService::EXPIRY_GRACE_SECONDS + 1;

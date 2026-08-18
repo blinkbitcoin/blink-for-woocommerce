@@ -595,6 +595,51 @@ final class SettlementServiceTest extends TestCase {
   }
 
   /**
+   * The asymmetry above was unreachable once the budget was actually spent:
+   * the ceiling sat in the shared code path, so a run of background errors
+   * silenced the pay page too, and only a foreground answer could have cleared
+   * it. A customer paying after the provider came back watched the page spin
+   * and nobody credited the order.
+   */
+  public function testAnExhaustedBackgroundBudgetDoesNotSilenceThePayPage(): void {
+    $this->storeInvoice();
+    $this->http->alwaysRespond(HttpResponse::transportFailure('down'));
+    for ($i = 0; $i < SettlementService::MAX_CONSECUTIVE_ERRORS; $i++) {
+      $this->service->pollAsBackgroundCheck($this->order);
+    }
+    $this->assertTrue($this->service->exhausted($this->order));
+
+    $this->http->alwaysRespond(
+      new HttpResponse(
+        200,
+        json_encode(['settled' => true, 'preimage' => $this->preimage])
+      )
+    );
+    $outcome = $this->service->poll($this->order);
+
+    $this->assertSame(SettlementStatus::Paid, $outcome->status);
+    $this->assertSame(
+      0,
+      $this->repository->consecutiveErrors($this->order),
+      'the answer also proved the endpoint is reachable again'
+    );
+  }
+
+  public function testAnExhaustedBackgroundBudgetStillStopsTheBackgroundJob(): void {
+    $this->storeInvoice();
+    $this->http->alwaysRespond(HttpResponse::transportFailure('down'));
+    for ($i = 0; $i < SettlementService::MAX_CONSECUTIVE_ERRORS; $i++) {
+      $this->service->pollAsBackgroundCheck($this->order);
+    }
+    $requestsBefore = $this->http->requestCount();
+
+    $outcome = $this->service->pollAsBackgroundCheck($this->order);
+
+    $this->assertSame(SettlementStatus::Unknown, $outcome->status);
+    $this->assertSame($requestsBefore, $this->http->requestCount());
+  }
+
+  /**
    * The deliberate asymmetry: a foreground check may not spend the budget, but
    * it may prove the endpoint came back, which can only delay giving up.
    */

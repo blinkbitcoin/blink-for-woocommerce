@@ -145,10 +145,28 @@ final class Bolt11Decoder {
       return [$network, null];
     }
 
+    // The amount comes from a server this plugin does not control, and the
+    // pattern above accepts any number of digits. Casting saturates at
+    // PHP_INT_MAX and the multiplications below then overflow to float, which
+    // under strict_types surfaces as a TypeError from intdiv() or from
+    // DecodedInvoice -- neither of which the validator catches, so malformed
+    // server input became a fatal in checkout instead of a refused invoice.
+    if (strlen($digits) > 19) {
+      throw new Bolt11Exception('invoice amount is out of range');
+    }
+
     $amount = (int) $digits;
     if ($multiplier === '') {
       // Bare amount is in bitcoin.
+      if ($amount > intdiv(PHP_INT_MAX, 100000000000)) {
+        throw new Bolt11Exception('invoice amount is out of range');
+      }
+
       return [$network, $amount * 100000000000];
+    }
+
+    if ($amount > intdiv(PHP_INT_MAX, self::MULTIPLIERS[$multiplier])) {
+      throw new Bolt11Exception('invoice amount is out of range');
     }
 
     $picoBitcoin = $amount * self::MULTIPLIERS[$multiplier];

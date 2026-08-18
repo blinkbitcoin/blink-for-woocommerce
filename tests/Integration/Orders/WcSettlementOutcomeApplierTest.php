@@ -60,6 +60,9 @@ final class WcSettlementOutcomeApplierTest extends IntegrationTestCase {
       public function currency(): string {
         return 'USD';
       }
+
+      public function addNote(string $note): void {
+      }
     };
 
     $this->outcomeApplier->applyOutcome($record, $this->outcome(SettlementStatus::Paid));

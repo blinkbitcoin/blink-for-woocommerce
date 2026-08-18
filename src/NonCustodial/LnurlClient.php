@@ -228,7 +228,21 @@ final class LnurlClient implements LnurlClientInterface {
         : VerifyResult::of(VerifyState::TransportError, 'server refused: ' . $reason);
     }
 
-    if (($json['settled'] ?? false) === true) {
+    // Never guess in either direction. Demanding a JSON boolean read a server
+    // that emits "settled": 1 as *unsettled*, and an unsettled answer past the
+    // grace period expires the order -- cancelling an order that was paid. But
+    // reading a fuzzy value as settled would credit an order that was not.
+    // So only a real boolean is an answer; anything else present is reported
+    // as a transport error and retried.
+    $settled = $this->readSettledFlag($json['settled'] ?? false);
+    if ($settled === null) {
+      return VerifyResult::of(
+        VerifyState::TransportError,
+        'verify response had an unreadable settled flag'
+      );
+    }
+
+    if ($settled) {
       return new VerifyResult(
         VerifyState::Settled,
         isset($json['preimage']) ? (string) $json['preimage'] : null,
@@ -240,11 +254,25 @@ final class LnurlClient implements LnurlClientInterface {
   }
 
   /**
+   * Reads a LUD-21 settled flag, or null when it cannot be read at all.
+   *
+   * LUD-21 specifies a boolean and nothing else is interpreted. A server that
+   * answers some other way leaves the order unresolved -- held for a human by
+   * UnpaidOrderGuard rather than credited or expired on a guess.
+   *
+   * @param mixed $value
+   */
+  private function readSettledFlag($value): ?bool {
+    return is_bool($value) ? $value : null;
+  }
+
+  /**
    * Extracts the payment hash from a LUD-21 verify URL of the form
    * {origin}/verify/{payment_hash}.
    *
-   * Advisory only: this is the server's own claim, and the authoritative hash
-   * comes from the decoded invoice. It is kept as a cross-check.
+   * Returning null is not a soft failure. Without this hash there is nothing
+   * binding the verify URL to the invoice the customer is shown, so the
+   * validator refuses the offer outright rather than accepting it unchecked.
    */
   private function paymentHashFromVerifyUrl(string $verifyUrl): ?string {
     // phpcs:ignore WordPress.WP.AlternativeFunctions.parse_url_parse_url -- wp_parse_url() only compensates for PHP < 5.4.7, and this class must stay free of WordPress.

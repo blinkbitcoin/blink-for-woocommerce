@@ -321,11 +321,59 @@ final class BackgroundSettlementTest extends IntegrationTestCase {
   public function test_the_stock_timer_still_cancels_once_the_invoice_is_dead(): void {
     $order = $this->makeOrder();
     $this->storeInvoice($order, ['expiresAt' => self::NOW + 60]);
+    // The endpoint answered, and answered that this was never paid.
+    $this->repository()->recordAttempt($this->record($order), false);
     $this->clock->travel(60 + SettlementService::EXPIRY_GRACE_SECONDS + 1);
 
     $this->runTheStockTimerAgainst($order);
 
     $this->assertSame('cancelled', $this->reload($order)->get_status());
+  }
+
+  /**
+   * An expired invoice the verify endpoint never answered for is not the same
+   * thing as an unpaid one. Cancelling on the clock alone also tore down the
+   * checks that would still have found out, so a customer who paid during a
+   * provider outage lost both the payment and the order.
+   */
+  public function test_an_invoice_nobody_could_check_is_held_rather_than_cancelled(): void {
+    $order = $this->makeOrder();
+    $this->storeInvoice($order, ['expiresAt' => self::NOW + 60]);
+    // Every check failed to reach the endpoint.
+    $this->repository()->recordAttempt($this->record($order), true);
+    $this->clock->travel(60 + SettlementService::EXPIRY_GRACE_SECONDS + 1);
+
+    $this->runTheStockTimerAgainst($order);
+
+    $reloaded = $this->reload($order);
+    $this->assertSame('pending', $reloaded->get_status());
+    $this->assertNotEmpty(
+      array_filter(
+        wc_get_order_notes(['order_id' => $order->get_id()]),
+        static fn($note): bool => str_contains($note->content, 'could never be confirmed')
+      ),
+      'the merchant is told why the order is still sitting there'
+    );
+  }
+
+  /**
+   * The same order, once the provider comes back and the payment is seen.
+   */
+  public function test_a_held_order_is_still_credited_when_the_endpoint_returns(): void {
+    $order = $this->makeOrder();
+    $invoice = $this->storeInvoice($order, ['expiresAt' => self::NOW + 60]);
+    $this->repository()->recordAttempt($this->record($order), true);
+    $this->clock->travel(60 + SettlementService::EXPIRY_GRACE_SECONDS + 1);
+    $this->runTheStockTimerAgainst($order);
+    $this->assertSame('pending', $this->reload($order)->get_status());
+
+    $this->services()
+      ->settlementScheduler()
+      ->onInvoiceCreated($this->record($order), $invoice);
+    $this->http->queueJson(['settled' => true, 'preimage' => $this->preimage]);
+    $this->runDueAction($order->get_id());
+
+    $this->assertSame('processing', $this->reload($order)->get_status());
   }
 
   /**

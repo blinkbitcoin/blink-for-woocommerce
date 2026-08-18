@@ -234,6 +234,18 @@ final class UrlPolicyTest extends TestCase {
       'ipv4-mapped public' => ['::ffff:93.184.216.34', true],
       'nat64 loopback' => ['64:ff9b::127.0.0.1', false],
       'nat64 public' => ['64:ff9b::93.184.216.34', true],
+      // The forms above are how a NAT64 address is written by hand; these are
+      // how one comes back from dns_get_record, which formats via inet_ntop
+      // and only uses the dotted tail for ::ffff:/96. The textual match this
+      // replaces never fired for a real DNS answer, so cloud metadata reached
+      // the request as a public address.
+      'nat64 packed cloud metadata' => ['64:ff9b::a9fe:a9fe', false],
+      'nat64 packed loopback' => ['64:ff9b::7f00:1', false],
+      'nat64 packed rfc1918' => ['64:ff9b::c0a8:101', false],
+      'nat64 packed public' => ['64:ff9b::5db8:d822', true],
+      'ipv4-mapped packed loopback' => ['::ffff:7f00:1', false],
+      // Not the NAT64 prefix, so it must not be unwrapped into a public v4.
+      'lookalike prefix stays v6' => ['64:ff9c::5db8:d822', true],
       'not an ip at all' => ['nonsense', false],
     ];
   }

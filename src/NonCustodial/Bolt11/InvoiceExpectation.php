@@ -12,6 +12,9 @@ final class InvoiceExpectation {
   public function __construct(
     public readonly int $amountMsat,
     public readonly string $lnurlMetadata,
+    // Nullable only so the caller can report "the server's verify URL had no
+    // hash in it". Validation refuses that case rather than skipping the
+    // binding check.
     public readonly ?string $verifyUrlPaymentHash = null,
     public readonly int $maxExpirySeconds = 3600,
     public readonly int $minRemainingSeconds = 120,

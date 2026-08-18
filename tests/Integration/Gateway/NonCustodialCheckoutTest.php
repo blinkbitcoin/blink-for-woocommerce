@@ -145,27 +145,66 @@ final class NonCustodialCheckoutTest extends IntegrationTestCase {
   }
 
   /**
-   * The defect, from the customer's side. An order that failed elsewhere has
-   * its checks torn down by the status hook; retrying on a still-valid invoice
-   * takes the reuse path, which used to schedule nothing. Pay and close the
-   * tab at that point and the payment was never credited.
+   * WooCommerce sets 'failed' when *another* gateway attempt on the same order
+   * errors, which says nothing about the Lightning invoice. Tearing the chain
+   * down there lost the payment of a customer who had the pay page open in one
+   * tab, tried a card in another, then paid the BOLT11 from their phone.
    */
-  public function test_retrying_a_failed_order_puts_settlement_back_in_place(): void {
+  public function test_a_failure_on_another_gateway_leaves_settlement_running(): void {
     $scheduler = $this->useFakeScheduler();
     $gateway = new BlinkLnGateway();
     $order = $this->makeOrder();
     $this->storeInvoice($order);
     $gateway->process_payment($order->get_id());
 
-    // The real hook removes the chain on the way to failed.
     $order->update_status('failed');
-    $this->assertNull(
+
+    $this->assertNotNull(
       $scheduler->nextScheduled(
         SettlementScheduler::HOOK,
         [$order->get_id()],
         SettlementScheduler::GROUP
       ),
-      'precondition: the failure really did tear the schedule down'
+      'the Lightning invoice is still payable, so it is still watched'
+    );
+  }
+
+  /** A shop manager's decision, by contrast, does stop the checks. */
+  public function test_a_manual_cancellation_stops_settlement(): void {
+    $scheduler = $this->useFakeScheduler();
+    $gateway = new BlinkLnGateway();
+    $order = $this->makeOrder();
+    $this->storeInvoice($order);
+    $gateway->process_payment($order->get_id());
+
+    $order->update_status('cancelled');
+
+    $this->assertNull(
+      $scheduler->nextScheduled(
+        SettlementScheduler::HOOK,
+        [$order->get_id()],
+        SettlementScheduler::GROUP
+      )
+    );
+  }
+
+  /**
+   * Retrying on a still-valid invoice takes the reuse path, which creates no
+   * invoice and so used to schedule nothing of its own. Pay and close the tab
+   * at that point and the payment was never credited.
+   */
+  public function test_retrying_an_unwatched_order_puts_settlement_back_in_place(): void {
+    $scheduler = $this->useFakeScheduler();
+    $gateway = new BlinkLnGateway();
+    $order = $this->makeOrder();
+    $this->storeInvoice($order);
+    $gateway->process_payment($order->get_id());
+
+    // However the chain came to be gone -- a resolved status, a purged queue.
+    $scheduler->unscheduleAll(
+      SettlementScheduler::HOOK,
+      [$order->get_id()],
+      SettlementScheduler::GROUP
     );
 
     $gateway->process_payment($order->get_id());
@@ -194,7 +233,11 @@ final class NonCustodialCheckoutTest extends IntegrationTestCase {
     $gateway = new BlinkLnGateway();
     $order = $this->makeOrder();
     $this->storeInvoice($order);
-    $order->update_status('failed');
+    $scheduler->unscheduleAll(
+      SettlementScheduler::HOOK,
+      [$order->get_id()],
+      SettlementScheduler::GROUP
+    );
 
     ob_start();
     $gateway->renderPayPage($order->get_id());
@@ -206,6 +249,118 @@ final class NonCustodialCheckoutTest extends IntegrationTestCase {
         [$order->get_id()],
         SettlementScheduler::GROUP
       )
+    );
+  }
+
+  /**
+   * The order was cleared before the replacement was built, so a failure here
+   * left it with no payment hash, no verify URL and no account type -- while
+   * the previous invoice stayed payable. A customer paying it could never be
+   * credited, and the leftover settlement chain no-oped because tick() bails
+   * on an order that no longer looks non-custodial.
+   */
+  public function test_a_failed_replacement_leaves_the_previous_invoice_intact(): void {
+    $order = $this->makeOrder();
+    $this->storeInvoice($order, ['expiresAt' => self::NOW + 30]);
+    // The LNURL server is unreachable, so no replacement can be built.
+    $this->http->alwaysRespond(HttpResponse::transportFailure('down'));
+
+    try {
+      $this->gateway->process_payment($order->get_id());
+      $this->fail('the checkout should have reported the failure');
+    } catch (\Exception $e) {
+      $this->assertStringContainsString('Lightning invoice', $e->getMessage());
+    }
+
+    $stored = $this->repository()->load($this->record($this->reload($order)));
+    $this->assertNotNull($stored, 'the payable invoice must still be reachable');
+    $this->assertSame($this->paymentHash, $stored->paymentHash);
+    $this->assertSame(
+      'https://blink.sv/verify/' . $this->paymentHash,
+      $stored->verifyUrl
+    );
+    $this->assertTrue(
+      $this->repository()->isNonCustodial($this->record($this->reload($order))),
+      'losing this marker is what silences background settlement'
+    );
+  }
+
+  public function test_a_failed_replacement_leaves_the_settlement_chain_running(): void {
+    $scheduler = $this->useFakeScheduler();
+    $gateway = new BlinkLnGateway();
+    $order = $this->makeOrder();
+    $this->storeInvoice($order, ['expiresAt' => self::NOW + 30]);
+    $this->services()
+      ->settlementScheduler()
+      ->onInvoiceCreated(
+        $this->record($order),
+        $this->repository()->load($this->record($order))
+      );
+    $this->http->alwaysRespond(HttpResponse::transportFailure('down'));
+
+    try {
+      $gateway->process_payment($order->get_id());
+    } catch (\Exception $e) {
+      // Expected: the replacement could not be built.
+    }
+
+    $this->assertNotNull(
+      $scheduler->nextScheduled(
+        SettlementScheduler::HOOK,
+        [$order->get_id()],
+        SettlementScheduler::GROUP
+      )
+    );
+  }
+
+  /** A successful replacement must not leave the old invoice's checks running. */
+  public function test_a_successful_replacement_drops_the_previous_schedule(): void {
+    $scheduler = $this->useFakeScheduler();
+    $gateway = new BlinkLnGateway();
+    $order = $this->makeOrder();
+    $this->storeInvoice($order, ['expiresAt' => self::NOW + 30]);
+    $this->services()
+      ->settlementScheduler()
+      ->onInvoiceCreated(
+        $this->record($order),
+        $this->repository()->load($this->record($order))
+      );
+    $this->queueSuccessfulInvoice();
+
+    $gateway->process_payment($order->get_id());
+
+    $this->assertCount(
+      1,
+      array_filter(
+        $scheduler->scheduled,
+        static fn(array $a): bool => $a['hook'] === SettlementScheduler::HOOK
+      ),
+      'exactly one chain, for the invoice the customer is now looking at'
+    );
+  }
+
+  /**
+   * A merchant switching the global setting must not strand orders already in
+   * flight. Taking the custodial branch here queried the LNURL payment hash
+   * through the Blink API, where a null answer reads as "reuse this" and sends
+   * the buyer to a Blink-hosted checkout that does not exist.
+   */
+  public function test_an_existing_order_is_routed_by_its_stored_account_type(): void {
+    $order = $this->makeOrder();
+    $this->storeInvoice($order);
+    update_option('blink_account_type', 'custodial');
+    update_option('blink_api_key', 'test-key');
+    update_option('blink_wallet_type', 'bitcoin');
+    $gateway = new BlinkLnGateway();
+
+    $result = $gateway->process_payment($order->get_id());
+
+    $this->assertSame('success', $result['result']);
+    $this->assertStringContainsString('order-pay', $result['redirect']);
+    $this->assertSame(
+      0,
+      $this->http->requestCount(),
+      'the stored invoice is still payable, so nothing had to be asked'
     );
   }
 

@@ -11,6 +11,51 @@ use Blink\WC\Tests\Support\Bolt11Encoder;
 use PHPUnit\Framework\TestCase;
 
 final class Bolt11DecoderTest extends TestCase {
+  /**
+   * The amount comes from a server the shop does not control and the prefix
+   * pattern accepts any number of digits. Casting saturated at PHP_INT_MAX and
+   * the conversion overflowed to float, surfacing as a TypeError that
+   * InvoiceValidator does not catch -- a fatal in checkout rather than a
+   * refused invoice.
+   *
+   * @dataProvider overflowingAmounts
+   */
+  public function testAnAmountTooLargeToRepresentIsRefused(string $hrp): void {
+    $invoice = Bolt11Encoder::create($hrp)
+      ->timestamp(1700000000)
+      ->tagHex('p', str_repeat('ab', 32))
+      ->build();
+
+    $this->expectException(Bolt11Exception::class);
+    $this->expectExceptionMessage('out of range');
+
+    (new Bolt11Decoder())->decode($invoice);
+  }
+
+  /** @return array<string,array{string}> */
+  public function overflowingAmounts(): array {
+    return [
+      'bare bitcoin amount' => ['lnbc' . str_repeat('9', 30)],
+      'milli multiplier' => ['lnbc' . str_repeat('9', 30) . 'm'],
+      'pico multiplier' => ['lnbc' . str_repeat('9', 30) . 'p'],
+      'just over the bare ceiling' => ['lnbc92233721'],
+      // Casts cleanly; only the multiplier pushes it past what an int holds.
+      'just over the milli ceiling' => ['lnbc9223372037m'],
+    ];
+  }
+
+  public function testTheLargestRepresentableBareAmountIsStillAccepted(): void {
+    $invoice = Bolt11Encoder::create('lnbc92233720')
+      ->timestamp(1700000000)
+      ->tagHex('p', str_repeat('ab', 32))
+      ->build();
+
+    $this->assertSame(
+      92233720 * 100000000000,
+      (new Bolt11Decoder())->decode($invoice)->amountMsat
+    );
+  }
+
   private Bolt11Decoder $decoder;
 
   protected function setUp(): void {

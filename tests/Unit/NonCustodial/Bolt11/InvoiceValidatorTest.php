@@ -51,6 +51,22 @@ final class InvoiceValidatorTest extends TestCase {
     );
   }
 
+  /**
+   * The binding used to be skipped when the verify URL carried no hash, which
+   * left nothing tying that URL to the invoice the customer is shown. A verify
+   * URL for a different, already-settled invoice answers "settled" with no
+   * preimage, and settlement tolerates a missing preimage by design -- so the
+   * order completed without a payment.
+   */
+  public function testRefusesAnInvoiceItCannotBindToTheVerifyUrl(): void {
+    $expectation = new InvoiceExpectation(10000000, self::METADATA, null);
+
+    $result = $this->validator->validate($this->goodInvoice(), $expectation);
+
+    $this->assertFalse($result->valid);
+    $this->assertSame('BOLT11_HASH_UNBINDABLE', $result->code);
+  }
+
   public function testAcceptsAnInvoiceThatMatchesTheRequest(): void {
     $result = $this->validator->validate($this->goodInvoice(), $this->expectation());
 

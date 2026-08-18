@@ -123,24 +123,51 @@ final class OrderStatusApplier {
   /**
    * Applies WooCommerce's own payment bookkeeping.
    *
-   * Called only when the merchant has left the paid state unmapped, so an
-   * explicit mapping still wins. Without this, _date_paid and transaction_id
-   * are never set and woocommerce_payment_complete never fires, so shipping,
-   * accounting and subscription plugins never learn the order was paid.
+   * Without this, _date_paid and transaction_id are never set and
+   * woocommerce_payment_complete never fires, so shipping, accounting and
+   * subscription plugins never learn the order was paid.
+   *
+   * Skipping the whole thing unless the paid state was unmapped made it dead
+   * on a default install, where the shipped mapping sends PAID to
+   * wc-processing. Only the *status* half belongs to the merchant, so that is
+   * the only half the mapping decides:
+   *
+   * - unmapped, so nobody has chosen a status: WC_Order::payment_complete()
+   *   does everything, including picking processing or completed.
+   * - mapped: apply() has already set the merchant's status, so the same
+   *   bookkeeping is done by hand. payment_complete() cannot be used here --
+   *   for a mapping like on-hold it would run and then move the order off it,
+   *   and for one like processing it would silently do nothing at all, which
+   *   is the bug. Stock on this path is reduced by WooCommerce's own hooks on
+   *   the transition apply() made.
    *
    * TODO: the custodial path has the same gap and should be brought in line
    * once the change can be tested against a live Blink account.
    */
-  public function completePaymentIfUnmapped(
-    \WC_Order $order,
-    string $transactionId
-  ): void {
-    $states = $this->configuredStates();
-    if ($states[OrderStates::PAID] !== OrderStates::IGNORE) {
+  public function completePayment(\WC_Order $order, string $transactionId): void {
+    // Another gateway already carried this order; do not stamp our payment
+    // over it. This mirrors apply(), which declines the same orders.
+    if ($this->isProtected($order)) {
       return;
     }
 
-    $order->payment_complete($transactionId);
+    $states = $this->configuredStates();
+    if ($states[OrderStates::PAID] === OrderStates::IGNORE) {
+      $order->payment_complete($transactionId);
+
+      return;
+    }
+
+    if ($transactionId !== '' && $order->get_transaction_id() === '') {
+      $order->set_transaction_id($transactionId);
+    }
+    if (!$order->get_date_paid('edit')) {
+      $order->set_date_paid(time());
+    }
+    $order->save();
+
+    // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WooCommerce's own hook, fired here because payment_complete() declines to.
+    do_action('woocommerce_payment_complete', $order->get_id(), $transactionId);
   }
 
   /** @return array<string,string> */

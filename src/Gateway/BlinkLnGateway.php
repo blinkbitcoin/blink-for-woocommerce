@@ -186,7 +186,22 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
     }
 
     // Non-custodial (lightning address) accounts are handled on our own pay page.
-    if ($this->apiHelper->isNonCustodial()) {
+    //
+    // Decided from the order's own stored account type when it has one, because
+    // an order in flight has to be finished the way it was started. A merchant
+    // who flips this setting mid-checkout would otherwise send an existing
+    // non-custodial order down the custodial branch, where its LNURL payment
+    // hash is queried through the Blink API and validInvoiceExists() reads the
+    // resulting null as "reuse this", redirecting the buyer to a Blink-hosted
+    // checkout that does not exist. The setting only decides the type of an
+    // order that has no invoice yet.
+    $repository = $this->services->invoiceRepository();
+    $record = new WcOrderRecord($order);
+    $isNonCustodial = $repository->hasStoredAccountType($record)
+      ? $repository->isNonCustodial($record)
+      : $this->apiHelper->isNonCustodial();
+
+    if ($isNonCustodial) {
       return $this->processPaymentNonCustodial($order);
     }
 
@@ -246,12 +261,13 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
    */
   protected function processPaymentNonCustodial(\WC_Order $order): array {
     $record = new WcOrderRecord($order);
-    $repository = $this->services->invoiceRepository();
 
     if (!$this->hasReusableNonCustodialInvoice($order)) {
-      $repository->clear($record);
-
-      $invoice = $this->createNonCustodialInvoice($order, $record);
+      // Built before anything stored is touched. Clearing first and creating
+      // afterwards meant a failed creation left the order with no payment hash,
+      // no verify URL and no account type, while the previous invoice stayed
+      // payable -- so a customer who paid it could never be credited.
+      $invoice = $this->buildNonCustodialInvoice($order);
       if ($invoice instanceof LnurlFailure) {
         $message = __(
           "Can't create the Lightning invoice. Please try again or contact us if the problem persists.",
@@ -261,6 +277,8 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
         // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- WooCommerce escapes notice text when it renders it.
         throw new \Exception($message);
       }
+
+      $this->replaceNonCustodialInvoice($record, $invoice);
     } else {
       // Creating an invoice schedules its own checks; reusing one does not, and
       // anything that resolved this order in the meantime -- a failed attempt on
@@ -277,7 +295,7 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
   /**
    * @return StoredInvoice|LnurlFailure
    */
-  private function createNonCustodialInvoice(\WC_Order $order, WcOrderRecord $record) {
+  private function buildNonCustodialInvoice(\WC_Order $order) {
     $config = BlinkApiHelper::getConfig();
     $address = LnAddress::parse((string) ($config['ln_address'] ?? ''));
     if ($address === null) {
@@ -286,7 +304,7 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
       return new LnurlFailure('CONFIG_INVALID', 'lightning address is not usable');
     }
 
-    $invoice = $this->services
+    return $this->services
       ->invoiceFactory()
       ->create(
         $address,
@@ -296,17 +314,28 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
         (string) $order->get_currency(),
         'GW-' . $order->get_order_number()
       );
+  }
 
-    if ($invoice instanceof LnurlFailure) {
-      return $invoice;
-    }
+  /**
+   * Swaps a freshly built invoice in for whatever the order was carrying.
+   *
+   * Reached only with a real invoice in hand, so the order is never left
+   * without one. The old invoice's scheduled checks are dropped explicitly:
+   * they used to die as a side effect of clear() removing the account-type
+   * marker that tick() bails on, and that accident is no longer available.
+   */
+  private function replaceNonCustodialInvoice(
+    WcOrderRecord $record,
+    StoredInvoice $invoice
+  ): void {
+    $repository = $this->services->invoiceRepository();
 
-    $this->services->invoiceRepository()->store($record, $invoice);
+    $this->services->settlementScheduler()->cancel($record->id());
+    $repository->clear($record);
+    $repository->store($record, $invoice);
     // Background settlement starts here, so the order no longer depends on the
     // customer keeping the pay page open.
     $this->services->settlementScheduler()->onInvoiceCreated($record, $invoice);
-
-    return $invoice;
   }
 
   /**

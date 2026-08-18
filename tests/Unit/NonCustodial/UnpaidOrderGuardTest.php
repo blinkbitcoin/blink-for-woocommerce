@@ -66,11 +66,72 @@ final class UnpaidOrderGuardTest extends TestCase {
   }
 
   /** The veto has to release itself, or an order escapes stock management forever. */
-  public function testAnInvoicePastItsWindowMayBeAutoCancelled(): void {
+  public function testAnInvoicePastItsWindowMayBeAutoCancelledOnceItWasAnswered(): void {
     $this->storeInvoice(60);
+    $this->repository->recordAttempt($this->order, false);
     $this->clock->travel(60 + SettlementService::EXPIRY_GRACE_SECONDS + 1);
 
     $this->assertTrue($this->guard->mayCancel($this->order, true));
+    $this->assertSame([], $this->order->notes);
+  }
+
+  public function testAnInvoiceTheEndpointNeverAnsweredIsHeld(): void {
+    $this->storeInvoice(60);
+    // Every background check failed to reach the endpoint, so nothing is known
+    // about whether the customer paid.
+    $this->repository->recordAttempt($this->order, true);
+    $this->clock->travel(60 + SettlementService::EXPIRY_GRACE_SECONDS + 1);
+
+    $this->assertFalse(
+      $this->guard->mayCancel($this->order, true),
+      'an order nobody could get an answer about must not be cancelled'
+    );
+  }
+
+  public function testAnErrorRunFollowedByAnAnswerReleasesTheHold(): void {
+    $this->storeInvoice(60);
+    $this->repository->recordAttempt($this->order, true);
+    $this->repository->recordAttempt($this->order, false);
+    $this->clock->travel(60 + SettlementService::EXPIRY_GRACE_SECONDS + 1);
+
+    $this->assertTrue($this->guard->mayCancel($this->order, true));
+  }
+
+  public function testAnInvoiceNeverCheckedAtAllIsHeld(): void {
+    // Action Scheduler never ran, so the zero error count is an absence of
+    // observations rather than a clean bill of health.
+    $this->storeInvoice(60);
+    $this->clock->travel(60 + SettlementService::EXPIRY_GRACE_SECONDS + 1);
+
+    $this->assertFalse($this->guard->mayCancel($this->order, true));
+  }
+
+  public function testTheHeldOrderIsExplainedExactlyOnce(): void {
+    $this->storeInvoice(60);
+    $this->repository->recordAttempt($this->order, true);
+    $this->clock->travel(60 + SettlementService::EXPIRY_GRACE_SECONDS + 1);
+
+    $this->guard->mayCancel($this->order, true);
+    $this->guard->mayCancel($this->order, true);
+    $this->guard->mayCancel($this->order, true);
+
+    $this->assertCount(1, $this->order->notes);
+    $this->assertStringContainsString('could never be confirmed', $this->order->notes[0]);
+  }
+
+  public function testAReplacementInvoiceCanBeExplainedAgain(): void {
+    $this->storeInvoice(60);
+    $this->repository->recordAttempt($this->order, true);
+    $this->clock->travel(60 + SettlementService::EXPIRY_GRACE_SECONDS + 1);
+    $this->guard->mayCancel($this->order, true);
+
+    $this->repository->clear($this->order);
+    $this->storeInvoice(60);
+    $this->repository->recordAttempt($this->order, true);
+    $this->clock->travel(60 + SettlementService::EXPIRY_GRACE_SECONDS + 1);
+
+    $this->assertFalse($this->guard->mayCancel($this->order, true));
+    $this->assertCount(2, $this->order->notes);
   }
 
   public function testAResolvedInvoiceMayBeAutoCancelled(): void {
@@ -110,6 +171,7 @@ final class UnpaidOrderGuardTest extends TestCase {
    */
   public function testADecisionNotToCancelIsNeverOverturned(): void {
     $this->storeInvoice(60);
+    $this->repository->recordAttempt($this->order, false);
     $this->clock->travel(60 + SettlementService::EXPIRY_GRACE_SECONDS + 1);
 
     $this->assertFalse($this->guard->mayCancel($this->order, false));

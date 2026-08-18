@@ -93,6 +93,16 @@ final class SettlementService {
    * The only kind of check that counts towards giving up.
    */
   public function pollAsBackgroundCheck(OrderRecord $order): SettlementOutcome {
+    // The ceiling belongs here rather than in check(): these counters exist to
+    // decide when the *background job* gives up. Applying them to every caller
+    // meant a run of transport errors also silenced the customer's pay page,
+    // and since only a successful foreground check clears the error count, it
+    // could never recover -- a customer paying after the provider came back
+    // watched a page spin forever and nobody credited the order.
+    if ($this->exhausted($order)) {
+      return $this->unknown('polling budget for this order is exhausted');
+    }
+
     return $this->check($order, true);
   }
 
@@ -118,10 +128,6 @@ final class SettlementService {
     $address = $invoice->address();
     if ($address === null) {
       return $this->unknown('stored lightning address is unusable');
-    }
-
-    if ($this->exhausted($order)) {
-      return $this->unknown('polling budget for this order is exhausted');
     }
 
     if (!$this->budget->allowOutbound($address->host)) {
