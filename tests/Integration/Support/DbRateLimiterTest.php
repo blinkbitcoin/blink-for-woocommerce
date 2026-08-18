@@ -6,6 +6,7 @@ namespace Blink\WC\Tests\Integration\Support;
 
 use Blink\WC\Support\DbRateLimiter;
 use Blink\WC\Tests\Support\Fake\FakeClock;
+use Blink\WC\Tests\Support\Fake\StubWpdb;
 use Blink\WC\Tests\Support\IntegrationTestCase;
 
 final class DbRateLimiterTest extends IntegrationTestCase {
@@ -167,5 +168,67 @@ final class DbRateLimiterTest extends IntegrationTestCase {
         "SELECT COUNT(*) FROM {$wpdb->options} WHERE option_name = 'blink_rl_malformed'"
       )
     );
+  }
+
+  // ---------------------------------------------------- degenerate responses
+
+  /**
+   * The counter is a budget on outbound requests. If the statement cannot be
+   * built the count is never incremented, so the guard has to stop rather than
+   * pass null to query() and leave the budget silently disabled.
+   */
+  public function test_a_statement_that_cannot_be_built_runs_nothing(): void {
+    $db = new StubWpdb();
+    $db->prepareReturnsNull = true;
+    $limiter = new DbRateLimiter($db, new FakeClock(self::NOW));
+
+    $limiter->hit('ip_a', 5, 60);
+
+    $this->assertSame([], $db->ranQueries);
+  }
+
+  public function test_garbage_collection_runs_nothing_when_the_statement_cannot_be_built(): void {
+    $db = new StubWpdb();
+    $db->prepareReturnsNull = true;
+    $limiter = new DbRateLimiter($db, new FakeClock(self::NOW));
+
+    $limiter->collectGarbage();
+
+    $this->assertSame([], $db->ranQueries);
+  }
+
+  public function test_garbage_collection_copes_with_a_query_that_returns_no_rows(): void {
+    $db = new StubWpdb();
+    $db->colResult = null;
+    $limiter = new DbRateLimiter($db, new FakeClock(self::NOW));
+
+    $limiter->collectGarbage();
+
+    $this->assertSame([], $db->ranQueries, 'nothing to delete, so nothing deleted');
+  }
+
+  /**
+   * Option names are read back and parsed in PHP. A name that does not carry a
+   * window start must be left alone rather than guessed at -- deleting it
+   * would mean deleting somebody else's option.
+   */
+  public function test_a_name_without_a_window_start_is_left_alone(): void {
+    $db = new StubWpdb();
+    $db->colResult = ['nowindowmarker'];
+    $limiter = new DbRateLimiter($db, new FakeClock(self::NOW));
+
+    $limiter->collectGarbage();
+
+    $this->assertSame([], $db->ranQueries);
+  }
+
+  public function test_a_name_with_an_expired_window_is_deleted(): void {
+    $db = new StubWpdb();
+    $db->colResult = [DbRateLimiter::PREFIX . 'ip_a_' . sprintf('%010d', self::NOW - 200000)];
+    $limiter = new DbRateLimiter($db, new FakeClock(self::NOW));
+
+    $limiter->collectGarbage();
+
+    $this->assertNotSame([], $db->ranQueries, 'the stale counter is removed');
   }
 }

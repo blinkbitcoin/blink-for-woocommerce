@@ -6,6 +6,7 @@ namespace Blink\WC\Tests\Integration\Support;
 
 use Blink\WC\Support\DbLock;
 use Blink\WC\Tests\Support\Fake\FakeClock;
+use Blink\WC\Tests\Support\Fake\StubWpdb;
 use Blink\WC\Tests\Support\IntegrationTestCase;
 
 /**
@@ -192,5 +193,67 @@ final class DbLockTest extends IntegrationTestCase {
     $this->lock->release('order_2', (string) $token);
 
     $this->assertFalse(wp_cache_get('blink_lock_order_2', 'options'));
+  }
+
+  // ------------------------------------------------- unbuildable statements
+
+  /**
+   * A statement that could not be built must read as "lock not acquired".
+   *
+   * The dangerous alternative is treating it as success: the caller would hold
+   * a token nobody recorded, and a second worker would hold one too.
+   */
+  public function test_a_statement_that_cannot_be_built_refuses_the_lock(): void {
+    $db = new StubWpdb();
+    $db->prepareReturnsNull = true;
+    $lock = new DbLock($db, new FakeClock(self::NOW));
+
+    $this->assertNull($lock->acquire('order-1', 60));
+    $this->assertSame([], $db->ranQueries, 'nothing should reach the database');
+  }
+
+  public function test_release_runs_nothing_when_the_statement_cannot_be_built(): void {
+    $db = new StubWpdb();
+    $db->prepareReturnsNull = true;
+    $lock = new DbLock($db, new FakeClock(self::NOW));
+
+    $lock->release('order-1', 'token');
+
+    $this->assertSame([], $db->ranQueries);
+  }
+
+  public function test_garbage_collection_runs_nothing_when_the_statement_cannot_be_built(): void {
+    $db = new StubWpdb();
+    $db->prepareReturnsNull = true;
+    $lock = new DbLock($db, new FakeClock(self::NOW));
+
+    $lock->collectGarbage();
+
+    $this->assertSame([], $db->ranQueries);
+  }
+
+  // -------------------------------------------------------- the object cache
+
+  /**
+   * WordPress caches the absence of an option under "notoptions". A lock
+   * written straight to the table would otherwise stay invisible to get_option
+   * for the rest of the request, on exactly the code path where the lock was
+   * just taken.
+   */
+  public function test_acquiring_clears_a_cached_record_that_the_option_is_absent(): void {
+    $name = 'blink_lock_order-cache';
+    wp_cache_set('notoptions', [$name => true, 'unrelated' => true], 'options');
+
+    $this->assertNotNull($this->lock->acquire('order-cache', 60));
+
+    $notoptions = wp_cache_get('notoptions', 'options');
+    $this->assertArrayNotHasKey($name, $notoptions);
+    $this->assertArrayHasKey('unrelated', $notoptions, 'other entries survive');
+  }
+
+  public function test_acquiring_copes_with_no_cached_absences_at_all(): void {
+    wp_cache_delete('notoptions', 'options');
+
+    $this->assertNotNull($this->lock->acquire('order-nocache', 60));
   }
 }
