@@ -99,7 +99,14 @@ jobs:
           # The minimums readme.txt actually claims. Claiming support for a
           # version nothing tests is how a plugin breaks on the shops least
           # able to debug it.
-          - { php: '8.1', wp: '6.0', wc: '9.3.2', hpos: 'no' }
+          #
+          # WordPress 6.5 rather than 6.0: this plugin cannot run without
+          # WooCommerce, and the oldest WooCommerce in this matrix (9.3.2)
+          # declares "Requires at least: 6.5". On 6.0 its blocks call
+          # register_block_type_from_metadata() with an array of scripts, which
+          # that WordPress cannot parse, and the suite dies in bootstrap. The
+          # plugin header claims 6.5 for the same reason.
+          - { php: '8.1', wp: '6.5', wc: '9.3.2', hpos: 'no' }
           - { php: '8.1', wp: '6.6', wc: '9.3.2', hpos: 'yes' }
           - { php: '8.2', wp: '6.6', wc: 'latest', hpos: 'no' }
           - { php: '8.3', wp: 'latest', wc: 'latest', hpos: 'yes' }
@@ -133,7 +140,7 @@ jobs:
           path: |
             /tmp/wordpress
             /tmp/wordpress-tests-lib
-          key: wp-${{ matrix.wp }}-${{ hashFiles('bin/install-wp-tests.sh') }}
+          key: wp-${{ matrix.wp }}-wc-${{ matrix.wc }}-${{ hashFiles('bin/install-wp-tests.sh') }}
       - name: Install subversion
         # bin/install-wp-tests.sh fetches the WordPress test library over svn,
         # which the runner images no longer include.
@@ -166,10 +173,15 @@ jobs:
       - uses: ramsey/composer-install@v3
         with:
           composer-options: '--no-dev'
+      # Against the built distribution, not the repository root. The root also
+      # holds tests, build scripts and dotfiles that are never shipped, and
+      # checking them reports problems in files no shop receives.
+      - name: Build the distribution
+        run: bash bin/build-dist.sh
       - name: Run the checks WordPress.org runs
         uses: WordPress/plugin-check-action@v1
         with:
-          build-dir: './'
+          build-dir: './build/blink-for-woocommerce'
           # Errors block; warnings are surfaced without failing the build,
           # because several apply only to themes or to plugins using patterns
           # this one deliberately avoids.
@@ -222,11 +234,19 @@ jobs:
       - name: Check the translation template is current
         run: |
           npm run i18n
-          if ! git diff --quiet -- languages/; then
+          # makepot stamps a fresh POT-Creation-Date on every run, so a plain
+          # diff can never be clean. Compare the substance instead.
+          CHANGES=$(git diff -U0 -- languages/ \
+            | grep -E '^[+-]' \
+            | grep -vE '^(\+\+\+|---)' \
+            | grep -v 'POT-Creation-Date' \
+            || true)
+          if [ -n "$CHANGES" ]; then
             echo "The translation template is out of date. Run 'npm run i18n' and commit the result."
-            git --no-pager diff --stat -- languages/
+            echo "$CHANGES" | head -40
             exit 1
           fi
+          git checkout -- languages/
       - name: Check the WordPress.org readme preview is current
         run: |
           npm run readme
@@ -271,7 +291,7 @@ jobs:
           path: |
             /tmp/wordpress
             /tmp/wordpress-tests-lib
-          key: wp-${{ env.WP_VERSION_DEFAULT }}-${{ hashFiles('bin/install-wp-tests.sh') }}
+          key: wp-${{ env.WP_VERSION_DEFAULT }}-wc-${{ env.WC_VERSION_DEFAULT }}-${{ hashFiles('bin/install-wp-tests.sh') }}
       - name: Install subversion
         # bin/install-wp-tests.sh fetches the WordPress test library over svn,
         # which the runner images no longer include.
@@ -371,7 +391,7 @@ jobs:
           path: |
             /tmp/wordpress
             /tmp/wordpress-tests-lib
-          key: wp-${{ env.WP_VERSION_DEFAULT }}-${{ hashFiles('bin/install-wp-tests.sh') }}
+          key: wp-${{ env.WP_VERSION_DEFAULT }}-wc-${{ env.WC_VERSION_DEFAULT }}-${{ hashFiles('bin/install-wp-tests.sh') }}
       - name: Install subversion
         # bin/install-wp-tests.sh fetches the WordPress test library over svn,
         # which the runner images no longer include.

@@ -36,18 +36,6 @@ command -v wp >/dev/null 2>&1 || {
   exit 1
 }
 
-echo "==> database ${DB_NAME}"
-# WordPress accepts host:port in one string; the mysql client wants them split.
-DB_HOST_NAME=${DB_HOST%%:*}
-DB_HOST_PORT=${DB_HOST#*:}
-if [ "$DB_HOST_PORT" = "$DB_HOST" ]; then
-  DB_HOST_PORT=3306
-fi
-
-mysql --user="$DB_USER" --password="$DB_PASS" \
-  --host="$DB_HOST_NAME" --port="$DB_HOST_PORT" --protocol=TCP \
-  --execute="CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\` DEFAULT CHARACTER SET utf8mb4"
-
 echo "==> wp-config"
 rm -f "${WP_CORE_DIR}/wp-config.php"
 wp config create \
@@ -60,6 +48,11 @@ define('WP_DEBUG_DISPLAY', false);
 define('WP_DEBUG_LOG', true);
 define('DISABLE_WP_CRON', true);
 PHP
+
+echo "==> database ${DB_NAME}"
+# Through WP-CLI rather than the mysql client: the runner images no longer
+# ship one, and WP-CLI is a hard requirement of this script anyway.
+wp db create --path="$WP_CORE_DIR" 2>/dev/null || echo "(database already exists)"
 
 echo "==> installing the site"
 wp core install \
