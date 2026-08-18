@@ -52,10 +52,19 @@ jobs:
       - run: composer audit --locked
       - run: composer test:unit
 
+      # Bounded and retried: this hung for 25 minutes on an apt mirror in CI.
+      # A release must not be held up by a slow Ubuntu mirror.
       - name: Install subversion
-        # bin/install-wp-tests.sh fetches the WordPress test library over svn,
-        # which the runner images no longer include.
-        run: sudo apt-get update && sudo apt-get install -y subversion
+        timeout-minutes: 5
+        run: |
+          for attempt in 1 2 3; do
+            sudo apt-get update -qq && \
+              sudo apt-get install -y --no-install-recommends subversion && exit 0
+            echo "apt attempt ${attempt} failed; retrying"
+            sleep 5
+          done
+          echo "Could not install subversion after three attempts." >&2
+          exit 1
       - name: Install WordPress test library
         run: bash bin/install-wp-tests.sh wordpress_test root root '127.0.0.1:3306' 6.6 true
       - name: Install WooCommerce

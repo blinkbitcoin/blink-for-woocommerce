@@ -158,6 +158,30 @@ tier can reach.
 
 ---
 
+## 7b. Remove the subversion dependency from CI
+
+**Now.** `bin/install-wp-tests.sh` fetches the WordPress test library with
+`svn export`, and the GitHub runner images no longer ship subversion, so every
+cache-miss job installs it from apt first. That step hung for 25 minutes on an
+apt mirror and took three jobs down in a single run.
+
+It is now skipped on a cache hit, bounded to five minutes and retried three
+times, which contains the damage. It does not remove the dependency: a run that
+genuinely needs the library still depends on an Ubuntu mirror and on
+develop.svn.wordpress.org being reachable.
+
+**What would fix it.** The `wp-phpunit/wp-phpunit` Composer package ships the
+same test library as a normal dependency, installed by the `composer install`
+the job already runs. That drops both the apt step and the svn fetch, and the
+library gets versioned in `composer.lock` like everything else.
+
+It is not a drop-in: `WP_TESTS_DIR` and the PHPUnit bootstrap both point at the
+svn layout, and `install-wp-tests.sh` also seeds the database and downloads
+WordPress core, which would still be needed. Worth doing, but as its own change
+with the whole matrix green before and after.
+
+---
+
 ## 8. Shrink the PHPStan baseline
 
 **Now.** PHPStan runs at level 8 and passes. New code has zero findings; the

@@ -142,16 +142,29 @@ jobs:
           tools: composer:v2
       - uses: ramsey/composer-install@v3
       - name: Cache WordPress test library
+        id: wp-cache
         uses: actions/cache@v4
         with:
           path: |
             /tmp/wordpress
             /tmp/wordpress-tests-lib
           key: wp-${{ matrix.wp }}-wc-${{ matrix.wc }}-${{ hashFiles('bin/install-wp-tests.sh') }}
+      # Only on a cache miss: with the library already on disk nothing calls
+      # svn, and this step is pure risk. It hung for 25 minutes on an apt
+      # mirror and took two jobs down with it, so it is also bounded and
+      # retried -- a slow mirror should cost a retry, not the job's budget.
       - name: Install subversion
-        # bin/install-wp-tests.sh fetches the WordPress test library over svn,
-        # which the runner images no longer include.
-        run: sudo apt-get update && sudo apt-get install -y subversion
+        if: steps.wp-cache.outputs.cache-hit != 'true'
+        timeout-minutes: 5
+        run: |
+          for attempt in 1 2 3; do
+            sudo apt-get update -qq && \
+              sudo apt-get install -y --no-install-recommends subversion && exit 0
+            echo "apt attempt ${attempt} failed; retrying"
+            sleep 5
+          done
+          echo "Could not install subversion after three attempts." >&2
+          exit 1
       - name: Install WordPress test library
         run: bash bin/install-wp-tests.sh wordpress_test root root '127.0.0.1:3306' ${{ matrix.wp }} true
       - name: Install WooCommerce
@@ -293,16 +306,29 @@ jobs:
           tools: composer:v2
       - uses: ramsey/composer-install@v3
       - name: Cache WordPress test library
+        id: wp-cache
         uses: actions/cache@v4
         with:
           path: |
             /tmp/wordpress
             /tmp/wordpress-tests-lib
           key: wp-${{ env.WP_VERSION_DEFAULT }}-wc-${{ env.WC_VERSION_DEFAULT }}-${{ hashFiles('bin/install-wp-tests.sh') }}
+      # Only on a cache miss: with the library already on disk nothing calls
+      # svn, and this step is pure risk. It hung for 25 minutes on an apt
+      # mirror and took two jobs down with it, so it is also bounded and
+      # retried -- a slow mirror should cost a retry, not the job's budget.
       - name: Install subversion
-        # bin/install-wp-tests.sh fetches the WordPress test library over svn,
-        # which the runner images no longer include.
-        run: sudo apt-get update && sudo apt-get install -y subversion
+        if: steps.wp-cache.outputs.cache-hit != 'true'
+        timeout-minutes: 5
+        run: |
+          for attempt in 1 2 3; do
+            sudo apt-get update -qq && \
+              sudo apt-get install -y --no-install-recommends subversion && exit 0
+            echo "apt attempt ${attempt} failed; retrying"
+            sleep 5
+          done
+          echo "Could not install subversion after three attempts." >&2
+          exit 1
       - name: Install WordPress test library
         run: bash bin/install-wp-tests.sh wordpress_test root root '127.0.0.1:3306' ${{ env.WP_VERSION_DEFAULT }} true
       - name: Install WooCommerce
@@ -399,10 +425,22 @@ jobs:
             /tmp/wordpress
             /tmp/wordpress-tests-lib
           key: wp-${{ env.WP_VERSION_DEFAULT }}-wc-${{ env.WC_VERSION_DEFAULT }}-${{ hashFiles('bin/install-wp-tests.sh') }}
+      # Only on a cache miss: with the library already on disk nothing calls
+      # svn, and this step is pure risk. It hung for 25 minutes on an apt
+      # mirror and took two jobs down with it, so it is also bounded and
+      # retried -- a slow mirror should cost a retry, not the job's budget.
       - name: Install subversion
-        # bin/install-wp-tests.sh fetches the WordPress test library over svn,
-        # which the runner images no longer include.
-        run: sudo apt-get update && sudo apt-get install -y subversion
+        if: steps.wp-cache.outputs.cache-hit != 'true'
+        timeout-minutes: 5
+        run: |
+          for attempt in 1 2 3; do
+            sudo apt-get update -qq && \
+              sudo apt-get install -y --no-install-recommends subversion && exit 0
+            echo "apt attempt ${attempt} failed; retrying"
+            sleep 5
+          done
+          echo "Could not install subversion after three attempts." >&2
+          exit 1
       - name: Install WordPress and WooCommerce
         run: |
           bash bin/install-wp-tests.sh wordpress_test root root '127.0.0.1:3306' ${{ env.WP_VERSION_DEFAULT }} true
