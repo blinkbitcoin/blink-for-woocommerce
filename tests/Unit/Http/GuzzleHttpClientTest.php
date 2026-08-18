@@ -24,6 +24,12 @@ final class GuzzleHttpClientTest extends TestCase {
   private array $sent = [];
 
   private function clientFor(mixed ...$queue): GuzzleHttpClient {
+    // Pinning capability is stated rather than detected, so these tests do not
+    // change behaviour with the PHP build they run on.
+    return $this->clientThatCanPin(true, ...$queue);
+  }
+
+  private function clientThatCanPin(bool $canPin, mixed ...$queue): GuzzleHttpClient {
     $mock = new MockHandler($queue);
     $stack = HandlerStack::create($mock);
     // Capture the effective options so the policy assertions below are made
@@ -37,7 +43,7 @@ final class GuzzleHttpClientTest extends TestCase {
       };
     });
 
-    return new GuzzleHttpClient(new Client(['handler' => $stack]));
+    return new GuzzleHttpClient(new Client(['handler' => $stack]), $canPin);
   }
 
   public function testSuccessfulResponseIsReturnedWithBodyAndHeaders(): void {
@@ -253,6 +259,57 @@ final class GuzzleHttpClientTest extends TestCase {
       ['blink.sv:443:93.184.216.34,2606:2800::1'],
       $this->captured[0]['curl'][CURLOPT_RESOLVE]
     );
+  }
+
+  public function testAPinnedRequestIsRefusedWhenTheTransportCannotPin(): void {
+    $client = $this->clientThatCanPin(false, new Response(200, [], '{}'));
+
+    $response = $client->get(
+      'https://blink.sv/x',
+      (new HttpRequestOptions())->withDnsPins(['blink.sv:443' => ['93.184.216.34']])
+    );
+
+    $this->assertSame([], $this->sent, 'the request must not go out unpinned');
+    $this->assertTrue($response->failed());
+    $this->assertStringContainsString('cURL', (string) $response->transportError);
+  }
+
+  public function testAnUnpinnedRequestStillWorksWithoutCurl(): void {
+    // The local-development branch of UrlPolicy allows a request with no pins.
+    // Nothing is being weakened there, so it must not be refused.
+    $client = $this->clientThatCanPin(false, new Response(200, [], '{}'));
+
+    $response = $client->get('http://localhost:8080/x', new HttpRequestOptions());
+
+    $this->assertSame(200, $response->status);
+    $this->assertCount(1, $this->sent);
+  }
+
+  public function testAHostPinnedToNoAddressesIsNotTreatedAsPinning(): void {
+    $client = $this->clientThatCanPin(false, new Response(200, [], '{}'));
+
+    $response = $client->get(
+      'https://blink.sv/x',
+      (new HttpRequestOptions())->withDnsPins(['blink.sv:443' => []])
+    );
+
+    $this->assertSame(200, $response->status, 'an empty IP list is not a pin to honour');
+  }
+
+  public function testPinningCapabilityFallsBackToCurlAvailability(): void {
+    $stack = HandlerStack::create(new MockHandler([new Response(200, [], '{}')]));
+    $client = new GuzzleHttpClient(new Client(['handler' => $stack]));
+
+    $response = $client->get(
+      'https://blink.sv/x',
+      (new HttpRequestOptions())->withDnsPins(['blink.sv:443' => ['93.184.216.34']])
+    );
+
+    if (function_exists('curl_init')) {
+      $this->assertSame(200, $response->status);
+    } else {
+      $this->assertTrue($response->failed());
+    }
   }
 
   public function testEmptyPinListIsSkippedRatherThanSentAsGarbage(): void {

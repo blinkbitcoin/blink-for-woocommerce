@@ -46,6 +46,11 @@ Please review these links to ensure that you are compliant with all legal requir
 
 This section describes how to install the plugin and get it working.
 
+The PHP cURL extension is required. Payments to a Lightning address pin each
+request to the IP addresses that passed validation, which the plugin can only
+do through cURL; without it those requests are refused rather than sent
+unpinned.
+
 1. Upload and unzip `blink-for-woocommerce.zip` to the `/wp-content/plugins/` directory.
 2. Activate the plugin through the 'Plugins' menu in WordPress.
 3. Configure the plugin settings via the WooCommerce settings page.

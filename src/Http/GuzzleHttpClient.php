@@ -28,10 +28,30 @@ use GuzzleHttp\RequestOptions;
  *   for the request.
  */
 final class GuzzleHttpClient implements HttpClientInterface {
-  public function __construct(private ClientInterface $guzzle) {
+  private bool $canPin;
+
+  /**
+   * @param bool|null $canPin whether the transport can honour DNS pins.
+   *   Guzzle chooses its handler through Utils::chooseHandler(), which picks
+   *   curl exactly when the curl functions exist, so that is what decides it.
+   *   Injectable because both arms have to be testable on any PHP build.
+   */
+  public function __construct(private ClientInterface $guzzle, ?bool $canPin = null) {
+    $this->canPin = $canPin ?? function_exists('curl_init');
   }
 
   public function get(string $url, HttpRequestOptions $options): HttpResponse {
+    // Without the curl handler the 'curl' options below are silently dropped,
+    // taking the DNS pins with them -- and an unpinned request is exactly the
+    // DNS-rebinding hole the pins exist to close. Refuse rather than send it.
+    // A transport failure is the right shape: settlement already treats an
+    // unreachable verify as "unknown", so this cannot expire a paid order.
+    if ($this->resolveEntries($options) !== [] && !$this->canPin) {
+      return HttpResponse::transportFailure(
+        'DNS pinning is unavailable without the cURL extension'
+      );
+    }
+
     try {
       $response = $this->guzzle->request('GET', $url, $this->guzzleOptions($options));
     } catch (\Throwable $e) {
@@ -64,13 +84,7 @@ final class GuzzleHttpClient implements HttpClientInterface {
       CURLOPT_REDIR_PROTOCOLS => 0,
     ];
 
-    $resolve = [];
-    foreach ($options->dnsPins as $hostPort => $ips) {
-      if ($ips === []) {
-        continue;
-      }
-      $resolve[] = $hostPort . ':' . implode(',', $ips);
-    }
+    $resolve = $this->resolveEntries($options);
     if ($resolve !== []) {
       $curl[CURLOPT_RESOLVE] = $resolve;
     }
@@ -85,6 +99,28 @@ final class GuzzleHttpClient implements HttpClientInterface {
       RequestOptions::STREAM => true,
       'curl' => $curl,
     ];
+  }
+
+  /**
+   * The CURLOPT_RESOLVE entries this request needs.
+   *
+   * A host mapped to an empty IP list is not a pin, which is why this is what
+   * both the fail-closed guard and the curl options are decided from: the
+   * local-development branch of UrlPolicy legitimately produces no pins, and
+   * must keep working without curl.
+   *
+   * @return list<string>
+   */
+  private function resolveEntries(HttpRequestOptions $options): array {
+    $resolve = [];
+    foreach ($options->dnsPins as $hostPort => $ips) {
+      if ($ips === []) {
+        continue;
+      }
+      $resolve[] = $hostPort . ':' . implode(',', $ips);
+    }
+
+    return $resolve;
   }
 
   /**

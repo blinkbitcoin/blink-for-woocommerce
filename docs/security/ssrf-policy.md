@@ -41,6 +41,13 @@ Beyond the URL itself: redirects are disabled, the response body is capped at
 64 KiB and read as a stream, connect and total timeouts are 5 and 10 seconds,
 and curl is restricted to HTTP(S) protocols.
 
+Rule 7 depends on the transport. Guzzle passes pins and the protocol
+restriction to curl and nothing else, so on a PHP build without the extension
+they would be dropped silently and the guarantee would quietly become advisory.
+A request that carries pins the transport cannot honour is therefore **refused**
+rather than sent unpinned, and `ext-curl` is a declared dependency. Requests
+with nothing to pin — the local-development case below — are unaffected.
+
 ### Why containment instead of a public suffix list
 
 The rule this replaces compared the last two labels of each host. For an address
@@ -72,7 +79,9 @@ Validating a host and then letting curl resolve it again is only advisory: an
 attacker's resolver can return a public address for the check and
 `169.254.169.254` for the request. The addresses that passed validation are
 carried into the request as `CURLOPT_RESOLVE` pins, so the connection goes to
-exactly what was checked.
+exactly what was checked. If the transport cannot apply them the request is
+refused, because a request that resolves the host a second time is the very
+thing this prevents.
 
 ## The polling endpoint
 
