@@ -22,6 +22,17 @@
     <include>
       <directory suffix=".php">src</directory>
     </include>
+    <exclude>
+      <!--
+        These extend WooCommerce base classes at include time, so they cannot be
+        loaded without WooCommerce present. processUncoveredFiles would try to,
+        and fail. They are covered by the integration suite instead, and the
+        merged report is what the coverage gate reads.
+      -->
+      <directory suffix=".php">src/Admin</directory>
+      <directory suffix=".php">src/Blocks</directory>
+      <directory suffix=".php">src/Gateway</directory>
+    </exclude>
     <report>
       <php outputFile="build/cov/unit.cov"/>
     </report>
