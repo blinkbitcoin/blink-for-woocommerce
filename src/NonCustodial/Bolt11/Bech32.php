@@ -109,7 +109,11 @@ final class Bech32 {
     return $result;
   }
 
-  /** Reads a big-endian integer out of 5-bit groups. */
+  /**
+   * Reads a big-endian integer out of 5-bit groups.
+   *
+   * @param list<int> $data
+   */
   public static function toInt(array $data): int {
     $value = 0;
     foreach ($data as $part) {

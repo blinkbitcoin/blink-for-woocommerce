@@ -79,7 +79,7 @@ final class InvoiceFactory {
     );
 
     $validation = $this->validator->validate($offer->paymentRequest, $expectation);
-    if (!$validation->valid) {
+    if (!$validation->isValid()) {
       return $this->fail($validation->code, $validation->message);
     }
 

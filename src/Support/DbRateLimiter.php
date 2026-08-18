@@ -33,7 +33,7 @@ final class DbRateLimiter implements RateLimiterInterface {
     $windowStart = intdiv($this->clock->now(), $windowSeconds) * $windowSeconds;
     $name = $this->keyFor($bucket, $windowStart);
 
-    $this->db->query(
+    $this->run(
       $this->db->prepare(
         "INSERT INTO {$this->db->options} (option_name, option_value, autoload)
          VALUES (%s, '1', 'no')
@@ -76,7 +76,7 @@ final class DbRateLimiter implements RateLimiterInterface {
     foreach ($names as $name) {
       $windowStart = $this->windowStartFrom((string) $name);
       if ($windowStart !== null && $windowStart < $cutoff) {
-        $this->db->query(
+        $this->run(
           $this->db->prepare(
             "DELETE FROM {$this->db->options} WHERE option_name = %s",
             $name
@@ -85,6 +85,21 @@ final class DbRateLimiter implements RateLimiterInterface {
         wp_cache_delete((string) $name, 'options');
       }
     }
+  }
+
+  /**
+   * Runs a prepared statement.
+   *
+   * prepare() returns null when the statement could not be built, which is a
+   * programming error; running "nothing" instead would leave a counter
+   * silently un-incremented and quietly disable the budget.
+   */
+  private function run(?string $query): void {
+    if ($query === null) {
+      return;
+    }
+
+    $this->db->query($query);
   }
 
   private function keyFor(string $bucket, int $windowStart): string {

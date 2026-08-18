@@ -216,13 +216,13 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
     // Returning nothing leaves WooCommerce with no result key, which it
     // reports to the customer as a silent failure.
     if (!$invoice) {
-      // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- WooCommerce escapes notice text when it renders it.
-      throw new \Exception(
-        __(
-          "Can't create the Lightning invoice. Please try again or contact us if the problem persists.",
-          'blink-for-woocommerce'
-        )
+      $message = __(
+        "Can't create the Lightning invoice. Please try again or contact us if the problem persists.",
+        'blink-for-woocommerce'
       );
+
+      // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- WooCommerce escapes notice text when it renders it.
+      throw new \Exception($message);
     }
 
     Logger::debug('Invoice creation successful, redirecting user.');
@@ -253,13 +253,13 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
 
       $invoice = $this->createNonCustodialInvoice($order, $record);
       if ($invoice instanceof LnurlFailure) {
-        // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- WooCommerce escapes notice text when it renders it.
-        throw new \Exception(
-          __(
-            "Can't create the Lightning invoice. Please try again or contact us if the problem persists.",
-            'blink-for-woocommerce'
-          )
+        $message = __(
+          "Can't create the Lightning invoice. Please try again or contact us if the problem persists.",
+          'blink-for-woocommerce'
         );
+
+        // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- WooCommerce escapes notice text when it renders it.
+        throw new \Exception($message);
       }
     }
 
@@ -366,8 +366,10 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
 
       // Load the order by metadata field Blink_id
       $orders = wc_get_orders([
-        'meta_key' => 'blink_id',
-        'meta_value' => $invoiceId,
+        // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- the webhook has only the payment hash to identify the order by.
+      'meta_key' => 'blink_id',
+        // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value -- see above.
+      'meta_value' => $invoiceId,
       ]);
 
       // Abort if no orders found

@@ -51,6 +51,7 @@ final class UrlPolicy implements UrlPolicyInterface {
       return UrlDecision::deny('bad length');
     }
 
+    // phpcs:ignore WordPress.WP.AlternativeFunctions.parse_url_parse_url -- wp_parse_url() only compensates for PHP < 5.4.7, and this class must stay free of WordPress.
     $parts = parse_url($url);
     if (!is_array($parts) || empty($parts['host'])) {
       return UrlDecision::deny('unparseable');

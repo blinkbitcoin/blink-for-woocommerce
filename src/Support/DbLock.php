@@ -41,7 +41,7 @@ final class DbLock implements LockInterface {
     $value = $this->encode($this->clock->now() + $ttl, $token);
 
     // Uncontended case: atomic at the unique index.
-    $inserted = $this->db->query(
+    $inserted = $this->run(
       $this->db->prepare(
         "INSERT IGNORE INTO {$this->db->options} (option_name, option_value, autoload)
          VALUES (%s, %s, 'no')",
@@ -57,7 +57,7 @@ final class DbLock implements LockInterface {
     }
 
     // Contended: take over only if the existing lock has already expired.
-    $takenOver = $this->db->query(
+    $takenOver = $this->run(
       $this->db->prepare(
         "UPDATE {$this->db->options} SET option_value = %s
          WHERE option_name = %s AND option_value < %s",
@@ -81,7 +81,7 @@ final class DbLock implements LockInterface {
 
     // Matching on the token means a caller whose lock already expired and was
     // taken over cannot delete the new holder's lock.
-    $this->db->query(
+    $this->run(
       $this->db->prepare(
         "DELETE FROM {$this->db->options} WHERE option_name = %s AND option_value LIKE %s",
         $name,
@@ -93,7 +93,7 @@ final class DbLock implements LockInterface {
   }
 
   public function collectGarbage(): void {
-    $this->db->query(
+    $this->run(
       $this->db->prepare(
         "DELETE FROM {$this->db->options}
          WHERE option_name LIKE %s AND option_value < %s",
@@ -101,6 +101,24 @@ final class DbLock implements LockInterface {
         $this->expiryPrefix($this->clock->now() - HOUR_IN_SECONDS)
       )
     );
+  }
+
+  /**
+   * Runs a prepared statement.
+   *
+   * prepare() returns null when it could not build the statement -- a
+   * programming error rather than a runtime condition. Passing that null on to
+   * query() would silently run nothing and, for a lock, silently hand out a
+   * token nobody holds.
+   *
+   * @return int the number of affected rows, or 0 when nothing ran.
+   */
+  private function run(?string $query): int {
+    if ($query === null) {
+      return 0;
+    }
+
+    return (int) $this->db->query($query);
   }
 
   private function newToken(): string {

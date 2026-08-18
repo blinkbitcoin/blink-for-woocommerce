@@ -14,6 +14,23 @@
   <file>blink-for-woocommerce.php</file>
   <file>tests</file>
 
+  <!--
+    The WordPress security and API sniffs below apply to shipped code. Test
+    fixtures deliberately read raw superglobals and build unescaped messages,
+    and tests/ is excluded from the distributed package (.distignore), so
+    applying them there is noise rather than signal. PHPCompatibility still
+    runs everywhere, because a PHP version problem in a test is a real one.
+  -->
+  <rule ref="WordPress.Security">
+    <exclude-pattern>tests/*</exclude-pattern>
+  </rule>
+  <rule ref="WordPress.WP">
+    <exclude-pattern>tests/*</exclude-pattern>
+  </rule>
+  <rule ref="WordPress.DB">
+    <exclude-pattern>tests/*</exclude-pattern>
+  </rule>
+
   <exclude-pattern>*/vendor/*</exclude-pattern>
   <exclude-pattern>*/node_modules/*</exclude-pattern>
   <exclude-pattern>*/build/*</exclude-pattern>

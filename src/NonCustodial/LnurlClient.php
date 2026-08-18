@@ -234,6 +234,7 @@ final class LnurlClient implements LnurlClientInterface {
    * comes from the decoded invoice. It is kept as a cross-check.
    */
   private function paymentHashFromVerifyUrl(string $verifyUrl): ?string {
+    // phpcs:ignore WordPress.WP.AlternativeFunctions.parse_url_parse_url -- wp_parse_url() only compensates for PHP < 5.4.7, and this class must stay free of WordPress.
     $path = parse_url($verifyUrl, PHP_URL_PATH);
     if (!is_string($path)) {
       return null;
