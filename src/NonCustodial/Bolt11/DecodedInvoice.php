@@ -19,7 +19,8 @@ final class DecodedInvoice {
     public readonly ?string $paymentHash,
     public readonly ?string $descriptionHash,
     public readonly ?string $description
-  ) {}
+  ) {
+  }
 
   public function expiresAt(): int {
     return $this->timestamp + $this->expirySeconds;

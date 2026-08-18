@@ -7,9 +7,11 @@
  * Author URI:      https://blink.sv
  * License:         MIT
  * License URI:     https://github.com/blinkbitcoin/blink-for-woocommerce/blob/main/license.txt
+ * Requires PHP:    8.1
+ * Requires at least: 6.0
  * Text Domain:     blink-for-woocommerce
  * Domain Path:     /languages
- * Version:         0.2.2
+ * Version:         0.3.0
  *
  * @package         Blink_For_Woocommerce
  */
@@ -19,7 +21,7 @@ use Blink\WC\Helpers\Logger;
 use Blink\WC\Gateway\BlinkLnGateway;
 
 defined('ABSPATH') || exit();
-define('BLINK_VERSION', '0.2.2');
+define('BLINK_VERSION', '0.3.0');
 define('BLINK_VERSION_KEY', 'blink_version');
 define('BLINK_PLUGIN_FILE_PATH', plugin_dir_path(__FILE__));
 define('BLINK_PLUGIN_URL', plugin_dir_url(__FILE__));
@@ -147,9 +149,9 @@ class BlinkWCPlugin {
    */
   public function dependenciesNotification() {
     // Check PHP version.
-    if (version_compare(PHP_VERSION, '7.4', '<')) {
+    if (version_compare(PHP_VERSION, '8.1', '<')) {
       $versionMessage = sprintf(
-        'Your PHP version is %s but Blink Payment plugin requires version 7.4+.',
+        'Your PHP version is %s but Blink Payment plugin requires version 8.1+.',
         PHP_VERSION
       );
       Notice::addNotice('error', $versionMessage);
@@ -391,7 +393,9 @@ add_action(
 add_action(
   'woocommerce_order_status_changed',
   function ($order_id, $from, $to): void {
-    if (!in_array($to, ['cancelled', 'refunded', 'failed', 'completed', 'processing'], true)) {
+    if (
+      !in_array($to, ['cancelled', 'refunded', 'failed', 'completed', 'processing'], true)
+    ) {
       return;
     }
 

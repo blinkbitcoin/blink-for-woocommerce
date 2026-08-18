@@ -34,7 +34,8 @@ final class InvoiceFactory {
     private ClockInterface $clock,
     private LoggerInterface $log,
     private bool $requireDescriptionBinding = true
-  ) {}
+  ) {
+  }
 
   /**
    * @return StoredInvoice|LnurlFailure
@@ -49,7 +50,10 @@ final class InvoiceFactory {
   ): StoredInvoice|LnurlFailure {
     $satoshis = $this->rates->toSatoshis($amount, $currency);
     if ($satoshis === null || $satoshis <= 0) {
-      return $this->fail('RATE_UNAVAILABLE', 'could not convert the order total to satoshis');
+      return $this->fail(
+        'RATE_UNAVAILABLE',
+        'could not convert the order total to satoshis'
+      );
     }
 
     $metadata = $this->lnurl->fetchPayMetadata($address);

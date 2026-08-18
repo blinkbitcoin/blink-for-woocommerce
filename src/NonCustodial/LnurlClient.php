@@ -26,7 +26,8 @@ final class LnurlClient implements LnurlClientInterface {
     private HttpClientInterface $http,
     private UrlPolicyInterface $policy,
     private LoggerInterface $log
-  ) {}
+  ) {
+  }
 
   public function fetchPayMetadata(LnAddress $address): PayMetadata|LnurlFailure {
     $url = $address->wellKnownUrl();
@@ -73,7 +74,9 @@ final class LnurlClient implements LnurlClientInterface {
     if ($amountMsat <= 0 || $amountMsat % 1000 !== 0) {
       return $this->fail(
         'LNURL_BAD_AMOUNT',
-        'amount must be a positive whole number of satoshis, got ' . $amountMsat . ' msat',
+        'amount must be a positive whole number of satoshis, got ' .
+          $amountMsat .
+          ' msat',
         ''
       );
     }
@@ -143,7 +146,11 @@ final class LnurlClient implements LnurlClientInterface {
 
     $decision = $this->policy->check($verifyUrl, $address);
     if (!$decision->allowed) {
-      return $this->fail('LNURL_URL_REJECTED', 'verify URL rejected: ' . $decision->reason, $verifyUrl);
+      return $this->fail(
+        'LNURL_URL_REJECTED',
+        'verify URL rejected: ' . $decision->reason,
+        $verifyUrl
+      );
     }
 
     return new InvoiceOffer(
@@ -159,18 +166,30 @@ final class LnurlClient implements LnurlClientInterface {
       return VerifyResult::of(VerifyState::PolicyError, $decision->reason);
     }
 
-    $response = $this->http->get($verifyUrl, $this->options($address, $decision->dnsPins));
+    $response = $this->http->get(
+      $verifyUrl,
+      $this->options($address, $decision->dnsPins)
+    );
 
     if ($response->failed()) {
-      return VerifyResult::of(VerifyState::TransportError, (string) $response->transportError);
+      return VerifyResult::of(
+        VerifyState::TransportError,
+        (string) $response->transportError
+      );
     }
 
     if ($response->truncated) {
-      return VerifyResult::of(VerifyState::TransportError, 'response exceeded the size limit');
+      return VerifyResult::of(
+        VerifyState::TransportError,
+        'response exceeded the size limit'
+      );
     }
 
     if ($response->status === 404) {
-      return VerifyResult::of(VerifyState::NotFound, 'verify endpoint reports no such invoice');
+      return VerifyResult::of(
+        VerifyState::NotFound,
+        'verify endpoint reports no such invoice'
+      );
     }
 
     if (!$response->ok()) {
@@ -182,7 +201,10 @@ final class LnurlClient implements LnurlClientInterface {
 
     $json = $response->json();
     if ($json === null) {
-      return VerifyResult::of(VerifyState::TransportError, 'verify response was not valid JSON');
+      return VerifyResult::of(
+        VerifyState::TransportError,
+        'verify response was not valid JSON'
+      );
     }
 
     if (($json['status'] ?? null) === 'ERROR') {
@@ -243,7 +265,11 @@ final class LnurlClient implements LnurlClientInterface {
     }
 
     if (!$response->ok()) {
-      return $this->fail('LNURL_HTTP_' . $response->status, 'HTTP ' . $response->status, $url);
+      return $this->fail(
+        'LNURL_HTTP_' . $response->status,
+        'HTTP ' . $response->status,
+        $url
+      );
     }
 
     return $response;

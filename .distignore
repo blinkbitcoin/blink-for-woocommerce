@@ -18,11 +18,10 @@ Thumbs.db
 behat.yml
 bitbucket-pipelines.yml
 bin
-.circleci/config.yml
 composer.json
 composer.lock
 dependencies.yml
-Gruntfile.js
+Gruntfile.cjs
 package.json
 package-lock.json
 phpunit.xml
@@ -48,7 +47,6 @@ Dockerfile
 docker-compose.yml
 output.log
 dist
-.circleci
 flake.nix
 flake.lock
 Dockerfile-php-build

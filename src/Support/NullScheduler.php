@@ -16,9 +16,16 @@ final class NullScheduler implements SchedulerInterface {
     return false;
   }
 
-  public function scheduleSingle(int $timestamp, string $hook, array $args, string $group): void {}
+  public function scheduleSingle(
+    int $timestamp,
+    string $hook,
+    array $args,
+    string $group
+  ): void {
+  }
 
-  public function unscheduleAll(string $hook, array $args, string $group): void {}
+  public function unscheduleAll(string $hook, array $args, string $group): void {
+  }
 
   public function nextScheduled(string $hook, array $args, string $group): ?int {
     return null;

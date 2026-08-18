@@ -32,10 +32,8 @@ namespace Blink\WC\Support;
 final class DbLock implements LockInterface {
   private const PREFIX = 'blink_lock_';
 
-  public function __construct(
-    private \wpdb $db,
-    private ClockInterface $clock
-  ) {}
+  public function __construct(private \wpdb $db, private ClockInterface $clock) {
+  }
 
   public function acquire(string $key, int $ttl): ?string {
     $name = self::PREFIX . $key;

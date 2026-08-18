@@ -84,10 +84,10 @@ final class Bech32 {
     $bits = 0;
     $result = [];
     $maxValue = (1 << $to) - 1;
-    $maxAcc = (1 << ($from + $to - 1)) - 1;
+    $maxAcc = (1 << $from + $to - 1) - 1;
 
     foreach ($data as $value) {
-      if ($value < 0 || ($value >> $from) !== 0) {
+      if ($value < 0 || $value >> $from !== 0) {
         throw new Bolt11Exception('value out of range for bit conversion');
       }
       $acc = (($acc << $from) | $value) & $maxAcc;
@@ -100,9 +100,9 @@ final class Bech32 {
 
     if ($pad) {
       if ($bits > 0) {
-        $result[] = ($acc << ($to - $bits)) & $maxValue;
+        $result[] = ($acc << $to - $bits) & $maxValue;
       }
-    } elseif ($bits >= $from || ((($acc << ($to - $bits)) & $maxValue) !== 0)) {
+    } elseif ($bits >= $from || (($acc << $to - $bits) & $maxValue) !== 0) {
       throw new Bolt11Exception('invalid padding in bit conversion');
     }
 

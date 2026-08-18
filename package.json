@@ -1,7 +1,7 @@
 {
   "name": "blink-for-woocommerce",
-  "version": "0.2.2",
-  "main": "Gruntfile.js",
+  "version": "0.3.0",
+  "main": "Gruntfile.cjs",
   "author": "Blink",
   "scripts": {
     "prettier:check": "prettier -c blink-for-woocommerce.php src assets/js/frontend/pay.js assets/js/backend tests/js",
@@ -39,5 +39,6 @@
     "tabWidth": 2,
     "singleQuote": true,
     "braceStyle": "1tbs"
-  }
+  },
+  "type": "module"
 }

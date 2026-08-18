@@ -23,10 +23,15 @@ final class PollBudget {
   public const GLOBAL_LIMIT = 300;
   public const WINDOW_SECONDS = 60;
 
-  public function __construct(private RateLimiterInterface $limiter) {}
+  public function __construct(private RateLimiterInterface $limiter) {
+  }
 
   public function allowIp(string $ip): bool {
-    return $this->limiter->hit('ip_' . md5($ip), self::PER_IP_LIMIT, self::WINDOW_SECONDS);
+    return $this->limiter->hit(
+      'ip_' . md5($ip),
+      self::PER_IP_LIMIT,
+      self::WINDOW_SECONDS
+    );
   }
 
   public function allowDomain(string $host): bool {

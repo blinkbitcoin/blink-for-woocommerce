@@ -16,7 +16,8 @@ final class UrlDecision {
     public readonly bool $allowed,
     public readonly string $reason,
     public readonly array $dnsPins
-  ) {}
+  ) {
+  }
 
   /** @param array<string,list<string>> $dnsPins */
   public static function allow(array $dnsPins = []): self {

@@ -27,16 +27,22 @@ final class InvoiceValidator {
   public function __construct(
     private Bolt11Decoder $decoder,
     private ClockInterface $clock
-  ) {}
+  ) {
+  }
 
-  public function validate(string $bolt11, InvoiceExpectation $expectation): ValidationResult {
+  public function validate(
+    string $bolt11,
+    InvoiceExpectation $expectation
+  ): ValidationResult {
     try {
       $invoice = $this->decoder->decode($bolt11);
     } catch (Bolt11Exception $e) {
       return ValidationResult::fail('BOLT11_MALFORMED', $e->getMessage());
     }
 
-    $allowedNetworks = $expectation->allowTestNetworks ? ['bc', 'tb', 'bcrt', 'sb'] : ['bc'];
+    $allowedNetworks = $expectation->allowTestNetworks
+      ? ['bc', 'tb', 'bcrt', 'sb']
+      : ['bc'];
     if (!in_array($invoice->network, $allowedNetworks, true)) {
       return ValidationResult::fail(
         'BOLT11_WRONG_NETWORK',
@@ -47,7 +53,10 @@ final class InvoiceValidator {
     // An amountless invoice would let the customer's wallet choose what to
     // pay, which for an order total is never acceptable.
     if ($invoice->amountMsat === null) {
-      return ValidationResult::fail('BOLT11_NO_AMOUNT', 'invoice does not specify an amount');
+      return ValidationResult::fail(
+        'BOLT11_NO_AMOUNT',
+        'invoice does not specify an amount'
+      );
     }
 
     if ($invoice->amountMsat !== $expectation->amountMsat) {
@@ -84,7 +93,10 @@ final class InvoiceValidator {
 
     // A little tolerance for clock skew between the shop and the LNURL server.
     if ($invoice->timestamp > $now + 300) {
-      return ValidationResult::fail('BOLT11_FUTURE', 'invoice is timestamped in the future');
+      return ValidationResult::fail(
+        'BOLT11_FUTURE',
+        'invoice is timestamped in the future'
+      );
     }
 
     // Clamp rather than reject: a server issuing a longer expiry than asked

@@ -19,7 +19,7 @@ defined('DAY_IN_SECONDS') || define('DAY_IN_SECONDS', 24 * HOUR_IN_SECONDS);
 defined('ABSPATH') || define('ABSPATH', '/tmp/wordpress/');
 
 // Plugin identity, normally defined by blink-for-woocommerce.php.
-defined('BLINK_VERSION') || define('BLINK_VERSION', '0.2.2');
+defined('BLINK_VERSION') || define('BLINK_VERSION', '0.3.0');
 defined('BLINK_VERSION_KEY') || define('BLINK_VERSION_KEY', 'blink_version');
 defined('BLINK_PLUGIN_ID') || define('BLINK_PLUGIN_ID', 'blink-for-woocommerce');
 defined('BLINK_PLUGIN_URL') || define('BLINK_PLUGIN_URL', 'http://example.test/wp-content/plugins/blink-for-woocommerce/');

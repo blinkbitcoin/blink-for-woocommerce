@@ -19,7 +19,12 @@ final class ActionSchedulerAdapter implements SchedulerInterface {
       function_exists('as_next_scheduled_action');
   }
 
-  public function scheduleSingle(int $timestamp, string $hook, array $args, string $group): void {
+  public function scheduleSingle(
+    int $timestamp,
+    string $hook,
+    array $args,
+    string $group
+  ): void {
     if (!$this->isAvailable()) {
       return;
     }

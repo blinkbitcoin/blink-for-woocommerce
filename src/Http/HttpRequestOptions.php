@@ -23,7 +23,8 @@ final class HttpRequestOptions {
     public readonly array $headers = ['Accept' => 'application/json'],
     public readonly array $dnsPins = [],
     public readonly bool $allowPlainHttp = false
-  ) {}
+  ) {
+  }
 
   /** @param array<string,list<string>> $pins */
   public function withDnsPins(array $pins): self {

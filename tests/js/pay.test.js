@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  PAY_PAGE_HTML,
   cleanupPayScript,
   defaultConfig,
   jsonResponse,
@@ -17,7 +16,9 @@ describe('pay page', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-01-01T00:00:00Z'));
-    globalThis.fetch = vi.fn(() => Promise.resolve(jsonResponse({ success: true, data: { status: 'PENDING' } })));
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve(jsonResponse({ success: true, data: { status: 'PENDING' } })),
+    );
   });
 
   afterEach(() => {
@@ -77,7 +78,9 @@ describe('pay page', () => {
     });
 
     it('honours a deadline delivered as a number', async () => {
-      await loadPayScript(defaultConfig({ deadline: Math.floor(Date.now() / 1000) - 10 }));
+      await loadPayScript(
+        defaultConfig({ deadline: Math.floor(Date.now() / 1000) - 10 }),
+      );
 
       await advance(3000);
 
@@ -94,7 +97,9 @@ describe('pay page', () => {
     });
 
     it('stops once the deadline passes mid-session', async () => {
-      await loadPayScript(defaultConfig({ deadline: Math.floor(Date.now() / 1000) + 10 }));
+      await loadPayScript(
+        defaultConfig({ deadline: Math.floor(Date.now() / 1000) + 10 }),
+      );
 
       await advance(3000);
       expect(globalThis.fetch).toHaveBeenCalledTimes(1);
@@ -120,7 +125,7 @@ describe('pay page', () => {
         defaultConfig({
           deadline: Math.floor(Date.now() / 1000) - 1,
           i18n: { expired: 'Fakturan har gatt ut.' },
-        })
+        }),
       );
 
       await advance(3000);
@@ -141,8 +146,8 @@ describe('pay page', () => {
           jsonResponse({
             success: true,
             data: { status: 'PAID', redirect: 'https://shop.test/received/42/' },
-          })
-        )
+          }),
+        ),
       );
 
       await loadPayScript();
@@ -154,7 +159,7 @@ describe('pay page', () => {
 
     it('stops polling once paid', async () => {
       globalThis.fetch = vi.fn(() =>
-        Promise.resolve(jsonResponse({ success: true, data: { status: 'PAID' } }))
+        Promise.resolve(jsonResponse({ success: true, data: { status: 'PAID' } })),
       );
 
       await loadPayScript();
@@ -166,7 +171,7 @@ describe('pay page', () => {
 
     it('stops and explains when the invoice is reported expired', async () => {
       globalThis.fetch = vi.fn(() =>
-        Promise.resolve(jsonResponse({ success: true, data: { status: 'EXPIRED' } }))
+        Promise.resolve(jsonResponse({ success: true, data: { status: 'EXPIRED' } })),
       );
 
       await loadPayScript();
@@ -179,7 +184,7 @@ describe('pay page', () => {
 
     it('explains when a paid order is held for review', async () => {
       globalThis.fetch = vi.fn(() =>
-        Promise.resolve(jsonResponse({ success: true, data: { status: 'REVIEW' } }))
+        Promise.resolve(jsonResponse({ success: true, data: { status: 'REVIEW' } })),
       );
 
       await loadPayScript();
@@ -326,7 +331,7 @@ describe('pay page', () => {
       globalThis.fetch = vi.fn(() =>
         fail
           ? Promise.reject(new Error('down'))
-          : Promise.resolve(jsonResponse({ success: true, data: { status: 'PENDING' } }))
+          : Promise.resolve(jsonResponse({ success: true, data: { status: 'PENDING' } })),
       );
       vi.spyOn(Math, 'random').mockReturnValue(0.5);
 
@@ -383,7 +388,7 @@ describe('pay page', () => {
 
     it('does not resume a session that has already finished', async () => {
       globalThis.fetch = vi.fn(() =>
-        Promise.resolve(jsonResponse({ success: true, data: { status: 'EXPIRED' } }))
+        Promise.resolve(jsonResponse({ success: true, data: { status: 'EXPIRED' } })),
       );
 
       await loadPayScript();
@@ -482,7 +487,7 @@ describe('pay page', () => {
 
       await loadPayScript(
         defaultConfig({ lightningUri: '' }),
-        '<div id="blink-pay-qr"></div><p id="blink-pay-status"></p>'
+        '<div id="blink-pay-qr"></div><p id="blink-pay-status"></p>',
       );
 
       expect(globalThis.qrcode).not.toHaveBeenCalled();
@@ -498,7 +503,7 @@ describe('pay page', () => {
 
       await loadPayScript(
         defaultConfig(),
-        '<div id="blink-pay-qr"></div><p id="blink-pay-status"></p>'
+        '<div id="blink-pay-qr"></div><p id="blink-pay-status"></p>',
       );
 
       expect(addData).toHaveBeenCalledWith('lightning:LNBC100U1XYZ');
@@ -545,7 +550,10 @@ describe('pay page', () => {
 
     it('copies an empty string rather than undefined when no invoice is set', async () => {
       const writeText = vi.fn(() => Promise.resolve());
-      Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText },
+        configurable: true,
+      });
       const config = defaultConfig();
       delete config.paymentRequest;
 
@@ -557,11 +565,14 @@ describe('pay page', () => {
     });
 
     it('does not attempt to select an invoice element that is not there', async () => {
-      Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true });
+      Object.defineProperty(navigator, 'clipboard', {
+        value: undefined,
+        configurable: true,
+      });
 
       await loadPayScript(
         defaultConfig(),
-        '<button id="blink-pay-copy">Copy</button><p id="blink-pay-status"></p>'
+        '<button id="blink-pay-copy">Copy</button><p id="blink-pay-status"></p>',
       );
 
       expect(() => document.getElementById('blink-pay-copy').click()).not.toThrow();
@@ -571,7 +582,10 @@ describe('pay page', () => {
   describe('copy button', () => {
     it('copies the invoice and confirms', async () => {
       const writeText = vi.fn(() => Promise.resolve());
-      Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText },
+        configurable: true,
+      });
 
       await loadPayScript();
       document.getElementById('blink-pay-copy').click();
@@ -600,7 +614,9 @@ describe('pay page', () => {
         configurable: true,
       });
 
-      await loadPayScript(defaultConfig({ i18n: { copied: 'Kopierad!', copy: 'Kopiera' } }));
+      await loadPayScript(
+        defaultConfig({ i18n: { copied: 'Kopierad!', copy: 'Kopiera' } }),
+      );
       document.getElementById('blink-pay-copy').click();
       await advance(1);
 
@@ -608,7 +624,10 @@ describe('pay page', () => {
     });
 
     it('selects the invoice when the clipboard API is unavailable', async () => {
-      Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true });
+      Object.defineProperty(navigator, 'clipboard', {
+        value: undefined,
+        configurable: true,
+      });
 
       await loadPayScript();
       document.getElementById('blink-pay-copy').click();

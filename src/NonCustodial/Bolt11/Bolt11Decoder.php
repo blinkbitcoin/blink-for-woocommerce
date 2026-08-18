@@ -50,7 +50,9 @@ final class Bolt11Decoder {
     [$network, $amountMsat] = $this->parseHrp(substr($hrp, 2));
 
     if (count($data) < self::TIMESTAMP_LENGTH + self::SIGNATURE_LENGTH) {
-      throw new Bolt11Exception('invoice data is too short to contain a timestamp and signature');
+      throw new Bolt11Exception(
+        'invoice data is too short to contain a timestamp and signature'
+      );
     }
 
     $timestamp = Bech32::toInt(array_slice($data, 0, self::TIMESTAMP_LENGTH));

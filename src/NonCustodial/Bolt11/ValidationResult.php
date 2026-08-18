@@ -11,7 +11,8 @@ final class ValidationResult {
     public readonly string $message,
     public readonly ?DecodedInvoice $invoice,
     public readonly int $expiresAt
-  ) {}
+  ) {
+  }
 
   public static function ok(DecodedInvoice $invoice, int $expiresAt): self {
     return new self(true, '', '', $invoice, $expiresAt);

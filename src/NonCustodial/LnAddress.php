@@ -27,7 +27,8 @@ final class LnAddress {
     public readonly string $identifier,
     public readonly string $host,
     public readonly ?int $port
-  ) {}
+  ) {
+  }
 
   /**
    * Parses "identifier@host[:port]", or returns null when the input is not a
@@ -99,7 +100,7 @@ final class LnAddress {
     }
     $port = (int) $raw;
 
-    return ($port >= 1 && $port <= 65535) ? $port : null;
+    return $port >= 1 && $port <= 65535 ? $port : null;
   }
 
   private static function isValidHost(string $host): bool {

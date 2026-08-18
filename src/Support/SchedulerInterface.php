@@ -14,7 +14,12 @@ interface SchedulerInterface {
   public function isAvailable(): bool;
 
   /** @param array<int|string,mixed> $args */
-  public function scheduleSingle(int $timestamp, string $hook, array $args, string $group): void;
+  public function scheduleSingle(
+    int $timestamp,
+    string $hook,
+    array $args,
+    string $group
+  ): void;
 
   /** @param array<int|string,mixed> $args */
   public function unscheduleAll(string $hook, array $args, string $group): void;

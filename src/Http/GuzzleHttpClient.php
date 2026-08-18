@@ -28,7 +28,8 @@ use GuzzleHttp\RequestOptions;
  *   for the request.
  */
 final class GuzzleHttpClient implements HttpClientInterface {
-  public function __construct(private ClientInterface $guzzle) {}
+  public function __construct(private ClientInterface $guzzle) {
+  }
 
   public function get(string $url, HttpRequestOptions $options): HttpResponse {
     try {
@@ -40,7 +41,9 @@ final class GuzzleHttpClient implements HttpClientInterface {
     try {
       [$body, $truncated] = $this->readCapped($response->getBody(), $options->maxBytes);
     } catch (\Throwable $e) {
-      return HttpResponse::transportFailure('could not read response body: ' . $e->getMessage());
+      return HttpResponse::transportFailure(
+        'could not read response body: ' . $e->getMessage()
+      );
     }
 
     return new HttpResponse(
@@ -89,7 +92,10 @@ final class GuzzleHttpClient implements HttpClientInterface {
    *
    * @return array{string,bool} the body, and whether the cap was hit.
    */
-  private function readCapped(\Psr\Http\Message\StreamInterface $stream, int $maxBytes): array {
+  private function readCapped(
+    \Psr\Http\Message\StreamInterface $stream,
+    int $maxBytes
+  ): array {
     $body = '';
     while (!$stream->eof()) {
       $remaining = $maxBytes - strlen($body);

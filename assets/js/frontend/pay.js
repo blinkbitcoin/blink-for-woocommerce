@@ -125,7 +125,7 @@
       qr.addData(uri);
       qr.make();
       container.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 4, scalable: true });
-    } catch (e) {
+    } catch {
       try {
         // A lower error-correction level fits more data in.
         var fallback = qrcode(0, 'L');
@@ -136,7 +136,7 @@
           margin: 4,
           scalable: true,
         });
-      } catch (e2) {
+      } catch {
         // Better a copyable invoice than a broken image.
         container.textContent = BlinkPay.paymentRequest || '';
       }
@@ -196,15 +196,21 @@
     }
 
     if (status === 'EXPIRED') {
-      stop(text('expired', 'This invoice has expired. Please place the order again.'), false);
+      stop(
+        text('expired', 'This invoice has expired. Please place the order again.'),
+        false,
+      );
 
       return true;
     }
 
     if (status === 'REVIEW') {
       stop(
-        text('review', 'Payment received. This order is being reviewed before it is completed.'),
-        false
+        text(
+          'review',
+          'Payment received. This order is being reviewed before it is completed.',
+        ),
+        false,
       );
 
       return true;
@@ -215,7 +221,10 @@
 
   function poll() {
     if (pastDeadline()) {
-      stop(text('expired', 'This invoice has expired. Please place the order again.'), false);
+      stop(
+        text('expired', 'This invoice has expired. Please place the order again.'),
+        false,
+      );
 
       return;
     }
@@ -235,7 +244,13 @@
       .then(function (response) {
         // An expired nonce answers 403 forever; retrying cannot help.
         if (response.status === 403) {
-          stop(text('invalid', 'This payment session is no longer valid. Please reload the page.'), false);
+          stop(
+            text(
+              'invalid',
+              'This payment session is no longer valid. Please reload the page.',
+            ),
+            false,
+          );
 
           return null;
         }
@@ -267,9 +282,9 @@
           stop(
             text(
               'unreachable',
-              'We cannot reach the payment server right now. Any payment you have made is safe.'
+              'We cannot reach the payment server right now. Any payment you have made is safe.',
             ),
-            true
+            true,
           );
 
           return;

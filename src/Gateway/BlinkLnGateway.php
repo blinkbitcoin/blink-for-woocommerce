@@ -502,7 +502,9 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
     try {
       Logger::debug('Trying to fetch existing invoice from Blink for hash ' . $invoiceId);
       $invoice = $this->apiHelper->getInvoiceCustodial($invoiceId);
-      $status = is_array($invoice) ? (string) ($invoice['status'] ?? 'PENDING') : 'PENDING';
+      $status = is_array($invoice)
+        ? (string) ($invoice['status'] ?? 'PENDING')
+        : 'PENDING';
       Logger::debug('Invoice status: ' . $status);
 
       return $applier->apply($order, $status, $context);
@@ -562,9 +564,11 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
     // allows. The previous 30-minute cap was shorter than the invoice itself,
     // so a customer returning at minute 31 was told to place the order again
     // while the QR code on screen was still perfectly payable.
-    $deadline = $invoice->expiresAt > 0
-      ? $invoice->expiresAt + \Blink\WC\NonCustodial\SettlementService::EXPIRY_GRACE_SECONDS
-      : time() + HOUR_IN_SECONDS;
+    $deadline =
+      $invoice->expiresAt > 0
+        ? $invoice->expiresAt +
+          \Blink\WC\NonCustodial\SettlementService::EXPIRY_GRACE_SECONDS
+        : time() + HOUR_IN_SECONDS;
 
     // wp_localize_script() casts every value to a string, which is why the
     // client's `typeof deadline === 'number'` check could never be true and
@@ -699,7 +703,10 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
       : '';
 
     $order = $orderId ? wc_get_order($orderId) : null;
-    if (!$order instanceof \WC_Order || !hash_equals($order->get_order_key(), $orderKey)) {
+    if (
+      !$order instanceof \WC_Order ||
+      !hash_equals($order->get_order_key(), $orderKey)
+    ) {
       wp_send_json_error(['message' => 'Invalid order.'], 403);
     }
 
@@ -722,7 +729,8 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
     $settlement = $this->services->settlement();
     $budget = $this->services->pollBudget();
 
-    $useCached = $settlement->isCacheFresh($record) || !$budget->allowIp($this->clientIp());
+    $useCached =
+      $settlement->isCacheFresh($record) || !$budget->allowIp($this->clientIp());
     $outcome = $useCached ? $settlement->cached($record) : $settlement->poll($record);
 
     if ($outcome->status === SettlementStatus::Unknown) {
@@ -737,9 +745,10 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
 
     wp_send_json_success([
       'status' => $status->value,
-      'redirect' => $status === SettlementStatus::Paid
-        ? $order->get_checkout_order_received_url()
-        : null,
+      'redirect' =>
+        $status === SettlementStatus::Paid
+          ? $order->get_checkout_order_received_url()
+          : null,
     ]);
   }
 

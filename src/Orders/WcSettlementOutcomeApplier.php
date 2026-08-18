@@ -22,11 +22,15 @@ final class WcSettlementOutcomeApplier implements SettlementOutcomeApplier {
   public function __construct(
     private OrderStatusApplier $applier,
     private InvoiceRepository $repository
-  ) {}
+  ) {
+  }
 
   public function applyOutcome(OrderRecord $order, SettlementOutcome $outcome): void {
     // Nothing conclusive was learned, so the order is left alone.
-    if ($outcome->status === SettlementStatus::Unknown || $outcome->status === SettlementStatus::Pending) {
+    if (
+      $outcome->status === SettlementStatus::Unknown ||
+      $outcome->status === SettlementStatus::Pending
+    ) {
       return;
     }
 
@@ -39,7 +43,10 @@ final class WcSettlementOutcomeApplier implements SettlementOutcomeApplier {
 
     if ($outcome->status === SettlementStatus::Paid) {
       $invoice = $this->repository->load($order);
-      $this->applier->completePaymentIfUnmapped($wcOrder, (string) $invoice?->paymentHash);
+      $this->applier->completePaymentIfUnmapped(
+        $wcOrder,
+        (string) $invoice?->paymentHash
+      );
     }
   }
 }

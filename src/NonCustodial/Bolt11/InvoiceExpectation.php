@@ -17,5 +17,6 @@ final class InvoiceExpectation {
     public readonly int $minRemainingSeconds = 120,
     public readonly bool $allowTestNetworks = false,
     public readonly bool $requireDescriptionBinding = true
-  ) {}
+  ) {
+  }
 }

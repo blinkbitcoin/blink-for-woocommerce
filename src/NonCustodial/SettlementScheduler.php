@@ -28,7 +28,21 @@ final class SettlementScheduler {
   public const GROUP = 'blink';
 
   /** Seconds after invoice creation at which checks fire, before jitter. */
-  private const SCHEDULE = [20, 45, 90, 180, 300, 480, 720, 1020, 1380, 1800, 2400, 3000, 3480];
+  private const SCHEDULE = [
+    20,
+    45,
+    90,
+    180,
+    300,
+    480,
+    720,
+    1020,
+    1380,
+    1800,
+    2400,
+    3000,
+    3480,
+  ];
 
   /** Interval used once the schedule above is exhausted. */
   private const TAIL_INTERVAL = 300;
@@ -41,7 +55,8 @@ final class SettlementScheduler {
     private ClockInterface $clock,
     private JitterInterface $jitter,
     private LoggerInterface $log
-  ) {}
+  ) {
+  }
 
   /** @return array{int} */
   public static function argsFor(int $orderId): array {
@@ -61,7 +76,10 @@ final class SettlementScheduler {
       return;
     }
 
-    $this->scheduleAt($order->id(), $this->clock->now() + $this->jitter->apply(self::SCHEDULE[0]));
+    $this->scheduleAt(
+      $order->id(),
+      $this->clock->now() + $this->jitter->apply(self::SCHEDULE[0])
+    );
   }
 
   public function cancel(int $orderId): void {

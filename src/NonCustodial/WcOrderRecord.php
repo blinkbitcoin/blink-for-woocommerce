@@ -11,7 +11,8 @@ namespace Blink\WC\NonCustodial;
  * both the legacy post storage and the high-performance order tables.
  */
 final class WcOrderRecord implements OrderRecord {
-  public function __construct(private \WC_Order $order) {}
+  public function __construct(private \WC_Order $order) {
+  }
 
   public function order(): \WC_Order {
     return $this->order;

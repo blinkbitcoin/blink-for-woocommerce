@@ -28,7 +28,8 @@ final class UrlPolicy implements UrlPolicyInterface {
   public function __construct(
     private DnsResolverInterface $dns,
     private LoggerInterface $log
-  ) {}
+  ) {
+  }
 
   public function check(string $url, LnAddress $address): UrlDecision {
     $decision = $this->evaluate($url, $address);
@@ -125,7 +126,13 @@ final class UrlPolicy implements UrlPolicyInterface {
    * environments, so they are checked explicitly.
    */
   private function isPublicIp(string $ip): bool {
-    if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
+    if (
+      filter_var(
+        $ip,
+        FILTER_VALIDATE_IP,
+        FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
+      ) === false
+    ) {
       return false;
     }
 

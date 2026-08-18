@@ -60,14 +60,22 @@ final class OrderStatusApplier {
 
     if ($status === 'EXPIRED') {
       $this->updateStatus($order, $states[OrderStates::EXPIRED]);
-      $this->addNote($order, sprintf('Invoice expired (via %s).', $context), $dedupeNotes);
+      $this->addNote(
+        $order,
+        sprintf('Invoice expired (via %s).', $context),
+        $dedupeNotes
+      );
 
       return 'EXPIRED';
     }
 
     if ($status === 'PAID') {
       $this->updateStatus($order, $states[OrderStates::PAID]);
-      $this->addNote($order, sprintf('Invoice payment settled (via %s).', $context), $dedupeNotes);
+      $this->addNote(
+        $order,
+        sprintf('Invoice payment settled (via %s).', $context),
+        $dedupeNotes
+      );
 
       return 'PAID';
     }
@@ -106,7 +114,10 @@ final class OrderStatusApplier {
    * TODO: the custodial path has the same gap and should be brought in line
    * once the change can be tested against a live Blink account.
    */
-  public function completePaymentIfUnmapped(\WC_Order $order, string $transactionId): void {
+  public function completePaymentIfUnmapped(
+    \WC_Order $order,
+    string $transactionId
+  ): void {
     $states = $this->configuredStates();
     if ($states[OrderStates::PAID] !== OrderStates::IGNORE) {
       return;
@@ -130,7 +141,9 @@ final class OrderStatusApplier {
       return;
     }
 
-    Logger::debug('Updating order status from ' . $order->get_status() . ' to ' . $status);
+    Logger::debug(
+      'Updating order status from ' . $order->get_status() . ' to ' . $status
+    );
     $order->update_status($status);
   }
 
@@ -150,7 +163,10 @@ final class OrderStatusApplier {
   }
 
   private function hasNote(\WC_Order $order, string $note): bool {
-    foreach (wc_get_order_notes(['order_id' => $order->get_id(), 'limit' => 50]) as $existing) {
+    foreach (
+      wc_get_order_notes(['order_id' => $order->get_id(), 'limit' => 50])
+      as $existing
+    ) {
       if (trim($existing->content) === trim($note)) {
         return true;
       }

@@ -77,7 +77,10 @@ final class Services {
   }
 
   public function randomSource(): RandomSourceInterface {
-    return $this->memo(__FUNCTION__, static fn(): RandomSourceInterface => new WpRandomSource());
+    return $this->memo(
+      __FUNCTION__,
+      static fn(): RandomSourceInterface => new WpRandomSource()
+    );
   }
 
   public function jitter(): JitterInterface {
@@ -95,7 +98,10 @@ final class Services {
   }
 
   public function dnsResolver(): DnsResolverInterface {
-    return $this->memo(__FUNCTION__, static fn(): DnsResolverInterface => new SystemDnsResolver());
+    return $this->memo(
+      __FUNCTION__,
+      static fn(): DnsResolverInterface => new SystemDnsResolver()
+    );
   }
 
   public function urlPolicy(): UrlPolicyInterface {
@@ -131,7 +137,10 @@ final class Services {
   }
 
   public function statusApplier(): OrderStatusApplier {
-    return $this->memo(__FUNCTION__, static fn(): OrderStatusApplier => new OrderStatusApplier());
+    return $this->memo(
+      __FUNCTION__,
+      static fn(): OrderStatusApplier => new OrderStatusApplier()
+    );
   }
 
   public function satsRateProvider(): SatsRateProviderInterface {
@@ -181,7 +190,10 @@ final class Services {
   }
 
   public function pollBudget(): PollBudget {
-    return $this->memo(__FUNCTION__, fn(): PollBudget => new PollBudget($this->rateLimiter()));
+    return $this->memo(
+      __FUNCTION__,
+      fn(): PollBudget => new PollBudget($this->rateLimiter())
+    );
   }
 
   public function settlement(): SettlementService {

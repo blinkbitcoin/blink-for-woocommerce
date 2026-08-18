@@ -67,7 +67,8 @@ final class InvoiceRepository {
     'blink_redirect',
   ];
 
-  public function __construct(private ClockInterface $clock) {}
+  public function __construct(private ClockInterface $clock) {
+  }
 
   public function isNonCustodial(OrderRecord $order): bool {
     return $order->getMeta(self::ACCOUNT_TYPE) === self::ACCOUNT_TYPE_NON_CUSTODIAL;

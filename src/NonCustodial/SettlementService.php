@@ -45,12 +45,17 @@ final class SettlementService {
     private LockInterface $lock,
     private ClockInterface $clock,
     private LoggerInterface $log
-  ) {}
+  ) {
+  }
 
   /** The last observation, without any network access. */
   public function cached(OrderRecord $order): SettlementOutcome {
-    return $this->repository->cachedStatus($order)
-      ?? new SettlementOutcome(SettlementStatus::Pending, $this->clock->now(), 'no observation yet');
+    return $this->repository->cachedStatus($order) ??
+      new SettlementOutcome(
+        SettlementStatus::Pending,
+        $this->clock->now(),
+        'no observation yet'
+      );
   }
 
   public function isCacheFresh(OrderRecord $order): bool {
@@ -66,7 +71,12 @@ final class SettlementService {
   public function poll(OrderRecord $order): SettlementOutcome {
     $terminal = $this->repository->terminalStatus($order);
     if ($terminal !== null) {
-      return new SettlementOutcome($terminal, $this->clock->now(), 'already resolved', true);
+      return new SettlementOutcome(
+        $terminal,
+        $this->clock->now(),
+        'already resolved',
+        true
+      );
     }
 
     $invoice = $this->repository->load($order);
@@ -87,7 +97,10 @@ final class SettlementService {
     // prevent -- cancel an order the customer paid for while the endpoint
     // happened to be unreachable.
     $now = $this->clock->now();
-    if ($invoice->expiresAt > 0 && $now > $invoice->expiresAt + self::EXPIRY_GRACE_SECONDS) {
+    if (
+      $invoice->expiresAt > 0 &&
+      $now > $invoice->expiresAt + self::EXPIRY_GRACE_SECONDS
+    ) {
       if ($this->repository->consecutiveErrors($order) === 0) {
         return $this->expire($order, 'invoice expired');
       }
@@ -187,7 +200,10 @@ final class SettlementService {
       }
     } else {
       $this->log->debug(
-        sprintf('Order %d: settled without a preimage; nothing to verify against.', $order->id())
+        sprintf(
+          'Order %d: settled without a preimage; nothing to verify against.',
+          $order->id()
+        )
       );
     }
 
@@ -217,7 +233,12 @@ final class SettlementService {
     $this->repository->markSettled($order, $result->preimage);
     $this->repository->markTerminal($order, SettlementStatus::Paid);
 
-    return new SettlementOutcome(SettlementStatus::Paid, $this->clock->now(), 'settled', true);
+    return new SettlementOutcome(
+      SettlementStatus::Paid,
+      $this->clock->now(),
+      'settled',
+      true
+    );
   }
 
   private function preimageMatches(string $preimage, string $paymentHash): bool {
@@ -231,7 +252,12 @@ final class SettlementService {
 
   private function expire(OrderRecord $order, string $reason): SettlementOutcome {
     $this->repository->markTerminal($order, SettlementStatus::Expired);
-    $outcome = new SettlementOutcome(SettlementStatus::Expired, $this->clock->now(), $reason, true);
+    $outcome = new SettlementOutcome(
+      SettlementStatus::Expired,
+      $this->clock->now(),
+      $reason,
+      true
+    );
     $this->repository->cacheStatus($order, $outcome);
 
     return $outcome;

@@ -21,10 +21,8 @@ final class DbRateLimiter implements RateLimiterInterface {
   /** Rows older than this can never be referenced again. */
   private const RETENTION_SECONDS = 86400;
 
-  public function __construct(
-    private \wpdb $db,
-    private ClockInterface $clock
-  ) {}
+  public function __construct(private \wpdb $db, private ClockInterface $clock) {
+  }
 
   public function hit(string $bucket, int $limit, int $windowSeconds): bool {
     if ($limit <= 0) {

@@ -1,16 +1,16 @@
-=== Blink For WooCommerce ===
-Contributors: blink
-Tags: Bitcoin, Lightning Network, WooCommerce, payment gateway
-Requires at least: 6.0
-Tested up to: 6.6.2
-Requires PHP: 8.1
-Stable tag: 0.3.0
-License: MIT
-License URI: https://github.com/blinkbitcoin/blink-for-woocommerce/blob/main/license.txt
+# Blink For WooCommerce #
+**Contributors:** [blink](https://profiles.wordpress.org/blink/)  
+**Tags:** Bitcoin, Lightning Network, WooCommerce, payment gateway  
+**Requires at least:** 6.0  
+**Tested up to:** 6.6.2  
+**Requires PHP:** 8.1  
+**Stable tag:** 0.3.0  
+**License:** MIT  
+**License URI:** https://github.com/blinkbitcoin/blink-for-woocommerce/blob/main/license.txt  
 
 A simple, fast and secure Bitcoin payment gateway for WooCommerce using [Blink](https://www.blink.sv/).
 
-== Description ==
+## Description ##
 
 Blink For WooCommerce is a plugin that allows WooCommerce merchants to accept Bitcoin payments through the Lightning Network using [Blink](https://www.blink.sv/).
 
@@ -42,7 +42,7 @@ This plugin relies on third-party APIs to function correctly. Specifically, it i
 
 Please review these links to ensure that you are compliant with all legal requirements related to data transmission and usage.
 
-== Installation ==
+## Installation ##
 
 This section describes how to install the plugin and get it working.
 
@@ -53,28 +53,28 @@ This section describes how to install the plugin and get it working.
 
 You can find more details on our [WooCommerce documentation](https://dev.blink.sv/examples/woocommerce-plugin/).
 
-== Frequently Asked Questions ==
+## Frequently Asked Questions ##
 
-= How do I set up the plugin? =
+### How do I set up the plugin? ###
 
 Follow the installation steps and configure your Blink settings within the plugin options.
 
-= What are the benefits of using Blink? =
+### What are the benefits of using Blink? ###
 
 Blink offers instant payments, low transaction fees and Stablesats integration for stable value payments.
 
-= Is there support for troubleshooting? =
+### Is there support for troubleshooting? ###
 
 Yes, visit the [Blink website](https://www.blink.sv/) for support and troubleshooting resources.
 
-== Screenshots ==
+## Screenshots ##
 
 1. Plugin Settings Page - Configure your Blink payment settings.
 2. Payment Checkout Page - Customers can choose to pay with Bitcoin via the Lightning Network during checkout.
 
-== Changelog ==
+## Changelog ##
 
-= 0.3.0 :: 2026-08-18 =
+### 0.3.0 :: 2026-08-18 ###
 * Fixed: non-custodial orders now settle in the background. Previously settlement only happened while the customer's pay page was open, so a buyer who paid from a phone and closed the tab could have their paid order cancelled when hold-stock expired.
 * Fixed: an unreachable verification endpoint no longer causes orders to be cancelled. Uncertainty leaves an order pending for review rather than expiring it.
 * Fixed: the pay page's expiry deadline works. It was passed to the browser as a string, so the check never matched and the page polled indefinitely without ever showing the expiry message.
@@ -95,7 +95,7 @@ Yes, visit the [Blink website](https://www.blink.sv/) for support and troublesho
 * Added: unit, integration, JavaScript and end-to-end test suites, with a 100% line and branch coverage gate in CI.
 
 
-= 0.2.2 =
+### 0.2.2 ###
 * Security: validate LNURL callback/verify URLs (same domain + no private/loopback IPs) and disable redirects to prevent SSRF
 * Honor the server-advertised LUD-12 commentAllowed limit when creating non-custodial invoices
 * Recreate expired non-custodial invoices on checkout retry instead of reusing an unpayable one
@@ -103,32 +103,32 @@ Yes, visit the [Blink website](https://www.blink.sv/) for support and troublesho
 * Add an absolute client-side polling timeout on the pay page
 * Validate the account type setting against the allowed values
 
-= 0.2.1 =
+### 0.2.1 ###
 * Fix duplicate custom rows (Webhook Url, Setup status) on the Blink settings page
 * Light visual cleanup of the non-custodial on-site pay page
 * Clarify that the custodial Blink dashboard callback endpoint must be enabled
 
-= 0.2.0 =
+### 0.2.0 ###
 * Add support for non-custodial Blink accounts via lightning address (LNURL-pay + LUD-21 verify)
 * Add "Account Type" setting to choose between custodial (API key) and non-custodial (lightning address)
 * Render Lightning invoice with QR code on an on-site pay page for non-custodial orders
 * Detect settlement for non-custodial orders by polling the LUD-21 verify endpoint
 
-= 0.1.3 =
+### 0.1.3 ###
 * Update PHP min version
 
-= 0.1.2 =
+### 0.1.2 ###
 * Update Blink Logo
 * Add warning note about API key scopes
 * Fix feedback notification close
 * Rename stablesats to USD
 
-= 0.1.1 =
+### 0.1.1 ###
 * Minor content updates.
 
-= 0.1.0 =
+### 0.1.0 ###
 * Beta release for testing and feedback.
 
-== Additional Information ==
+## Additional Information ##
 
 For more details and support, visit [Blink](https://www.blink.sv/).
