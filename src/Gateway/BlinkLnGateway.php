@@ -460,21 +460,6 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
       $order->update_meta_data('blink_id', $invoice['paymentHash']);
       $order->update_meta_data('blink_payment_request', $invoice['paymentRequest']);
 
-      // Non-custodial invoices carry a LUD-21 verify URL used for polling.
-      if (!empty($invoice['verifyUrl'])) {
-        $order->update_meta_data('blink_account_type', 'non_custodial');
-        $order->update_meta_data('blink_verify_url', $invoice['verifyUrl']);
-      }
-      if (!empty($invoice['satoshis'])) {
-        $order->update_meta_data('blink_satoshis', $invoice['satoshis']);
-      }
-      if (!empty($invoice['createdAt'])) {
-        $order->update_meta_data('blink_created_at', $invoice['createdAt']);
-      }
-      if (!empty($invoice['expiresAt'])) {
-        $order->update_meta_data('blink_expires_at', $invoice['expiresAt']);
-      }
-
       $order->save();
 
       return $invoice;
