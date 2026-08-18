@@ -1,0 +1,554 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Blink\WC\Tests\Unit\NonCustodial;
+
+use Blink\WC\Http\HttpResponse;
+use Blink\WC\NonCustodial\InvoiceRepository;
+use Blink\WC\NonCustodial\LnAddress;
+use Blink\WC\NonCustodial\LnurlClient;
+use Blink\WC\NonCustodial\PollBudget;
+use Blink\WC\NonCustodial\SettlementService;
+use Blink\WC\NonCustodial\SettlementStatus;
+use Blink\WC\NonCustodial\StoredInvoice;
+use Blink\WC\NonCustodial\UrlPolicy;
+use Blink\WC\Tests\Support\Fake\ArrayLock;
+use Blink\WC\Tests\Support\Fake\ArrayRateLimiter;
+use Blink\WC\Tests\Support\Fake\FakeClock;
+use Blink\WC\Tests\Support\Fake\FakeDnsResolver;
+use Blink\WC\Tests\Support\Fake\FakeHttpClient;
+use Blink\WC\Tests\Support\Fake\FakeOrder;
+use Blink\WC\Tests\Support\Fake\SpyLogger;
+use PHPUnit\Framework\TestCase;
+
+final class SettlementServiceTest extends TestCase {
+  private const NOW = 1700000000;
+
+  /** sha256 of the 32-byte preimage below. */
+  private string $preimage;
+  private string $paymentHash;
+
+  private FakeClock $clock;
+  private FakeHttpClient $http;
+  private SpyLogger $log;
+  private ArrayLock $lock;
+  private InvoiceRepository $repository;
+  private SettlementService $service;
+  private FakeOrder $order;
+
+  protected function setUp(): void {
+    parent::setUp();
+
+    $this->preimage = str_repeat('ab', 32);
+    $this->paymentHash = hash('sha256', (string) hex2bin($this->preimage));
+
+    $this->clock = new FakeClock(self::NOW);
+    $this->http = new FakeHttpClient();
+    $this->log = new SpyLogger();
+    $this->lock = new ArrayLock($this->clock);
+    $this->repository = new InvoiceRepository($this->clock);
+    $this->order = new FakeOrder(42, '10.00', 'USD');
+
+    $policy = new UrlPolicy((new FakeDnsResolver())->fallbackTo('93.184.216.34'), $this->log);
+    $this->service = new SettlementService(
+      new LnurlClient($this->http, $policy, $this->log),
+      $this->repository,
+      new PollBudget(new ArrayRateLimiter($this->clock)),
+      $this->lock,
+      $this->clock,
+      $this->log
+    );
+  }
+
+  private function storeInvoice(array $overrides = []): StoredInvoice {
+    $invoice = new StoredInvoice(
+      $overrides['paymentHash'] ?? $this->paymentHash,
+      'lnbc100u1xyz',
+      $overrides['verifyUrl'] ?? 'https://blink.sv/verify/' . ($overrides['paymentHash'] ?? $this->paymentHash),
+      $overrides['lnAddress'] ?? 'shop@blink.sv',
+      10000000,
+      10000,
+      self::NOW,
+      $overrides['expiresAt'] ?? self::NOW + 3600,
+      $overrides['orderTotal'] ?? '10.00',
+      $overrides['orderCurrency'] ?? 'USD'
+    );
+    $this->repository->store($this->order, $invoice);
+
+    return $invoice;
+  }
+
+  // -------------------------------------------------------------- settlement
+
+  public function testASettledInvoiceMarksTheOrderPaid(): void {
+    $this->storeInvoice();
+    $this->http->queueJson(['settled' => true, 'preimage' => $this->preimage]);
+
+    $outcome = $this->service->poll($this->order);
+
+    $this->assertSame(SettlementStatus::Paid, $outcome->status);
+    $this->assertTrue($outcome->terminal);
+    $this->assertSame(SettlementStatus::Paid, $this->repository->terminalStatus($this->order));
+  }
+
+  public function testAnUnsettledInvoiceStaysPending(): void {
+    $this->storeInvoice();
+    $this->http->queueJson(['settled' => false]);
+
+    $outcome = $this->service->poll($this->order);
+
+    $this->assertSame(SettlementStatus::Pending, $outcome->status);
+    $this->assertFalse($outcome->terminal);
+    $this->assertNull($this->repository->terminalStatus($this->order));
+  }
+
+  public function testSettlementIsAcceptedWithoutAPreimage(): void {
+    $this->storeInvoice();
+    $this->http->queueJson(['settled' => true]);
+
+    $this->assertSame(SettlementStatus::Paid, $this->service->poll($this->order)->status);
+  }
+
+  /**
+   * A preimage is a proof, so a wrong one means something is badly wrong and
+   * the order must not be completed on that server's say-so.
+   */
+  public function testASettledClaimWithAMismatchedPreimageIsRefused(): void {
+    $this->storeInvoice();
+    $this->http->queueJson(['settled' => true, 'preimage' => str_repeat('cd', 32)]);
+
+    $outcome = $this->service->poll($this->order);
+
+    $this->assertSame(SettlementStatus::Pending, $outcome->status);
+    $this->assertSame('preimage mismatch', $outcome->reason);
+    $this->assertNull($this->repository->terminalStatus($this->order));
+    $this->assertTrue($this->log->hasMessageContaining('does not hash', 'error'));
+  }
+
+  public function testAnUnparseablePreimageIsRefused(): void {
+    $this->storeInvoice();
+    $this->http->queueJson(['settled' => true, 'preimage' => 'not-hex']);
+
+    $this->assertSame(SettlementStatus::Pending, $this->service->poll($this->order)->status);
+  }
+
+  /**
+   * The scheduler tick and the browser poll can both observe the same payment.
+   */
+  public function testSettlementIsIdempotent(): void {
+    $this->storeInvoice();
+    $this->http->alwaysRespond(
+      new HttpResponse(200, (string) json_encode(['settled' => true, 'preimage' => $this->preimage]))
+    );
+
+    $first = $this->service->poll($this->order);
+    $second = $this->service->poll($this->order);
+
+    $this->assertSame(SettlementStatus::Paid, $first->status);
+    $this->assertSame('settled', $first->reason);
+    $this->assertSame(SettlementStatus::Paid, $second->status);
+    $this->assertSame('already resolved', $second->reason, 'the terminal marker short-circuits');
+  }
+
+  public function testAResolvedOrderIsNotPolledAgain(): void {
+    $this->storeInvoice();
+    $this->http->queueJson(['settled' => true, 'preimage' => $this->preimage]);
+    $this->service->poll($this->order);
+
+    $requestsBefore = $this->http->requestCount();
+    $this->service->poll($this->order);
+
+    $this->assertSame($requestsBefore, $this->http->requestCount(), 'no further requests');
+  }
+
+  /** An order edited after the invoice was made must not be auto-completed. */
+  public function testATotalChangedAfterInvoiceCreationHoldsTheOrderForReview(): void {
+    $this->storeInvoice();
+    $this->order->setTotal('99.00');
+    $this->http->queueJson(['settled' => true, 'preimage' => $this->preimage]);
+
+    $outcome = $this->service->poll($this->order);
+
+    $this->assertSame(SettlementStatus::Review, $outcome->status);
+    $this->assertTrue($outcome->terminal);
+    $this->assertSame(SettlementStatus::Review, $this->repository->terminalStatus($this->order));
+    $this->assertTrue($this->log->hasMessageContaining('holding for review', 'error'));
+  }
+
+  public function testAChangedCurrencyAlsoHoldsForReview(): void {
+    $this->storeInvoice();
+    $this->order->setCurrency('EUR');
+    $this->http->queueJson(['settled' => true, 'preimage' => $this->preimage]);
+
+    $this->assertSame(SettlementStatus::Review, $this->service->poll($this->order)->status);
+  }
+
+  // ------------------------------------------------------------------ expiry
+
+  public function testAnExpiredInvoiceIsResolvedWithoutANetworkCall(): void {
+    $this->storeInvoice(['expiresAt' => self::NOW + 60]);
+    $this->clock->travel(60 + SettlementService::EXPIRY_GRACE_SECONDS + 1);
+
+    $outcome = $this->service->poll($this->order);
+
+    $this->assertSame(SettlementStatus::Expired, $outcome->status);
+    $this->assertTrue($outcome->terminal);
+    $this->assertSame(0, $this->http->requestCount());
+  }
+
+  public function testTheGracePeriodIsHonouredBeforeExpiring(): void {
+    $this->storeInvoice(['expiresAt' => self::NOW + 60]);
+    $this->clock->travel(60 + SettlementService::EXPIRY_GRACE_SECONDS - 1);
+    $this->http->queueJson(['settled' => false]);
+
+    $outcome = $this->service->poll($this->order);
+
+    $this->assertSame(SettlementStatus::Pending, $outcome->status);
+    $this->assertSame(1, $this->http->requestCount(), 'it should still look once more');
+  }
+
+  /**
+   * The single most important behaviour in this class. A verify endpoint that
+   * is unreachable around expiry must never cause an order the customer paid
+   * for to be cancelled.
+   *
+   * @dataProvider inconclusiveResponses
+   */
+  public function testAnInconclusiveAnswerNeverExpiresAnOrder(callable $queue): void {
+    $this->storeInvoice(['expiresAt' => self::NOW + 60]);
+    $this->clock->travel(120);
+    $queue($this->http);
+
+    $outcome = $this->service->poll($this->order);
+
+    $this->assertSame(SettlementStatus::Pending, $outcome->status);
+    $this->assertNull($this->repository->terminalStatus($this->order));
+  }
+
+  /** @return array<string,array{callable}> */
+  public static function inconclusiveResponses(): array {
+    return [
+      'connection timeout' => [
+        static fn(FakeHttpClient $h) => $h->queue(HttpResponse::transportFailure('timeout')),
+      ],
+      'server error' => [static fn(FakeHttpClient $h) => $h->queue(new HttpResponse(500, ''))],
+      'bad gateway' => [static fn(FakeHttpClient $h) => $h->queue(new HttpResponse(502, ''))],
+      'malformed body' => [static fn(FakeHttpClient $h) => $h->queue(new HttpResponse(200, '{'))],
+      'oversized body' => [
+        static fn(FakeHttpClient $h) => $h->queue(new HttpResponse(200, '{}', [], null, true)),
+      ],
+    ];
+  }
+
+  /**
+   * The reviewer's scenario: verification is unavailable while the invoice
+   * expires, and the payment lands. It must still be recoverable.
+   */
+  public function testAPaymentSettledDuringAnOutageIsStillRecovered(): void {
+    $this->storeInvoice(['expiresAt' => self::NOW + 300]);
+
+    // The endpoint is down as expiry approaches.
+    $this->clock->travel(295);
+    $this->http->queue(HttpResponse::transportFailure('connection refused'));
+    $this->assertSame(SettlementStatus::Pending, $this->service->poll($this->order)->status);
+
+    // Still down just past expiry, inside the grace window.
+    $this->clock->travel(30);
+    $this->http->queue(new HttpResponse(503, ''));
+    $this->assertSame(SettlementStatus::Pending, $this->service->poll($this->order)->status);
+    $this->assertNull(
+      $this->repository->terminalStatus($this->order),
+      'the order must not have been expired while the endpoint was unreachable'
+    );
+
+    // It comes back, and reports the payment.
+    $this->clock->travel(30);
+    $this->http->queueJson(['settled' => true, 'preimage' => $this->preimage]);
+
+    $this->assertSame(SettlementStatus::Paid, $this->service->poll($this->order)->status);
+  }
+
+  public function testNotFoundBeforeExpiryIsTreatedAsPending(): void {
+    $this->storeInvoice(['expiresAt' => self::NOW + 3600]);
+    $this->http->queue(new HttpResponse(404, ''));
+
+    $outcome = $this->service->poll($this->order);
+
+    $this->assertSame(SettlementStatus::Pending, $outcome->status);
+    $this->assertNull($this->repository->terminalStatus($this->order));
+  }
+
+  public function testNotFoundAfterExpiryExpiresTheOrder(): void {
+    $this->storeInvoice(['expiresAt' => self::NOW + 60]);
+    $this->clock->travel(120);
+    $this->http->queue(new HttpResponse(404, ''));
+
+    $outcome = $this->service->poll($this->order);
+
+    $this->assertSame(SettlementStatus::Expired, $outcome->status);
+    $this->assertTrue($outcome->terminal);
+  }
+
+  // ------------------------------------------------------------ single flight
+
+  /**
+   * Models a second browser tab arriving while the first request is still in
+   * flight and the lock is held. This is an exact stand-in for concurrency,
+   * without needing real parallelism.
+   */
+  public function testOnlyOneVerifyRequestIsInFlightPerOrder(): void {
+    $this->storeInvoice();
+    $reentrant = null;
+    $this->http->onRequest(function () use (&$reentrant): void {
+      $reentrant = $this->service->poll($this->order);
+    });
+    $this->http->queueJson(['settled' => false]);
+
+    $first = $this->service->poll($this->order);
+
+    $this->assertSame(1, $this->http->requestCount(), 'the second caller must not fetch');
+    $this->assertSame(SettlementStatus::Pending, $first->status);
+    $this->assertSame(SettlementStatus::Unknown, $reentrant?->status);
+    $this->assertStringContainsString('already in flight', (string) $reentrant?->reason);
+  }
+
+  /** A lock shorter than the request it guards would let a second caller in. */
+  public function testTheLockOutlivesTheRequestItGuards(): void {
+    $this->storeInvoice();
+    $observed = null;
+    $this->http->onRequest(function () use (&$observed): void {
+      $observed = $this->lock->ttlOf('verify_42');
+    });
+    $this->http->queueJson(['settled' => false]);
+
+    $this->service->poll($this->order);
+
+    $this->assertNotNull($observed);
+    $this->assertGreaterThan(10.0, $observed, 'the HTTP timeout is 10s');
+    $this->assertSame(SettlementService::LOCK_TTL, $observed);
+  }
+
+  public function testTheLockIsReleasedAfterASuccessfulPoll(): void {
+    $this->storeInvoice();
+    $this->http->queueJson(['settled' => false]);
+
+    $this->service->poll($this->order);
+
+    $this->assertFalse($this->lock->isHeld('verify_42'));
+  }
+
+  /** A thrown failure must not wedge the order for the whole lock lifetime. */
+  public function testTheLockIsReleasedEvenWhenVerifyThrows(): void {
+    $this->storeInvoice();
+    // No scripted response: the fake client throws on exhaustion.
+    try {
+      $this->service->poll($this->order);
+      $this->fail('expected the fake client to throw');
+    } catch (\LogicException) {
+      // expected
+    }
+
+    $this->assertFalse($this->lock->isHeld('verify_42'));
+  }
+
+  public function testLocksAreScopedPerOrder(): void {
+    $this->storeInvoice();
+    $other = new FakeOrder(43, '10.00', 'USD');
+    $this->repository->store($other, new StoredInvoice(
+      $this->paymentHash,
+      'lnbc1',
+      'https://blink.sv/verify/' . $this->paymentHash,
+      'shop@blink.sv',
+      10000000,
+      10000,
+      self::NOW,
+      self::NOW + 3600,
+      '10.00',
+      'USD'
+    ));
+
+    $seen = null;
+    $this->http->onRequest(function () use (&$seen, $other): void {
+      $seen = $this->service->poll($other);
+    });
+    $this->http->alwaysRespond(new HttpResponse(200, '{"settled":false}'));
+
+    $this->service->poll($this->order);
+
+    $this->assertSame(
+      SettlementStatus::Pending,
+      $seen?->status,
+      'a lock on one order must not block another'
+    );
+    $this->assertSame(2, $this->http->requestCount());
+  }
+
+  // ----------------------------------------------------------------- budgets
+
+  public function testAnExhaustedOutboundBudgetYieldsUnknownRatherThanAnError(): void {
+    $this->storeInvoice();
+    $limiter = new ArrayRateLimiter($this->clock);
+    $budget = new PollBudget($limiter);
+    for ($i = 0; $i < PollBudget::PER_DOMAIN_LIMIT; $i++) {
+      $budget->allowDomain('blink.sv');
+    }
+    $policy = new UrlPolicy((new FakeDnsResolver())->fallbackTo('93.184.216.34'), $this->log);
+    $service = new SettlementService(
+      new LnurlClient($this->http, $policy, $this->log),
+      $this->repository,
+      $budget,
+      $this->lock,
+      $this->clock,
+      $this->log
+    );
+
+    $outcome = $service->poll($this->order);
+
+    $this->assertSame(SettlementStatus::Unknown, $outcome->status);
+    $this->assertSame(0, $this->http->requestCount());
+  }
+
+  public function testPollingStopsAfterTooManyConsecutiveErrors(): void {
+    $this->storeInvoice();
+    $this->http->alwaysRespond(HttpResponse::transportFailure('down'));
+
+    for ($i = 0; $i < SettlementService::MAX_CONSECUTIVE_ERRORS; $i++) {
+      $this->service->poll($this->order);
+    }
+    $requestsBefore = $this->http->requestCount();
+
+    $outcome = $this->service->poll($this->order);
+
+    $this->assertSame(SettlementStatus::Unknown, $outcome->status);
+    $this->assertStringContainsString('budget', $outcome->reason);
+    $this->assertSame($requestsBefore, $this->http->requestCount());
+  }
+
+  /** An unreachable endpoint must leave orders needing attention, not cancelled. */
+  public function testAnExhaustedOrderIsNotExpired(): void {
+    $this->storeInvoice();
+    $this->http->alwaysRespond(HttpResponse::transportFailure('down'));
+
+    for ($i = 0; $i < SettlementService::MAX_CONSECUTIVE_ERRORS + 2; $i++) {
+      $this->service->poll($this->order);
+    }
+
+    $this->assertNull($this->repository->terminalStatus($this->order));
+  }
+
+  public function testOneGoodAnswerClearsTheErrorBudget(): void {
+    $this->storeInvoice();
+    for ($i = 0; $i < SettlementService::MAX_CONSECUTIVE_ERRORS - 1; $i++) {
+      $this->http->queue(HttpResponse::transportFailure('down'));
+      $this->service->poll($this->order);
+    }
+
+    $this->http->queueJson(['settled' => false]);
+    $this->service->poll($this->order);
+
+    $this->assertFalse($this->service->exhausted($this->order));
+    $this->assertSame(0, $this->repository->consecutiveErrors($this->order));
+  }
+
+  public function testPollingStopsAfterTheAttemptCeiling(): void {
+    $this->storeInvoice();
+    $this->order->setMeta(InvoiceRepository::ATTEMPTS, SettlementService::MAX_ATTEMPTS);
+
+    $outcome = $this->service->poll($this->order);
+
+    $this->assertSame(SettlementStatus::Unknown, $outcome->status);
+    $this->assertSame(0, $this->http->requestCount());
+  }
+
+  // ------------------------------------------------------------------- cache
+
+  public function testTheLastObservationIsCached(): void {
+    $this->storeInvoice();
+    $this->http->queueJson(['settled' => false]);
+    $this->service->poll($this->order);
+
+    $cached = $this->service->cached($this->order);
+
+    $this->assertSame(SettlementStatus::Pending, $cached->status);
+    $this->assertSame(self::NOW, $cached->observedAt);
+  }
+
+  public function testAFreshCacheIsRecognised(): void {
+    $this->storeInvoice();
+    $this->http->queueJson(['settled' => false]);
+    $this->service->poll($this->order);
+
+    $this->assertTrue($this->service->isCacheFresh($this->order));
+
+    $this->clock->travel(SettlementService::CACHE_FRESH_SECONDS);
+
+    $this->assertFalse($this->service->isCacheFresh($this->order));
+  }
+
+  public function testNoCacheIsNeverFresh(): void {
+    $this->storeInvoice();
+
+    $this->assertFalse($this->service->isCacheFresh($this->order));
+  }
+
+  public function testCachedFallsBackToPendingWhenNothingWasObserved(): void {
+    $this->storeInvoice();
+
+    $this->assertSame(SettlementStatus::Pending, $this->service->cached($this->order)->status);
+  }
+
+  // ------------------------------------------------------------- degenerate
+
+  public function testAnOrderWithNoInvoiceYieldsUnknown(): void {
+    $outcome = $this->service->poll($this->order);
+
+    $this->assertSame(SettlementStatus::Unknown, $outcome->status);
+    $this->assertSame('no invoice stored', $outcome->reason);
+  }
+
+  public function testAnUnusableStoredAddressYieldsUnknown(): void {
+    $this->storeInvoice();
+    $this->order->setMeta(InvoiceRepository::LN_ADDRESS, 'not an address');
+
+    $outcome = $this->service->poll($this->order);
+
+    $this->assertSame(SettlementStatus::Unknown, $outcome->status);
+    $this->assertStringContainsString('unusable', $outcome->reason);
+  }
+
+  /** Settlement follows the order's stored address, not the shop's current one. */
+  public function testTheStoredAddressIsUsedRatherThanCurrentConfiguration(): void {
+    $this->storeInvoice(['lnAddress' => 'other@pay.example.com']);
+    $policy = new UrlPolicy((new FakeDnsResolver())->fallbackTo('93.184.216.34'), $this->log);
+    $service = new SettlementService(
+      new LnurlClient($this->http, $policy, $this->log),
+      $this->repository,
+      new PollBudget(new ArrayRateLimiter($this->clock)),
+      $this->lock,
+      $this->clock,
+      $this->log
+    );
+    $this->order->setMeta(
+      InvoiceRepository::VERIFY_URL,
+      'https://pay.example.com/verify/' . $this->paymentHash
+    );
+    $this->http->queueJson(['settled' => false]);
+
+    $outcome = $service->poll($this->order);
+
+    $this->assertSame(SettlementStatus::Pending, $outcome->status);
+    $this->assertStringContainsString('pay.example.com', (string) $this->http->lastUrl());
+  }
+
+  public function testAVerifyUrlRejectedByThePolicyIsPendingNotExpired(): void {
+    $this->storeInvoice();
+    $this->order->setMeta(InvoiceRepository::VERIFY_URL, 'https://attacker.example/verify/x');
+
+    $outcome = $this->service->poll($this->order);
+
+    $this->assertSame(SettlementStatus::Pending, $outcome->status);
+    $this->assertSame(0, $this->http->requestCount());
+    $this->assertNull($this->repository->terminalStatus($this->order));
+  }
+}

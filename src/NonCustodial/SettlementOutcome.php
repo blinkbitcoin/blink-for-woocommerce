@@ -11,8 +11,4 @@ final class SettlementOutcome {
     public readonly string $reason = '',
     public readonly bool $terminal = false
   ) {}
-
-  public function isPaid(): bool {
-    return $this->status === SettlementStatus::Paid;
-  }
 }
