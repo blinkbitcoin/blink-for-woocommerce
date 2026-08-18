@@ -78,8 +78,16 @@ wp plugin activate blink-for-woocommerce --path="$WP_CORE_DIR"
 # the previous harness mapped only the first and the mu-plugin fatalled.
 MU_DIR="${WP_CORE_DIR}/wp-content/mu-plugins"
 mkdir -p "$MU_DIR"
-cp "$(dirname "$0")/../tests/e2e/mu-plugins/blink-e2e-lnurl-server.php" "$MU_DIR/"
-cp "$(dirname "$0")/../tests/e2e/mu-plugins/blink-e2e-bolt11.php" "$MU_DIR/"
+# Symlinked rather than copied: a copy goes stale the moment one of these is
+# edited, and the suite then runs against the previous version without saying
+# so. That cost real debugging time -- a stubbed exchange rate looked like it
+# had no effect, because the site was still serving yesterday's copy.
+SRC_MU="$(cd "$(dirname "$0")/../tests/e2e/mu-plugins" && pwd)"
+for mu in blink-e2e-lnurl-server.php blink-e2e-bolt11.php; do
+  rm -f "${MU_DIR}/${mu}"
+  ln -s "${SRC_MU}/${mu}" "${MU_DIR}/${mu}" 2>/dev/null ||
+    cp "${SRC_MU}/${mu}" "${MU_DIR}/${mu}"
+done
 
 echo "==> WooCommerce setup"
 wp option update woocommerce_currency USD --path="$WP_CORE_DIR"

@@ -61,14 +61,15 @@ account.
 ## 3. Put the Blink API client behind the HTTP seam
 
 **Now.** `BlinkApiClient` constructs `new \GuzzleHttp\Client()` internally.
-Timeouts were added, but it cannot be substituted, so anything calling it
-reaches the network.
+Timeouts were added, and the `blink_api_http_handler` filter lets a test
+substitute the Guzzle handler, which is what makes the custodial paths
+testable today. That is a seam, not the seam: the client still builds its own
+Guzzle instance and does not go through `HttpClientInterface`.
 
 **Should be.** It takes `HttpClientInterface`, like everything in the
 non-custodial path.
 
-**Consequences of not doing it.** Custodial invoice creation cannot be tested
-without the network, which is what blocks §1. It also means the DNS pinning,
+**Consequences of not doing it.** The DNS pinning,
 body-size cap and protocol restrictions applied to LNURL requests do not apply
 to Blink API requests — a smaller concern, since that host is fixed and
 first-party, but an inconsistency.
@@ -282,15 +283,20 @@ and most of them could not fail. The rule in `docs/testing.md`: if a browser
 spec would still pass with the browser replaced by `curl`, it belongs in
 another tier.
 
-**One loose thread.** The end-to-end site converts the order total through
-Blink's real public rate endpoint, so the suite depends on the network. It has
-not been a problem, but a scripted rate would make it hermetic.
+**Closed since.** The end-to-end site used to convert the order total through
+Blink's real public rate endpoint, so a required check depended on a third
+party being up and the amounts moved with the market. The harness now fixes the
+rate at 100,000 sat per unit through the `blink_service_satsRateProvider`
+filter, and the first spec asserts the invoice is for exactly `lnbc10m` -- so
+if the real endpoint is ever reached again, that assertion fails rather than
+the suite going quietly non-hermetic.
 
 ## 15. Cover `WcOrderRecord` and `BlinkApiSatsRateProvider` directly
 
-Both are in the gated namespaces and are currently covered only incidentally,
-through tests aimed at other classes. They deserve their own tests, or the gate
-will fail the moment an unexercised branch appears in either.
+**Done.** `BlinkApiSatsRateProvider` has its own unit tests; it had been
+covered only incidentally, and the gate found it at 0% once the coverage job
+could actually finish. `WcOrderRecord` is exercised throughout the integration
+tier and is at 100%.
 
 ---
 

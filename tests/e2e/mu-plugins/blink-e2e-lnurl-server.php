@@ -404,3 +404,23 @@ final class Blink_E2E_Lnurl_Server {
 }
 
 Blink_E2E_Lnurl_Server::boot();
+
+/**
+ * A fixed conversion rate, so the suite never calls the real Blink API.
+ *
+ * The rate is the one piece of the non-custodial flow that still reached out
+ * to api.blink.sv during an end-to-end run: everything else is served by the
+ * fake LNURL endpoints above. That made a required check depend on a third
+ * party being up, and made the amounts on the pay page move with the market,
+ * which no assertion can pin.
+ *
+ * 100,000 sat per unit of currency keeps the arithmetic obvious: a 10.00
+ * order is 1,000,000 sat.
+ */
+add_filter('blink_service_satsRateProvider', static function () {
+  return new class implements \Blink\WC\NonCustodial\SatsRateProviderInterface {
+    public function toSatoshis(float $amount, string $currency): ?int {
+      return (int) round($amount * 100000);
+    }
+  };
+});

@@ -53,6 +53,13 @@ test.describe('the pay page', () => {
     expect(payload.orderKey).toBe(order.orderKey);
     expect(typeof payload.deadline).toBe('number');
 
+    // The seeded order is 10.00 and the harness fixes the rate at 100,000
+    // sat per unit, so the invoice is for exactly 1,000,000 sat -- "10m" in
+    // BOLT11's notation. This is the assertion that keeps the suite hermetic:
+    // if the rate provider ever reaches the real Blink API again, the amount
+    // moves with the market and this fails.
+    expect(payload.paymentRequest).toMatch(/^lnbc10m1/);
+
     // Alphanumeric QR mode needs uppercase, and it is what the encoder was fed.
     const encoded = await page.locator('#blink-pay-qr').getAttribute('data-uri');
     expect(encoded).toBe(payload.lightningUri);
