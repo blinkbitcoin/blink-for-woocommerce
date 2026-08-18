@@ -47,6 +47,14 @@ final class SettlementScheduler {
   /** Interval used once the schedule above is exhausted. */
   private const TAIL_INTERVAL = 300;
 
+  /**
+   * The closest another check may ever be scheduled.
+   *
+   * Long enough to outlive the single-flight lock, so a check refused because
+   * one was already in flight finds the lock free on its next run.
+   */
+  private const MIN_RETRY_INTERVAL = 60;
+
   public function __construct(
     private SchedulerInterface $scheduler,
     private SettlementService $settlement,
@@ -106,6 +114,22 @@ final class SettlementScheduler {
       return false;
     }
 
+    // Every other reason a check cannot be made is transient and worth
+    // retrying. This one is not: the address is stored with the invoice and
+    // will not become parseable, so polling it would repeat forever without
+    // ever recording an attempt to exhaust.
+    if ($invoice->address() === null) {
+      $this->log->error(
+        sprintf(
+          'Order %d: the stored lightning address is unusable, so this order cannot be settled ' .
+            'in the background. It has been left pending for manual review.',
+          $order->id()
+        )
+      );
+
+      return false;
+    }
+
     $outcome = $this->settlement->poll($order);
 
     // Applying the outcome is what makes background settlement worth running:
@@ -157,15 +181,19 @@ final class SettlementScheduler {
       $timestamp = $deadline;
     }
 
-    // Jitter can pull a timestamp behind the clock; a check due in the past
-    // would be run immediately and burn an attempt for nothing.
+    // Jitter can pull a timestamp behind the clock, and past the deadline the
+    // clamp above puts it there every time. Either way the next check has to
+    // be a real interval away: a check due one second from now runs
+    // immediately, and for an order the service cannot resolve -- a held lock,
+    // a spent outbound budget -- that is an unbounded once-a-second loop
+    // against a shop's Action Scheduler rather than a retry.
     if ($timestamp <= $now) {
-      $timestamp = $now + 1;
+      $timestamp = $now + self::MIN_RETRY_INTERVAL;
     }
 
-    // No guard for timestamp past the deadline is needed here: once the clock
-    // reaches it, poll() resolves the order as expired and this method is
-    // never called.
+    // No guard for a timestamp past the deadline is needed here. A conclusive
+    // final answer resolves the order; an uncertain answer remains recoverable
+    // and is retried at the interval above until the service gives up.
     $this->scheduleAt($order->id(), $timestamp);
 
     return true;

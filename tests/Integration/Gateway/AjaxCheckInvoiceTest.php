@@ -119,6 +119,7 @@ final class AjaxCheckInvoiceTest extends WP_Ajax_UnitTestCase {
     $order = $this->makeOrder();
     $this->storeInvoice($order, ['expiresAt' => self::NOW + 60]);
     $this->clock->travel(60 + SettlementService::EXPIRY_GRACE_SECONDS + 1);
+    $this->http->queueJson(['settled' => false]);
 
     $result = $this->call($order);
 

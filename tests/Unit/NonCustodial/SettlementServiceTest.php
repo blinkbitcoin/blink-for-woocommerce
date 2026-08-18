@@ -213,50 +213,42 @@ final class SettlementServiceTest extends TestCase {
 
   // ------------------------------------------------------------------ expiry
 
-  public function testAnExpiredInvoiceIsResolvedWithoutANetworkCall(): void {
+  public function testAnExpiredInvoiceRequiresACurrentUnpaidResponse(): void {
     $this->storeInvoice(['expiresAt' => self::NOW + 60]);
     $this->clock->travel(60 + SettlementService::EXPIRY_GRACE_SECONDS + 1);
+    $this->http->queueJson(['settled' => false]);
 
     $outcome = $this->service->poll($this->order);
 
     $this->assertSame(SettlementStatus::Expired, $outcome->status);
     $this->assertTrue($outcome->terminal);
-    $this->assertSame(0, $this->http->requestCount());
+    $this->assertSame(1, $this->http->requestCount());
   }
 
-  /**
-   * Expiry on the clock alone requires that the endpoint is answering. If the
-   * recent checks all failed the status is genuinely unknown, and cancelling
-   * would risk cancelling an order the customer paid for.
-   */
-  public function testAnInvoiceIsNotExpiredWhileTheEndpointIsUnreachable(): void {
+  public function testADelayedFirstCheckCanStillDiscoverPaymentAfterTheDeadline(): void {
     $this->storeInvoice(['expiresAt' => self::NOW + 60]);
-    $this->http->alwaysRespond(HttpResponse::transportFailure('down'));
-    $this->service->poll($this->order);
-
     $this->clock->travel(60 + SettlementService::EXPIRY_GRACE_SECONDS + 1);
+    $this->http->queueJson(['settled' => true, 'preimage' => $this->preimage]);
+
     $outcome = $this->service->poll($this->order);
 
-    $this->assertSame(SettlementStatus::Unknown, $outcome->status);
-    $this->assertStringContainsString('never confirmed', $outcome->reason);
-    $this->assertNull($this->repository->terminalStatus($this->order));
+    $this->assertSame(SettlementStatus::Paid, $outcome->status);
+    $this->assertTrue($outcome->terminal);
+    $this->assertSame(1, $this->http->requestCount());
   }
 
-  public function testAnInvoiceIsExpiredOnceTheEndpointAnswersAgain(): void {
+  public function testAnEarlierUnpaidObservationCannotExpireALaterPayment(): void {
     $this->storeInvoice(['expiresAt' => self::NOW + 60]);
-    $this->http->queue(HttpResponse::transportFailure('down'));
-    $this->service->poll($this->order);
-
-    // One good answer proves the endpoint is reachable again.
-    $this->clock->travel(30);
     $this->http->queueJson(['settled' => false]);
     $this->service->poll($this->order);
 
-    $this->clock->travel(60 + SettlementService::EXPIRY_GRACE_SECONDS);
-    $this->assertSame(
-      SettlementStatus::Expired,
-      $this->service->poll($this->order)->status
-    );
+    $this->clock->travel(60 + SettlementService::EXPIRY_GRACE_SECONDS + 1);
+    $this->http->queueJson(['settled' => true, 'preimage' => $this->preimage]);
+
+    $outcome = $this->service->poll($this->order);
+
+    $this->assertSame(SettlementStatus::Paid, $outcome->status);
+    $this->assertSame(2, $this->http->requestCount());
   }
 
   public function testTheGracePeriodIsHonouredBeforeExpiring(): void {
@@ -270,6 +262,17 @@ final class SettlementServiceTest extends TestCase {
     $this->assertSame(1, $this->http->requestCount(), 'it should still look once more');
   }
 
+  public function testAnInvoiceWithoutAnExpiryRemainsPendingWhenUnsettled(): void {
+    $this->storeInvoice(['expiresAt' => 0]);
+    $this->clock->travel(86400);
+    $this->http->queueJson(['settled' => false]);
+
+    $outcome = $this->service->poll($this->order);
+
+    $this->assertSame(SettlementStatus::Pending, $outcome->status);
+    $this->assertNull($this->repository->terminalStatus($this->order));
+  }
+
   /**
    * The single most important behaviour in this class. A verify endpoint that
    * is unreachable around expiry must never cause an order the customer paid
@@ -279,7 +282,7 @@ final class SettlementServiceTest extends TestCase {
    */
   public function testAnInconclusiveAnswerNeverExpiresAnOrder(callable $queue): void {
     $this->storeInvoice(['expiresAt' => self::NOW + 60]);
-    $this->clock->travel(120);
+    $this->clock->travel(60 + SettlementService::EXPIRY_GRACE_SECONDS + 1);
     $queue($this->http);
 
     $outcome = $this->service->poll($this->order);
@@ -468,7 +471,8 @@ final class SettlementServiceTest extends TestCase {
   // ----------------------------------------------------------------- budgets
 
   public function testAnExhaustedOutboundBudgetYieldsUnknownRatherThanAnError(): void {
-    $this->storeInvoice();
+    $this->storeInvoice(['expiresAt' => self::NOW + 60]);
+    $this->clock->travel(60 + SettlementService::EXPIRY_GRACE_SECONDS + 1);
     $limiter = new ArrayRateLimiter($this->clock);
     $budget = new PollBudget($limiter);
     for ($i = 0; $i < PollBudget::PER_DOMAIN_LIMIT; $i++) {
@@ -511,13 +515,17 @@ final class SettlementServiceTest extends TestCase {
 
   /** An unreachable endpoint must leave orders needing attention, not cancelled. */
   public function testAnExhaustedOrderIsNotExpired(): void {
-    $this->storeInvoice();
+    $this->storeInvoice(['expiresAt' => self::NOW + 60]);
     $this->http->alwaysRespond(HttpResponse::transportFailure('down'));
 
     for ($i = 0; $i < SettlementService::MAX_CONSECUTIVE_ERRORS + 2; $i++) {
       $this->service->poll($this->order);
     }
 
+    $this->clock->travel(60 + SettlementService::EXPIRY_GRACE_SECONDS + 1);
+    $outcome = $this->service->poll($this->order);
+
+    $this->assertSame(SettlementStatus::Unknown, $outcome->status);
     $this->assertNull($this->repository->terminalStatus($this->order));
   }
 

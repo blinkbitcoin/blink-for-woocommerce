@@ -40,6 +40,7 @@ final class SettlementSchedulerTest extends TestCase {
   private SpyLogger $log;
   private FakeOrder $order;
   private RecordingOutcomeApplier $outcomeApplier;
+  private ArrayLock $lock;
 
   protected function setUp(): void {
     parent::setUp();
@@ -58,11 +59,12 @@ final class SettlementSchedulerTest extends TestCase {
       (new FakeDnsResolver())->fallbackTo('93.184.216.34'),
       $this->log
     );
+    $this->lock = new ArrayLock($this->clock);
     $this->settlement = new SettlementService(
       new LnurlClient($this->http, $policy, $this->log),
       $this->repository,
       new PollBudget(new ArrayRateLimiter($this->clock)),
-      new ArrayLock($this->clock),
+      $this->lock,
       $this->clock,
       $this->log
     );
@@ -211,7 +213,7 @@ final class SettlementSchedulerTest extends TestCase {
 
   /**
    * The last check is pulled back to the deadline rather than being skipped,
-   * so the order is always resolved rather than left pending forever.
+   * so a conclusive unpaid answer can resolve the order.
    */
   public function testTheFinalCheckIsClampedToTheExpiryDeadline(): void {
     $invoice = $this->storeInvoice(60);
@@ -249,10 +251,70 @@ final class SettlementSchedulerTest extends TestCase {
     $this->assertGreaterThan($this->clock->now(), $latest['timestamp']);
   }
 
+  /**
+   * Past the deadline every nominal check clamps into the past, so the floor
+   * below it decides the retry rate. A check the service could not even make
+   * records no attempt, so nothing advances towards the give-up ceiling: at a
+   * one-second floor that is an unbounded hot loop on the shop's scheduler.
+   */
+  public function testACheckThatCouldNotBeMadeIsNotRetriedASecondLater(): void {
+    $this->storeInvoice(60);
+    $scheduler = $this->makeScheduler();
+    $this->http->alwaysRespond(new HttpResponse(200, '{"settled":false}'));
+
+    $this->clock->travel(60 + SettlementService::EXPIRY_GRACE_SECONDS + 1);
+
+    // Another request for this order is already in flight, so poll() refuses
+    // without asking the endpoint anything.
+    $this->assertNotNull($this->lock->acquire('verify_42', SettlementService::LOCK_TTL));
+
+    $this->assertTrue($scheduler->tick($this->order));
+
+    $latest = end($this->scheduler->scheduled);
+    $this->assertSame(
+      $this->clock->now() + 60,
+      $latest['timestamp'],
+      'a refused check waits out the lock rather than spinning'
+    );
+    $this->assertSame(0, $this->http->requestCount());
+    $this->assertNull($this->repository->terminalStatus($this->order));
+  }
+
+  /**
+   * Unlike a held lock or a spent budget, this never becomes checkable, and
+   * it never records an attempt either -- so without giving up it would be
+   * polled at the floor above forever.
+   */
+  public function testAnUnusableStoredAddressStopsTheOrderBeingChecked(): void {
+    $this->repository->store(
+      $this->order,
+      new StoredInvoice(
+        $this->paymentHash,
+        'lnbc100u1xyz',
+        'https://blink.sv/verify/' . $this->paymentHash,
+        'this is not a lightning address',
+        10000000,
+        10000,
+        self::NOW,
+        self::NOW + 3600,
+        '10.00',
+        'USD'
+      )
+    );
+
+    $this->assertFalse($this->makeScheduler()->tick($this->order));
+
+    $this->assertSame([], $this->scheduler->scheduled);
+    $this->assertSame(0, $this->http->requestCount());
+    $this->assertNull($this->repository->terminalStatus($this->order));
+    $this->assertTrue($this->log->hasMessageContaining('unusable', 'error'));
+  }
+
   public function testAnExpiredOrderStopsBeingChecked(): void {
     $invoice = $this->storeInvoice(60);
     $scheduler = $this->makeScheduler();
     $this->clock->travel(60 + SettlementService::EXPIRY_GRACE_SECONDS + 1);
+    $this->http->queueJson(['settled' => false]);
 
     $this->assertFalse($scheduler->tick($this->order));
     $this->assertSame(

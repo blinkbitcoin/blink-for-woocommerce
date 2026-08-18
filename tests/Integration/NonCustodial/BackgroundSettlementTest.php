@@ -58,11 +58,24 @@ final class BackgroundSettlementTest extends IntegrationTestCase {
     $order = $this->makeOrder();
     $this->storeInvoice($order, ['expiresAt' => self::NOW + 60]);
     $this->clock->travel(60 + SettlementService::EXPIRY_GRACE_SECONDS + 1);
+    $this->http->queueJson(['settled' => false]);
 
     $this->runDueAction($order->get_id());
 
     $this->assertSame('cancelled', $this->reload($order)->get_status());
     $this->assertSame(1, $this->countNotesContaining($order, 'expired'));
+  }
+
+  public function test_a_delayed_first_check_recovers_payment_after_the_deadline(): void {
+    $order = $this->makeOrder();
+    $this->storeInvoice($order, ['expiresAt' => self::NOW + 60]);
+    $this->clock->travel(60 + SettlementService::EXPIRY_GRACE_SECONDS + 1);
+    $this->http->queueJson(['settled' => true, 'preimage' => $this->preimage]);
+
+    $this->runDueAction($order->get_id());
+
+    $this->assertSame('processing', $this->reload($order)->get_status());
+    $this->assertSame(1, $this->countNotesContaining($order, 'settled'));
   }
 
   /**
