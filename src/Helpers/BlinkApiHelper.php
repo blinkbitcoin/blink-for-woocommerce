@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Blink\WC\Helpers;
 
+use Blink\WC\NonCustodial\LnAddress;
+use Blink\WC\NonCustodial\LnurlFailure;
+use Blink\WC\Services;
+
 use Blink\WC\Admin\Notice;
 use Blink\WC\Helpers\BlinkApiClient;
-use Blink\WC\Helpers\BlinkLnurlClient;
 
 class BlinkApiHelper {
   /** Default non-custodial invoice expiry window, in seconds (60 minutes). */
@@ -110,16 +113,30 @@ class BlinkApiHelper {
    * Verifies a non-custodial Blink lightning address by resolving its
    * public LNURL-pay metadata.
    */
-  public static function verifyLnAddress(string $lnAddress = null): bool {
+  public static function verifyLnAddress(?string $lnAddress = null): bool {
     Logger::debug('Start verifyLnAddress');
-    if (!$lnAddress) {
+
+    $address = LnAddress::parse((string) $lnAddress);
+    if ($address === null) {
       Logger::debug('Invalid lightning address');
+
       return false;
     }
 
-    $metadata = BlinkLnurlClient::fetchPayMetadata($lnAddress);
-    $ok = $metadata !== null;
+    // The settings screen renders this on every page load, so the answer is
+    // cached briefly rather than reaching out to the address each time.
+    $cacheKey = 'blink_addr_ok_' . md5((string) $address);
+    $cached = get_transient($cacheKey);
+    if ($cached !== false) {
+      return $cached === '1';
+    }
+
+    $metadata = Services::instance()->lnurlClient()->fetchPayMetadata($address);
+    $ok = !$metadata instanceof LnurlFailure;
+
+    set_transient($cacheKey, $ok ? '1' : '0', 5 * MINUTE_IN_SECONDS);
     Logger::debug('End verifyLnAddress with ' . ($ok ? 'true' : 'false'));
+
     return $ok;
   }
 
@@ -192,10 +209,6 @@ class BlinkApiHelper {
       return null;
     }
 
-    if ($this->isNonCustodial()) {
-      return $this->createInvoiceNonCustodial($amount, $currency, $orderNumber);
-    }
-
     try {
       $config = self::getConfig();
       $walletType = $config['wallet_type'];
@@ -228,95 +241,6 @@ class BlinkApiHelper {
       return $invoice;
     } catch (\Throwable $e) {
       Logger::debug('Error creating invoice: ' . $e->getMessage(), true);
-      return null;
-    }
-  }
-
-  /**
-   * Creates an invoice for a non-custodial account via the LNURL-pay flow.
-   *
-   * Converts the order's fiat total to satoshis, resolves the merchant's
-   * lightning-address LNURL metadata, then requests a fixed-amount BOLT11
-   * invoice. The order reference is attached as an LUD-12 comment.
-   *
-   * @return array{paymentHash:string,paymentRequest:string,verifyUrl:string,satoshis:int,redirectUrl:null}|null
-   */
-  private function createInvoiceNonCustodial($amount, $currency, $orderNumber) {
-    try {
-      $config = self::getConfig();
-      $lnAddress = $config['ln_address'];
-
-      // Convert the order total to satoshis. This public query needs no auth.
-      $client = new BlinkApiClient($config['url'], $config['api_key']);
-      $conversion = $client->currencyConversionEstimation($amount, $currency);
-      $satoshis = (int) $conversion['btcSatAmount'];
-      if ($satoshis <= 0) {
-        Logger::debug('Non-custodial invoice: non-positive sat amount.');
-        return null;
-      }
-
-      $metadata = BlinkLnurlClient::fetchPayMetadata($lnAddress);
-      if (!$metadata) {
-        Logger::debug('Non-custodial invoice: could not fetch LNURL metadata.');
-        return null;
-      }
-
-      $amountMsat = $satoshis * 1000;
-      $minSendable = (int) $metadata['minSendable'];
-      $maxSendable = (int) $metadata['maxSendable'];
-      if ($minSendable > 0 && $amountMsat < $minSendable) {
-        Logger::debug(
-          'Non-custodial invoice: amount below minSendable (' .
-            $amountMsat .
-            ' < ' .
-            $minSendable .
-            ').'
-        );
-        return null;
-      }
-      if ($maxSendable > 0 && $amountMsat > $maxSendable) {
-        Logger::debug(
-          'Non-custodial invoice: amount above maxSendable (' .
-            $amountMsat .
-            ' > ' .
-            $maxSendable .
-            ').'
-        );
-        return null;
-      }
-
-      $addressDomain = self::lnAddressDomain($lnAddress);
-      $comment = 'GW-' . $orderNumber;
-      $expiry = self::NON_CUSTODIAL_EXPIRY_SECONDS;
-      $createdAt = time();
-      $invoice = BlinkLnurlClient::requestInvoice(
-        $metadata['callback'],
-        $amountMsat,
-        $addressDomain,
-        $comment,
-        (int) $metadata['commentAllowed'],
-        $expiry
-      );
-      if (!$invoice) {
-        Logger::debug('Non-custodial invoice: LNURL callback did not return an invoice.');
-        return null;
-      }
-
-      Logger::debug('End createInvoice (non-custodial) for ' . $orderNumber);
-
-      return [
-        'paymentHash' => $invoice['paymentHash'],
-        'paymentRequest' => $invoice['paymentRequest'],
-        'verifyUrl' => $invoice['verifyUrl'],
-        'satoshis' => $satoshis,
-        'createdAt' => $createdAt,
-        'expiresAt' => $createdAt + $expiry,
-        // Non-custodial payments are shown on our own on-site pay page,
-        // so there is no external redirect URL here.
-        'redirectUrl' => null,
-      ];
-    } catch (\Throwable $e) {
-      Logger::debug('Error creating non-custodial invoice: ' . $e->getMessage(), true);
       return null;
     }
   }

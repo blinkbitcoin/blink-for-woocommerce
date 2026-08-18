@@ -99,7 +99,9 @@ class BlinkWCPlugin {
       'blink-notifications',
       plugin_dir_url(__FILE__) . 'assets/js/backend/notifications.js',
       ['jquery'],
-      BLINK_VERSION
+      BLINK_VERSION,
+      // Admin notice handling; nothing needs it before the page renders.
+      true
     );
     wp_enqueue_script('blink-notifications');
     wp_localize_script('blink-notifications', 'BlinkNotifications', [
@@ -121,7 +123,14 @@ class BlinkWCPlugin {
       wp_die('Unauthorized!', '', ['response' => 401]);
     }
 
-    $dismissForever = filter_var($_POST['dismiss_forever'], FILTER_VALIDATE_BOOL);
+    // The key is not guaranteed to be present, and POST data must be
+    // unslashed before it is used.
+    $dismissForever = filter_var(
+      isset($_POST['dismiss_forever'])
+        ? sanitize_text_field(wp_unslash($_POST['dismiss_forever']))
+        : '',
+      FILTER_VALIDATE_BOOL
+    );
 
     if ($dismissForever) {
       update_option('blink_review_dismissed_forever', true);
@@ -275,6 +284,7 @@ class BlinkWCPlugin {
 }
 
 // Start everything up.
+// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound -- renaming this shipped function would break any site that unhooks it.
 function init_blink_plugin() {
   \BlinkWCPlugin::instance();
 }

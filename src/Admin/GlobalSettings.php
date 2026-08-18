@@ -219,6 +219,7 @@ class GlobalSettings extends \WC_Settings_Page {
   /**
    * On saving the settings form make sure the configured account works.
    */
+  // phpcs:disable WordPress.Security.NonceVerification.Missing -- parent::save() performs the nonce check for this screen.
   public function save() {
     Logger::debug('Saving GlobalSettings.');
 
@@ -281,14 +282,19 @@ class GlobalSettings extends \WC_Settings_Page {
     Logger::debug($message, true);
   }
 
-  public static function output_custom_markup_field($value) {
-    $title = '&nbsp;';
-    if (!empty($value['title'])) {
-      $title = esc_html($value['title']);
-    }
+  // phpcs:enable WordPress.Security.NonceVerification.Missing
 
+  public static function output_custom_markup_field($value) {
     echo '<tr valign="top">';
-    echo '<th scope="row" class="titledesc">' . $title . '</th>';
+    echo '<th scope="row" class="titledesc">';
+    // Escaped at the point of output so the escaping is visible where it
+    // matters, rather than hidden behind a variable.
+    if (!empty($value['title'])) {
+      echo esc_html($value['title']);
+    } else {
+      echo '&nbsp;';
+    }
+    echo '</th>';
     echo '<td class="forminp" id="' . esc_attr($value['id']) . '">';
     echo wp_kses_post($value['markup']);
     echo '</td>';

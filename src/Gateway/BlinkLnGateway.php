@@ -141,7 +141,10 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
     // Store media id.
     $iconFieldName = 'woocommerce_' . $this->getId() . '_' . self::ICON_MEDIA_OPTION;
 
-    // nonce validation is not required here because it is done by parent::process_admin_options()
+    // Nonce validation happens in parent::process_admin_options(), which runs
+    // below; reading the posted value first is safe because it is only used
+    // after that check passes.
+    // phpcs:disable WordPress.Security.NonceVerification.Missing -- verified by parent::process_admin_options().
     if (
       !empty($_POST[$iconFieldName]) &&
       ($mediaId = sanitize_key($_POST[$iconFieldName]))
@@ -153,6 +156,7 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
       // Reset to empty otherwise.
       $this->update_option(self::ICON_MEDIA_OPTION, '');
     }
+    // phpcs:enable WordPress.Security.NonceVerification.Missing
     return parent::process_admin_options();
   }
 
@@ -212,8 +216,9 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
     // Returning nothing leaves WooCommerce with no result key, which it
     // reports to the customer as a silent failure.
     if (!$invoice) {
+      // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- WooCommerce escapes notice text when it renders it.
       throw new \Exception(
-        esc_html__(
+        __(
           "Can't create the Lightning invoice. Please try again or contact us if the problem persists.",
           'blink-for-woocommerce'
         )
@@ -248,8 +253,9 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
 
       $invoice = $this->createNonCustodialInvoice($order, $record);
       if ($invoice instanceof LnurlFailure) {
+        // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- WooCommerce escapes notice text when it renders it.
         throw new \Exception(
-          esc_html__(
+          __(
             "Can't create the Lightning invoice. Please try again or contact us if the problem persists.",
             'blink-for-woocommerce'
           )
@@ -320,7 +326,8 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
     }
 
     // Leave enough time for the customer to actually pay it.
-    if ($invoice->expiresAt > 0 && $invoice->expiresAt - time() < 120) {
+    $now = $this->services->clock()->now();
+    if ($invoice->expiresAt > 0 && $invoice->expiresAt - $now < 120) {
       return false;
     }
 
@@ -718,15 +725,15 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
     $useCached = $settlement->isCacheFresh($record) || !$budget->allowIp($this->clientIp());
     $outcome = $useCached ? $settlement->cached($record) : $settlement->poll($record);
 
-    $status = $outcome->status;
-    if ($status === SettlementStatus::Unknown) {
+    if ($outcome->status === SettlementStatus::Unknown) {
       // Nothing was learned; report the last real observation instead.
-      $status = $settlement->cached($record)->status;
+      $outcome = $settlement->cached($record);
     }
+    $status = $outcome->status;
 
-    if ($status === SettlementStatus::Paid || $status === SettlementStatus::Review) {
-      $this->applyTerminalStatus($order, $record, $status);
-    }
+    // The same applier the background job uses, so a status reached through
+    // the pay page and one reached by the scheduler behave identically.
+    $this->services->outcomeApplier()->applyOutcome($record, $outcome);
 
     wp_send_json_success([
       'status' => $status->value,
@@ -734,26 +741,6 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
         ? $order->get_checkout_order_received_url()
         : null,
     ]);
-  }
-
-  /**
-   * Moves the WooCommerce order to match a resolved settlement outcome.
-   *
-   * Notes are deduplicated here because this runs on every poll, and the
-   * protect-orders branch in particular used to append a note on each one.
-   */
-  public function applyTerminalStatus(
-    \WC_Order $order,
-    WcOrderRecord $record,
-    SettlementStatus $status
-  ): void {
-    $applier = $this->services->statusApplier();
-    $applier->apply($order, $status->value, 'ajax-poll', true);
-
-    if ($status === SettlementStatus::Paid) {
-      $invoice = $this->services->invoiceRepository()->load($record);
-      $applier->completePaymentIfUnmapped($order, (string) $invoice?->paymentHash);
-    }
   }
 
   /**

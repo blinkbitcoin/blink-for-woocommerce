@@ -127,6 +127,7 @@ final class Bolt11Decoder {
    */
   private function parseHrp(string $rest): array {
     if (!preg_match('/^(bcrt|bc|tbs|tb|sb)(\d*)([munp]?)$/', $rest, $m)) {
+      // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- an exception message, not output.
       throw new Bolt11Exception('unrecognised invoice prefix: ln' . $rest);
     }
 
