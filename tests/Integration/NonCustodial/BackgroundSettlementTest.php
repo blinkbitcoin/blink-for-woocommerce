@@ -115,7 +115,10 @@ final class BackgroundSettlementTest extends IntegrationTestCase {
     $order = $this->makeOrder();
     $this->storeInvoice($order);
     $this->http->alwaysRespond(
-      new HttpResponse(200, (string) json_encode(['settled' => true, 'preimage' => $this->preimage]))
+      new HttpResponse(
+        200,
+        (string) json_encode(['settled' => true, 'preimage' => $this->preimage])
+      )
     );
 
     $this->runDueAction($order->get_id());
@@ -183,7 +186,9 @@ final class BackgroundSettlementTest extends IntegrationTestCase {
     $scheduler = $this->useFakeScheduler();
     $order = $this->makeOrder();
     $invoice = $this->storeInvoice($order);
-    $this->services()->settlementScheduler()->onInvoiceCreated($this->record($order), $invoice);
+    $this->services()
+      ->settlementScheduler()
+      ->onInvoiceCreated($this->record($order), $invoice);
 
     $this->http->queueJson(['settled' => true, 'preimage' => $this->preimage]);
     $this->runDueAction($order->get_id());
@@ -205,7 +210,9 @@ final class BackgroundSettlementTest extends IntegrationTestCase {
     $scheduler = $this->useFakeScheduler();
     $order = $this->makeOrder();
     $invoice = $this->storeInvoice($order);
-    $this->services()->settlementScheduler()->onInvoiceCreated($this->record($order), $invoice);
+    $this->services()
+      ->settlementScheduler()
+      ->onInvoiceCreated($this->record($order), $invoice);
 
     $order->update_status('cancelled');
 

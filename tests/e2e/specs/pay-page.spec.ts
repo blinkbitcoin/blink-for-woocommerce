@@ -1,4 +1,11 @@
-import { expect, orderState, runScheduler, seedOrder, settle, test } from '../fixtures/blink';
+import {
+  expect,
+  orderState,
+  runScheduler,
+  seedOrder,
+  settle,
+  test,
+} from '../fixtures/blink';
 
 /**
  * The browser layer.
@@ -11,7 +18,10 @@ import { expect, orderState, runScheduler, seedOrder, settle, test } from '../fi
  * against admin-ajax navigates the customer.
  */
 test.describe('the pay page', () => {
-  test('renders a scannable invoice from the payload it was given', async ({ page, request }) => {
+  test('renders a scannable invoice from the payload it was given', async ({
+    page,
+    request,
+  }) => {
     const order = await seedOrder(request);
 
     await page.goto(order.payUrl);
@@ -36,7 +46,7 @@ test.describe('the pay page', () => {
         'paymentRequest',
         'pollInterval',
         'redirectUrl',
-      ].sort()
+      ].sort(),
     );
 
     expect(payload.orderId).toBe(order.orderId);
@@ -49,7 +59,12 @@ test.describe('the pay page', () => {
     expect(encoded).toBe(encoded?.toUpperCase().replace('LIGHTNING:', 'lightning:'));
 
     // Every element the script looks up is present on the real page.
-    for (const id of ['blink-pay-qr', 'blink-pay-bolt11', 'blink-pay-copy', 'blink-pay-status']) {
+    for (const id of [
+      'blink-pay-qr',
+      'blink-pay-bolt11',
+      'blink-pay-copy',
+      'blink-pay-status',
+    ]) {
       await expect(page.locator(`#${id}`)).toHaveCount(1);
     }
   });
@@ -65,7 +80,9 @@ test.describe('the pay page', () => {
 
     await expect(page).toHaveURL(/order-received|order-pay.*key=/, { timeout: 30_000 });
     await expect
-      .poll(async () => (await orderState(request, order.orderId)).status, { timeout: 30_000 })
+      .poll(async () => (await orderState(request, order.orderId)).status, {
+        timeout: 30_000,
+      })
       .toBe('processing');
   });
 

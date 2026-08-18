@@ -36,8 +36,8 @@ jobs:
       - run: composer lint:phpstan
       - run: composer lint:ignores
 
-  lint-format:
-    name: Lint formatting
+  lint-js:
+    name: Lint JavaScript and TypeScript
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -47,8 +47,10 @@ jobs:
           node-version: '20'
           cache: npm
       - run: npm ci
-      - run: npm run prettier:check
-      - run: npm run lint:js
+      # Formatting, lint rules, and type checking. The TypeScript step matters
+      # because Playwright strips types without checking them, so a type error
+      # in the end-to-end helpers would otherwise reach CI unnoticed.
+      - run: npm run lint
 
   php-syntax:
     name: PHP ${{ matrix.php }} syntax
@@ -398,7 +400,7 @@ jobs:
     timeout-minutes: 5
     needs:
       - lint-php
-      - lint-format
+      - lint-js
       - php-syntax
       - unit
       - integration

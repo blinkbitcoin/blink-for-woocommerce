@@ -26,7 +26,10 @@ final class PollBudgetTest extends TestCase {
       $this->assertTrue($this->budget->allowIp('198.51.100.7'), 'hit ' . ($i + 1));
     }
 
-    $this->assertFalse($this->budget->allowIp('198.51.100.7'), 'the limit must be a ceiling');
+    $this->assertFalse(
+      $this->budget->allowIp('198.51.100.7'),
+      'the limit must be a ceiling'
+    );
   }
 
   public function testBudgetsAreTrackedPerIpAddress(): void {

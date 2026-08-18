@@ -17,7 +17,8 @@ final class FakeRandomSource implements RandomSourceInterface {
   private int $index = 0;
 
   /** @param list<float> $values */
-  public function __construct(private array $values = [0.5]) {}
+  public function __construct(private array $values = [0.5]) {
+  }
 
   public function float(): float {
     if (!array_key_exists($this->index, $this->values)) {

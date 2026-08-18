@@ -31,15 +31,30 @@ final class LnAddressTest extends TestCase {
       'plain' => ['shop@blink.sv', 'shop', 'blink.sv', null],
       'subdomain' => ['a@pay.example.co.uk', 'a', 'pay.example.co.uk', null],
       'uppercase host is normalised' => ['shop@BLINK.SV', 'shop', 'blink.sv', null],
-      'identifier case is preserved' => ['ShopName@blink.sv', 'ShopName', 'blink.sv', null],
-      'dots and dashes in identifier' => ['a.b-c_d@blink.sv', 'a.b-c_d', 'blink.sv', null],
+      'identifier case is preserved' => [
+        'ShopName@blink.sv',
+        'ShopName',
+        'blink.sv',
+        null,
+      ],
+      'dots and dashes in identifier' => [
+        'a.b-c_d@blink.sv',
+        'a.b-c_d',
+        'blink.sv',
+        null,
+      ],
       'explicit port' => ['ok@localhost:8889', 'ok', 'localhost', 8889],
       'ipv4 literal' => ['ok@127.0.0.1', 'ok', '127.0.0.1', null],
       'ipv4 with port' => ['ok@127.0.0.1:8080', 'ok', '127.0.0.1', 8080],
       'bracketed ipv6' => ['ok@[::1]', 'ok', '[::1]', null],
       'bracketed ipv6 with port' => ['ok@[::1]:8080', 'ok', '[::1]', 8080],
       'surrounding whitespace' => ['  shop@blink.sv  ', 'shop', 'blink.sv', null],
-      'max length label' => ['a@' . str_repeat('x', 63) . '.sv', 'a', str_repeat('x', 63) . '.sv', null],
+      'max length label' => [
+        'a@' . str_repeat('x', 63) . '.sv',
+        'a',
+        str_repeat('x', 63) . '.sv',
+        null,
+      ],
       'lowest port' => ['a@blink.sv:1', 'a', 'blink.sv', 1],
       'highest port' => ['a@blink.sv:65535', 'a', 'blink.sv', 65535],
     ];
@@ -140,7 +155,10 @@ final class LnAddressTest extends TestCase {
 
   public function testStringRoundTrip(): void {
     $this->assertSame('shop@blink.sv', (string) LnAddress::parse('shop@BLINK.SV'));
-    $this->assertSame('ok@localhost:8889', (string) LnAddress::parse('ok@localhost:8889'));
+    $this->assertSame(
+      'ok@localhost:8889',
+      (string) LnAddress::parse('ok@localhost:8889')
+    );
   }
 
   public function testHostIsLocalDevIsUsableWithoutAnInstance(): void {

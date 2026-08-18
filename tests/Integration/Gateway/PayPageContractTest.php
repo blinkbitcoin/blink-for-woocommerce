@@ -127,7 +127,10 @@ final class PayPageContractTest extends IntegrationTestCase {
     $this->assertSame(
       $type,
       get_debug_type($this->payload[$key]),
-      $key . ' must arrive as ' . $type . '; wp_localize_script would have made it a string.'
+      $key .
+        ' must arrive as ' .
+        $type .
+        '; wp_localize_script would have made it a string.'
     );
   }
 
@@ -199,7 +202,10 @@ final class PayPageContractTest extends IntegrationTestCase {
       file_put_contents($payloadPath, $encoded . "\n");
     }
 
-    $this->assertFileExists($markupPath, 'Run with BLINK_UPDATE_FIXTURES=1 to create it.');
+    $this->assertFileExists(
+      $markupPath,
+      'Run with BLINK_UPDATE_FIXTURES=1 to create it.'
+    );
     $this->assertSame(
       trim((string) file_get_contents($markupPath)),
       trim($markup),

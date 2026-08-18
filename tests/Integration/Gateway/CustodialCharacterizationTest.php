@@ -62,7 +62,8 @@ final class CustodialCharacterizationTest extends IntegrationTestCase {
         InvoiceRepository::VERIFY_URL,
         InvoiceRepository::LN_ADDRESS,
         InvoiceRepository::EXPIRES_AT,
-      ] as $key
+      ]
+      as $key
     ) {
       $this->assertEmpty($order->get_meta($key), $key . ' must not be set');
     }
@@ -121,7 +122,10 @@ final class CustodialCharacterizationTest extends IntegrationTestCase {
     $order = $this->makeOrder();
     $order->update_meta_data('blink_id', 'legacy-hash');
     $order->update_meta_data('blink_payment_request', 'lnbc1legacy');
-    $order->update_meta_data('blink_redirect', 'https://pay.blink.sv/checkout/legacy-hash');
+    $order->update_meta_data(
+      'blink_redirect',
+      'https://pay.blink.sv/checkout/legacy-hash'
+    );
     $order->save();
 
     $reloaded = $this->reload($order);

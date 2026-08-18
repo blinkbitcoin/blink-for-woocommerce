@@ -36,15 +36,15 @@ Then: WooCommerce → Settings → Payments → Blink.
 
 ## Documentation
 
-| | |
-|---|---|
-| [Contributing](CONTRIBUTING.md) | Setup, running the suites, what review asks about |
-| [Testing](docs/testing.md) | The three tiers, the fakes, the coverage gate |
-| [Non-custodial architecture](docs/architecture/non-custodial-lightning-address.md) | The LNURL flow, settlement, order meta |
-| [Seams](docs/architecture/seams.md) | The injected interfaces and why each exists |
-| [Outbound request policy](docs/security/ssrf-policy.md) | Trust boundaries and URL rules |
-| [Merchant setup](docs/merchant/non-custodial-setup.md) | Lightning address mode, end to end |
-| [Security policy](SECURITY.md) | Reporting a vulnerability |
+|                                                                                    |                                                   |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------- |
+| [Contributing](CONTRIBUTING.md)                                                    | Setup, running the suites, what review asks about |
+| [Testing](docs/testing.md)                                                         | The three tiers, the fakes, the coverage gate     |
+| [Non-custodial architecture](docs/architecture/non-custodial-lightning-address.md) | The LNURL flow, settlement, order meta            |
+| [Seams](docs/architecture/seams.md)                                                | The injected interfaces and why each exists       |
+| [Outbound request policy](docs/security/ssrf-policy.md)                            | Trust boundaries and URL rules                    |
+| [Merchant setup](docs/merchant/non-custodial-setup.md)                             | Lightning address mode, end to end                |
+| [Security policy](SECURITY.md)                                                     | Reporting a vulnerability                         |
 
 ## Requirements
 

@@ -58,11 +58,15 @@ final class UrlPolicyTest extends TestCase {
 
   public function testRejectsASuffixMatchThatIsNotASubdomain(): void {
     // notblink.sv ends with "blink.sv" as a string but is a different domain.
-    $this->assertFalse($this->policy->check('https://notblink.sv/cb', $this->address())->allowed);
+    $this->assertFalse(
+      $this->policy->check('https://notblink.sv/cb', $this->address())->allowed
+    );
   }
 
   public function testRejectsADifferentRegistrableDomain(): void {
-    $this->assertFalse($this->policy->check('https://blink.io/cb', $this->address())->allowed);
+    $this->assertFalse(
+      $this->policy->check('https://blink.io/cb', $this->address())->allowed
+    );
   }
 
   /**
@@ -163,7 +167,9 @@ final class UrlPolicyTest extends TestCase {
   }
 
   public function testRejectsUserWithoutPassword(): void {
-    $this->assertFalse($this->policy->check('https://user@blink.sv/cb', $this->address())->allowed);
+    $this->assertFalse(
+      $this->policy->check('https://user@blink.sv/cb', $this->address())->allowed
+    );
   }
 
   public function testRejectsABareIpHostForAPublicAddress(): void {
@@ -185,12 +191,19 @@ final class UrlPolicyTest extends TestCase {
   /**
    * @dataProvider addresses
    */
-  public function testPrivateAndReservedAddressesAreRejected(string $ip, bool $allowed): void {
+  public function testPrivateAndReservedAddressesAreRejected(
+    string $ip,
+    bool $allowed
+  ): void {
     $this->dns->map('blink.sv', [$ip]);
 
     $decision = $this->policy->check('https://blink.sv/cb', $this->address());
 
-    $this->assertSame($allowed, $decision->allowed, $ip . ' should be ' . ($allowed ? 'allowed' : 'rejected'));
+    $this->assertSame(
+      $allowed,
+      $decision->allowed,
+      $ip . ' should be ' . ($allowed ? 'allowed' : 'rejected')
+    );
   }
 
   /** @return array<string,array{string,bool}> */
@@ -230,7 +243,10 @@ final class UrlPolicyTest extends TestCase {
 
     $decision = $this->policy->check('https://blink.sv/cb', $this->address());
 
-    $this->assertFalse($decision->allowed, 'a single private answer must sink the whole host');
+    $this->assertFalse(
+      $decision->allowed,
+      'a single private answer must sink the whole host'
+    );
     $this->assertStringContainsString('10.0.0.1', $decision->reason);
   }
 
@@ -254,7 +270,10 @@ final class UrlPolicyTest extends TestCase {
   }
 
   public function testDeniedDecisionCarriesNoPins(): void {
-    $this->assertSame([], $this->policy->check('https://blink.io/cb', $this->address())->dnsPins);
+    $this->assertSame(
+      [],
+      $this->policy->check('https://blink.io/cb', $this->address())->dnsPins
+    );
   }
 
   public function testLocalDevAddressMayReachLocalHostsOverPlainHttp(): void {
@@ -278,7 +297,8 @@ final class UrlPolicyTest extends TestCase {
 
   public function testLocalDevAddressMayReachAnIpLiteral(): void {
     $this->assertTrue(
-      $this->policy->check('http://127.0.0.1:8889/cb', $this->address('ok@localhost'))->allowed
+      $this->policy->check('http://127.0.0.1:8889/cb', $this->address('ok@localhost'))
+        ->allowed
     );
   }
 
@@ -291,13 +311,17 @@ final class UrlPolicyTest extends TestCase {
   public function testTrailingDotHostIsTreatedAsTheSameDomain(): void {
     $this->dns->map('blink.sv.', ['93.184.216.34']);
 
-    $this->assertTrue($this->policy->check('https://blink.sv./cb', $this->address())->allowed);
+    $this->assertTrue(
+      $this->policy->check('https://blink.sv./cb', $this->address())->allowed
+    );
   }
 
   public function testRejectionIsLoggedWithTheReason(): void {
     $this->policy->check('https://blink.io/cb', $this->address());
 
-    $this->assertTrue($this->log->hasMessageContaining('host outside the address domain'));
+    $this->assertTrue(
+      $this->log->hasMessageContaining('host outside the address domain')
+    );
     $this->assertTrue($this->log->hasMessageContaining('https://blink.io/cb'));
   }
 

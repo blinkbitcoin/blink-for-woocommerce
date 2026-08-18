@@ -87,7 +87,8 @@ final class Bech32Test extends TestCase {
   public function testChecksumMismatchIsRejected(): void {
     $encoded = Bolt11Encoder::create('lnbc100u')->timestamp(1700000000)->build();
     // Flip the final checksum character to something else in the charset.
-    $tampered = substr($encoded, 0, -1) . ($encoded[strlen($encoded) - 1] === 'q' ? 'p' : 'q');
+    $tampered =
+      substr($encoded, 0, -1) . ($encoded[strlen($encoded) - 1] === 'q' ? 'p' : 'q');
 
     $this->expectException(Bolt11Exception::class);
     $this->expectExceptionMessage('checksum mismatch');
@@ -109,7 +110,7 @@ final class Bech32Test extends TestCase {
   public function testConvertBitsRegroupsWithPadding(): void {
     // 0xFF is 11111111: the first five bits make 31, and the remaining three
     // (111) are left-padded into 11100 = 28.
-    $this->assertSame([31, 28], Bech32::convertBits([0xFF], 8, 5, true));
+    $this->assertSame([31, 28], Bech32::convertBits([0xff], 8, 5, true));
   }
 
   public function testConvertBitsRoundTrips(): void {
@@ -150,7 +151,10 @@ final class Bech32Test extends TestCase {
 
   public function testConvertBitsAcceptsCleanBoundaries(): void {
     // 8 groups of 5 bits is exactly 5 bytes, so nothing is left over.
-    $this->assertSame([0, 0, 0, 0, 1], Bech32::convertBits([0, 0, 0, 0, 0, 0, 0, 1], 5, 8, false));
+    $this->assertSame(
+      [0, 0, 0, 0, 1],
+      Bech32::convertBits([0, 0, 0, 0, 0, 0, 0, 1], 5, 8, false)
+    );
   }
 
   public function testConvertBitsOfNothingIsNothing(): void {
@@ -160,7 +164,10 @@ final class Bech32Test extends TestCase {
   /**
    * @dataProvider integers
    */
-  public function testToIntReadsBigEndianFiveBitGroups(array $groups, int $expected): void {
+  public function testToIntReadsBigEndianFiveBitGroups(
+    array $groups,
+    int $expected
+  ): void {
     $this->assertSame($expected, Bech32::toInt($groups));
   }
 

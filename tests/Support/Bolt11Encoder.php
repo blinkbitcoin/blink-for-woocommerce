@@ -21,7 +21,8 @@ final class Bolt11Encoder {
   /** @var list<int> */
   private array $data = [];
 
-  private function __construct(private string $hrp) {}
+  private function __construct(private string $hrp) {
+  }
 
   public static function create(string $hrp = 'lnbc'): self {
     return new self($hrp);
@@ -35,7 +36,10 @@ final class Bolt11Encoder {
 
   /** Adds a tagged field from raw bytes. */
   public function tagBytes(string $tag, string $bytes): self {
-    return $this->tagData($tag, self::convertBits(array_values(unpack('C*', $bytes)), 8, 5, true));
+    return $this->tagData(
+      $tag,
+      self::convertBits(array_values(unpack('C*', $bytes)), 8, 5, true)
+    );
   }
 
   public function tagHex(string $tag, string $hex): self {
@@ -94,7 +98,7 @@ final class Bolt11Encoder {
   private static function fromInt(int $value, int $groups): array {
     $result = [];
     for ($i = $groups - 1; $i >= 0; $i--) {
-      $result[] = ($value >> ($i * 5)) & 31;
+      $result[] = ($value >> $i * 5) & 31;
     }
 
     return $result;
@@ -116,7 +120,7 @@ final class Bolt11Encoder {
       }
     }
     if ($pad && $bits > 0) {
-      $result[] = ($acc << ($to - $bits)) & $maxValue;
+      $result[] = ($acc << $to - $bits) & $maxValue;
     }
 
     return $result;
@@ -128,7 +132,7 @@ final class Bolt11Encoder {
     $polymod = self::polymod($values) ^ 1;
     $checksum = [];
     for ($i = 0; $i < 6; $i++) {
-      $checksum[] = ($polymod >> (5 * (5 - $i))) & 31;
+      $checksum[] = ($polymod >> 5 * (5 - $i)) & 31;
     }
 
     return $checksum;

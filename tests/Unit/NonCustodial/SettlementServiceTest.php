@@ -50,7 +50,10 @@ final class SettlementServiceTest extends TestCase {
     $this->repository = new InvoiceRepository($this->clock);
     $this->order = new FakeOrder(42, '10.00', 'USD');
 
-    $policy = new UrlPolicy((new FakeDnsResolver())->fallbackTo('93.184.216.34'), $this->log);
+    $policy = new UrlPolicy(
+      (new FakeDnsResolver())->fallbackTo('93.184.216.34'),
+      $this->log
+    );
     $this->service = new SettlementService(
       new LnurlClient($this->http, $policy, $this->log),
       $this->repository,
@@ -65,7 +68,8 @@ final class SettlementServiceTest extends TestCase {
     $invoice = new StoredInvoice(
       $overrides['paymentHash'] ?? $this->paymentHash,
       'lnbc100u1xyz',
-      $overrides['verifyUrl'] ?? 'https://blink.sv/verify/' . ($overrides['paymentHash'] ?? $this->paymentHash),
+      $overrides['verifyUrl'] ??
+        'https://blink.sv/verify/' . ($overrides['paymentHash'] ?? $this->paymentHash),
       $overrides['lnAddress'] ?? 'shop@blink.sv',
       10000000,
       10000,
@@ -89,7 +93,10 @@ final class SettlementServiceTest extends TestCase {
 
     $this->assertSame(SettlementStatus::Paid, $outcome->status);
     $this->assertTrue($outcome->terminal);
-    $this->assertSame(SettlementStatus::Paid, $this->repository->terminalStatus($this->order));
+    $this->assertSame(
+      SettlementStatus::Paid,
+      $this->repository->terminalStatus($this->order)
+    );
   }
 
   public function testAnUnsettledInvoiceStaysPending(): void {
@@ -130,7 +137,10 @@ final class SettlementServiceTest extends TestCase {
     $this->storeInvoice();
     $this->http->queueJson(['settled' => true, 'preimage' => 'not-hex']);
 
-    $this->assertSame(SettlementStatus::Pending, $this->service->poll($this->order)->status);
+    $this->assertSame(
+      SettlementStatus::Pending,
+      $this->service->poll($this->order)->status
+    );
   }
 
   /**
@@ -139,7 +149,10 @@ final class SettlementServiceTest extends TestCase {
   public function testSettlementIsIdempotent(): void {
     $this->storeInvoice();
     $this->http->alwaysRespond(
-      new HttpResponse(200, (string) json_encode(['settled' => true, 'preimage' => $this->preimage]))
+      new HttpResponse(
+        200,
+        (string) json_encode(['settled' => true, 'preimage' => $this->preimage])
+      )
     );
 
     $first = $this->service->poll($this->order);
@@ -148,7 +161,11 @@ final class SettlementServiceTest extends TestCase {
     $this->assertSame(SettlementStatus::Paid, $first->status);
     $this->assertSame('settled', $first->reason);
     $this->assertSame(SettlementStatus::Paid, $second->status);
-    $this->assertSame('already resolved', $second->reason, 'the terminal marker short-circuits');
+    $this->assertSame(
+      'already resolved',
+      $second->reason,
+      'the terminal marker short-circuits'
+    );
   }
 
   public function testAResolvedOrderIsNotPolledAgain(): void {
@@ -159,7 +176,11 @@ final class SettlementServiceTest extends TestCase {
     $requestsBefore = $this->http->requestCount();
     $this->service->poll($this->order);
 
-    $this->assertSame($requestsBefore, $this->http->requestCount(), 'no further requests');
+    $this->assertSame(
+      $requestsBefore,
+      $this->http->requestCount(),
+      'no further requests'
+    );
   }
 
   /** An order edited after the invoice was made must not be auto-completed. */
@@ -172,7 +193,10 @@ final class SettlementServiceTest extends TestCase {
 
     $this->assertSame(SettlementStatus::Review, $outcome->status);
     $this->assertTrue($outcome->terminal);
-    $this->assertSame(SettlementStatus::Review, $this->repository->terminalStatus($this->order));
+    $this->assertSame(
+      SettlementStatus::Review,
+      $this->repository->terminalStatus($this->order)
+    );
     $this->assertTrue($this->log->hasMessageContaining('holding for review', 'error'));
   }
 
@@ -181,7 +205,10 @@ final class SettlementServiceTest extends TestCase {
     $this->order->setCurrency('EUR');
     $this->http->queueJson(['settled' => true, 'preimage' => $this->preimage]);
 
-    $this->assertSame(SettlementStatus::Review, $this->service->poll($this->order)->status);
+    $this->assertSame(
+      SettlementStatus::Review,
+      $this->service->poll($this->order)->status
+    );
   }
 
   // ------------------------------------------------------------------ expiry
@@ -226,7 +253,10 @@ final class SettlementServiceTest extends TestCase {
     $this->service->poll($this->order);
 
     $this->clock->travel(60 + SettlementService::EXPIRY_GRACE_SECONDS);
-    $this->assertSame(SettlementStatus::Expired, $this->service->poll($this->order)->status);
+    $this->assertSame(
+      SettlementStatus::Expired,
+      $this->service->poll($this->order)->status
+    );
   }
 
   public function testTheGracePeriodIsHonouredBeforeExpiring(): void {
@@ -262,13 +292,23 @@ final class SettlementServiceTest extends TestCase {
   public static function inconclusiveResponses(): array {
     return [
       'connection timeout' => [
-        static fn(FakeHttpClient $h) => $h->queue(HttpResponse::transportFailure('timeout')),
+        static fn(FakeHttpClient $h) => $h->queue(
+          HttpResponse::transportFailure('timeout')
+        ),
       ],
-      'server error' => [static fn(FakeHttpClient $h) => $h->queue(new HttpResponse(500, ''))],
-      'bad gateway' => [static fn(FakeHttpClient $h) => $h->queue(new HttpResponse(502, ''))],
-      'malformed body' => [static fn(FakeHttpClient $h) => $h->queue(new HttpResponse(200, '{'))],
+      'server error' => [
+        static fn(FakeHttpClient $h) => $h->queue(new HttpResponse(500, '')),
+      ],
+      'bad gateway' => [
+        static fn(FakeHttpClient $h) => $h->queue(new HttpResponse(502, '')),
+      ],
+      'malformed body' => [
+        static fn(FakeHttpClient $h) => $h->queue(new HttpResponse(200, '{')),
+      ],
       'oversized body' => [
-        static fn(FakeHttpClient $h) => $h->queue(new HttpResponse(200, '{}', [], null, true)),
+        static fn(FakeHttpClient $h) => $h->queue(
+          new HttpResponse(200, '{}', [], null, true)
+        ),
       ],
     ];
   }
@@ -283,12 +323,18 @@ final class SettlementServiceTest extends TestCase {
     // The endpoint is down as expiry approaches.
     $this->clock->travel(295);
     $this->http->queue(HttpResponse::transportFailure('connection refused'));
-    $this->assertSame(SettlementStatus::Pending, $this->service->poll($this->order)->status);
+    $this->assertSame(
+      SettlementStatus::Pending,
+      $this->service->poll($this->order)->status
+    );
 
     // Still down just past expiry, inside the grace window.
     $this->clock->travel(30);
     $this->http->queue(new HttpResponse(503, ''));
-    $this->assertSame(SettlementStatus::Pending, $this->service->poll($this->order)->status);
+    $this->assertSame(
+      SettlementStatus::Pending,
+      $this->service->poll($this->order)->status
+    );
     $this->assertNull(
       $this->repository->terminalStatus($this->order),
       'the order must not have been expired while the endpoint was unreachable'
@@ -387,18 +433,21 @@ final class SettlementServiceTest extends TestCase {
   public function testLocksAreScopedPerOrder(): void {
     $this->storeInvoice();
     $other = new FakeOrder(43, '10.00', 'USD');
-    $this->repository->store($other, new StoredInvoice(
-      $this->paymentHash,
-      'lnbc1',
-      'https://blink.sv/verify/' . $this->paymentHash,
-      'shop@blink.sv',
-      10000000,
-      10000,
-      self::NOW,
-      self::NOW + 3600,
-      '10.00',
-      'USD'
-    ));
+    $this->repository->store(
+      $other,
+      new StoredInvoice(
+        $this->paymentHash,
+        'lnbc1',
+        'https://blink.sv/verify/' . $this->paymentHash,
+        'shop@blink.sv',
+        10000000,
+        10000,
+        self::NOW,
+        self::NOW + 3600,
+        '10.00',
+        'USD'
+      )
+    );
 
     $seen = null;
     $this->http->onRequest(function () use (&$seen, $other): void {
@@ -425,7 +474,10 @@ final class SettlementServiceTest extends TestCase {
     for ($i = 0; $i < PollBudget::PER_DOMAIN_LIMIT; $i++) {
       $budget->allowDomain('blink.sv');
     }
-    $policy = new UrlPolicy((new FakeDnsResolver())->fallbackTo('93.184.216.34'), $this->log);
+    $policy = new UrlPolicy(
+      (new FakeDnsResolver())->fallbackTo('93.184.216.34'),
+      $this->log
+    );
     $service = new SettlementService(
       new LnurlClient($this->http, $policy, $this->log),
       $this->repository,
@@ -527,7 +579,10 @@ final class SettlementServiceTest extends TestCase {
   public function testCachedFallsBackToPendingWhenNothingWasObserved(): void {
     $this->storeInvoice();
 
-    $this->assertSame(SettlementStatus::Pending, $this->service->cached($this->order)->status);
+    $this->assertSame(
+      SettlementStatus::Pending,
+      $this->service->cached($this->order)->status
+    );
   }
 
   // ------------------------------------------------------------- degenerate
@@ -552,7 +607,10 @@ final class SettlementServiceTest extends TestCase {
   /** Settlement follows the order's stored address, not the shop's current one. */
   public function testTheStoredAddressIsUsedRatherThanCurrentConfiguration(): void {
     $this->storeInvoice(['lnAddress' => 'other@pay.example.com']);
-    $policy = new UrlPolicy((new FakeDnsResolver())->fallbackTo('93.184.216.34'), $this->log);
+    $policy = new UrlPolicy(
+      (new FakeDnsResolver())->fallbackTo('93.184.216.34'),
+      $this->log
+    );
     $service = new SettlementService(
       new LnurlClient($this->http, $policy, $this->log),
       $this->repository,
@@ -575,7 +633,10 @@ final class SettlementServiceTest extends TestCase {
 
   public function testAVerifyUrlRejectedByThePolicyIsPendingNotExpired(): void {
     $this->storeInvoice();
-    $this->order->setMeta(InvoiceRepository::VERIFY_URL, 'https://attacker.example/verify/x');
+    $this->order->setMeta(
+      InvoiceRepository::VERIFY_URL,
+      'https://attacker.example/verify/x'
+    );
 
     $outcome = $this->service->poll($this->order);
 

@@ -29,7 +29,7 @@ request is made:
 2. **No credentials in the authority.** `https://user:pass@host/` is refused:
    it is a classic parser-confusion vector and no LNURL server needs it.
 3. **HTTPS.** Plain HTTP is permitted only when the configured address is
-   itself a local development host *and* the target is too.
+   itself a local development host _and_ the target is too.
 4. **Host containment.** The target host must equal the address host, or be a
    subdomain of it. `you@blink.sv` may be served from `blink.sv` or
    `api.blink.sv`; nothing entitles it to `blink.io`.
@@ -49,7 +49,7 @@ internet** satisfied the check. The same held for `.com.au`, `.co.jp`,
 `.github.io` and every other multi-label suffix.
 
 A public suffix list would fix it, but it is a large blob that has to ship and
-stay current. The containment rule is *tighter* than "same registrable domain"
+stay current. The containment rule is _tighter_ than "same registrable domain"
 and needs no list at all. Where a merchant genuinely serves LNURL from a
 different host, `blink_lnurl_extra_allowed_hosts` is the explicit, per-site
 escape hatch.
@@ -59,12 +59,12 @@ escape hatch.
 `FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE` misses several ranges
 that matter in hosting environments, so these are checked explicitly:
 
-| Range | Why |
-|---|---|
-| `100.64.0.0/10` | Carrier-grade NAT; not covered by the reserved-range flag |
+| Range           | Why                                                                                                                                  |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `100.64.0.0/10` | Carrier-grade NAT; not covered by the reserved-range flag                                                                            |
 | `::ffff:0:0/96` | IPv4-mapped IPv6. `filter_var` does not apply IPv4 private ranges to the mapped form, so `::ffff:127.0.0.1` read as a public address |
-| `64:ff9b::/96` | NAT64, which wraps an IPv4 address the same way |
-| `0.0.0.0/8` | "This network" |
+| `64:ff9b::/96`  | NAT64, which wraps an IPv4 address the same way                                                                                      |
+| `0.0.0.0/8`     | "This network"                                                                                                                       |
 
 ### DNS rebinding
 

@@ -4,7 +4,7 @@ Accepted, 2026-08.
 
 ## Context
 
-The goal was 100% line *and branch* coverage on new code. The usual way to unit
+The goal was 100% line _and branch_ coverage on new code. The usual way to unit
 test a WordPress plugin is Brain Monkey, which fakes WordPress functions.
 
 ## Decision

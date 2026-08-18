@@ -9,6 +9,10 @@ export default [
       'node_modules/**',
       'vendor/**',
       'build/**',
+      'languages/**',
+      // TypeScript is type-checked by tsc rather than linted here, which
+      // avoids pulling in a second parser for four files.
+      '**/*.ts',
     ],
   },
   {
@@ -38,6 +42,16 @@ export default [
     },
   },
   {
+    // Build and tooling configuration, which runs in Node.
+    files: ['*.config.js', 'Gruntfile.cjs'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: { module: 'writable', require: 'readonly', process: 'readonly' },
+    },
+    rules: { 'no-undef': 'error', 'no-unused-vars': 'error' },
+  },
+  {
     files: ['tests/js/**/*.js'],
     languageOptions: {
       ecmaVersion: 2022,
@@ -48,6 +62,7 @@ export default [
         document: 'readonly',
         navigator: 'readonly',
         Event: 'readonly',
+        structuredClone: 'readonly',
         qrcode: 'writable',
       },
     },

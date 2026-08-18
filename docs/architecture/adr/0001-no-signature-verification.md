@@ -14,7 +14,7 @@ elliptic-curve maths in a plugin that moves money.
 
 ## Decision
 
-Do not verify the signature. Verify *binding* instead:
+Do not verify the signature. Verify _binding_ instead:
 
 - the amount matches what was requested, exactly;
 - the payment hash matches the verify URL settlement is polled against;
@@ -27,7 +27,7 @@ At settlement, the preimage must hash to the payment hash.
 
 ## Rationale
 
-A valid signature would prove that *some node* signed the invoice. That is not
+A valid signature would prove that _some node_ signed the invoice. That is not
 a fact the plugin needs. The invoice already arrived over TLS from a host
 inside the merchant's own address domain, so the question is not "did a node
 sign this" but "is this the invoice I asked for, and was it paid" — which is

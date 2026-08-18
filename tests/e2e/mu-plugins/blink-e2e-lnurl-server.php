@@ -92,7 +92,10 @@ final class Blink_E2E_Lnurl_Server {
         wp_redirect(home_url('/blink-e2e/callback'), 302);
         exit();
       case 'oversized':
-        self::json(['tag' => 'payRequest', 'padding' => str_repeat('x', 12 * 1024 * 1024)]);
+        self::json([
+          'tag' => 'payRequest',
+          'padding' => str_repeat('x', 12 * 1024 * 1024),
+        ]);
       case 'below-min':
         self::json(self::metadata($identifier, ['minSendable' => 900000000000]));
       case 'above-max':
@@ -124,7 +127,9 @@ final class Blink_E2E_Lnurl_Server {
   }
 
   private static function callback(): void {
-    $identifier = isset($_GET['id']) ? sanitize_text_field(wp_unslash($_GET['id'])) : 'ok';
+    $identifier = isset($_GET['id'])
+      ? sanitize_text_field(wp_unslash($_GET['id']))
+      : 'ok';
     $amountMsat = isset($_GET['amount']) ? (int) $_GET['amount'] : 0;
     self::recordRequest('callback:' . $identifier);
 
@@ -184,7 +189,9 @@ final class Blink_E2E_Lnurl_Server {
     self::json([
       'status' => 'OK',
       'settled' => $settled,
-      'preimage' => $settled ? (string) get_option(self::OPTION_PREFIX . 'preimage_' . $paymentHash) : null,
+      'preimage' => $settled
+        ? (string) get_option(self::OPTION_PREFIX . 'preimage_' . $paymentHash)
+        : null,
       'pr' => null,
     ]);
   }
@@ -192,7 +199,9 @@ final class Blink_E2E_Lnurl_Server {
   // --------------------------------------------------------------- control
 
   private static function control(string $what): void {
-    $hash = isset($_REQUEST['hash']) ? strtolower(sanitize_text_field(wp_unslash($_REQUEST['hash']))) : '';
+    $hash = isset($_REQUEST['hash'])
+      ? strtolower(sanitize_text_field(wp_unslash($_REQUEST['hash'])))
+      : '';
     if (!preg_match('/^[a-f0-9]{64}$/', $hash)) {
       status_header(400);
       self::json(['error' => 'a 64 character hex hash is required']);
@@ -203,7 +212,9 @@ final class Blink_E2E_Lnurl_Server {
       self::json(['ok' => true, 'settled' => $hash]);
     }
 
-    $mode = isset($_REQUEST['mode']) ? sanitize_text_field(wp_unslash($_REQUEST['mode'])) : 'http-500';
+    $mode = isset($_REQUEST['mode'])
+      ? sanitize_text_field(wp_unslash($_REQUEST['mode']))
+      : 'http-500';
     update_option(self::OPTION_PREFIX . 'fail_' . $hash, $mode);
     self::json(['ok' => true, 'failing' => $hash, 'mode' => $mode]);
   }
@@ -280,7 +291,10 @@ final class Blink_E2E_Lnurl_Server {
   }
 
   private static function settings(): void {
-    foreach (['blink_account_type', 'blink_ln_address', 'blink_env', 'blink_debug'] as $key) {
+    foreach (
+      ['blink_account_type', 'blink_ln_address', 'blink_env', 'blink_debug']
+      as $key
+    ) {
       if (isset($_REQUEST[$key])) {
         update_option($key, sanitize_text_field(wp_unslash($_REQUEST[$key])));
       }

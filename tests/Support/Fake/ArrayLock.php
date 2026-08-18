@@ -21,7 +21,8 @@ final class ArrayLock implements LockInterface {
   public int $acquireCalls = 0;
   public int $releaseCalls = 0;
 
-  public function __construct(private ClockInterface $clock) {}
+  public function __construct(private ClockInterface $clock) {
+  }
 
   public function acquire(string $key, int $ttl): ?string {
     $this->acquireCalls++;

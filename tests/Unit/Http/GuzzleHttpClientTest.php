@@ -65,7 +65,10 @@ final class GuzzleHttpClientTest extends TestCase {
 
     $response = $client->get('https://blink.sv/x', new HttpRequestOptions());
 
-    $this->assertFalse($response->failed(), 'a completed request is not a transport failure');
+    $this->assertFalse(
+      $response->failed(),
+      'a completed request is not a transport failure'
+    );
     $this->assertFalse($response->ok());
     $this->assertSame($status, $response->status);
     $this->assertSame(['status' => 'ERROR'], $response->json());
@@ -73,11 +76,19 @@ final class GuzzleHttpClientTest extends TestCase {
 
   /** @return array<string,array{int}> */
   public static function errorStatuses(): array {
-    return ['400' => [400], '404' => [404], '429' => [429], '500' => [500], '503' => [503]];
+    return [
+      '400' => [400],
+      '404' => [404],
+      '429' => [429],
+      '500' => [500],
+      '503' => [503],
+    ];
   }
 
   public function testRedirectIsReturnedRatherThanFollowed(): void {
-    $client = $this->clientFor(new Response(302, ['Location' => 'https://evil.test/'], ''));
+    $client = $this->clientFor(
+      new Response(302, ['Location' => 'https://evil.test/'], '')
+    );
 
     $response = $client->get('https://blink.sv/x', new HttpRequestOptions());
 
@@ -88,7 +99,10 @@ final class GuzzleHttpClientTest extends TestCase {
 
   public function testConnectionFailureBecomesATransportError(): void {
     $client = $this->clientFor(
-      new ConnectException('cURL error 28: timeout', new Request('GET', 'https://blink.sv/x'))
+      new ConnectException(
+        'cURL error 28: timeout',
+        new Request('GET', 'https://blink.sv/x')
+      )
     );
 
     $response = $client->get('https://blink.sv/x', new HttpRequestOptions());
@@ -105,13 +119,19 @@ final class GuzzleHttpClientTest extends TestCase {
     $response = $client->get('https://blink.sv/x', new HttpRequestOptions());
 
     $this->assertTrue($response->failed());
-    $this->assertStringContainsString('something exotic', (string) $response->transportError);
+    $this->assertStringContainsString(
+      'something exotic',
+      (string) $response->transportError
+    );
   }
 
   public function testOversizedBodyIsCappedAndFlagged(): void {
     $client = $this->clientFor(new Response(200, [], str_repeat('a', 200000)));
 
-    $response = $client->get('https://blink.sv/x', new HttpRequestOptions(maxBytes: 1024));
+    $response = $client->get(
+      'https://blink.sv/x',
+      new HttpRequestOptions(maxBytes: 1024)
+    );
 
     $this->assertTrue($response->truncated);
     $this->assertSame(1024, strlen($response->body));
@@ -120,7 +140,10 @@ final class GuzzleHttpClientTest extends TestCase {
   public function testBodyExactlyAtTheCapIsTreatedAsTruncated(): void {
     $client = $this->clientFor(new Response(200, [], str_repeat('a', 1024)));
 
-    $response = $client->get('https://blink.sv/x', new HttpRequestOptions(maxBytes: 1024));
+    $response = $client->get(
+      'https://blink.sv/x',
+      new HttpRequestOptions(maxBytes: 1024)
+    );
 
     $this->assertTrue($response->truncated, 'a body at the cap may be cut mid-token');
   }
@@ -128,7 +151,10 @@ final class GuzzleHttpClientTest extends TestCase {
   public function testBodyUnderTheCapIsNotFlagged(): void {
     $client = $this->clientFor(new Response(200, [], str_repeat('a', 100)));
 
-    $response = $client->get('https://blink.sv/x', new HttpRequestOptions(maxBytes: 1024));
+    $response = $client->get(
+      'https://blink.sv/x',
+      new HttpRequestOptions(maxBytes: 1024)
+    );
 
     $this->assertFalse($response->truncated);
     $this->assertSame(100, strlen($response->body));
@@ -162,7 +188,10 @@ final class GuzzleHttpClientTest extends TestCase {
   public function testTimeoutsAndVerificationArePassedThrough(): void {
     $client = $this->clientFor(new Response(200, [], '{}'));
 
-    $client->get('https://blink.sv/x', new HttpRequestOptions(connectTimeout: 2.5, timeout: 7.5));
+    $client->get(
+      'https://blink.sv/x',
+      new HttpRequestOptions(connectTimeout: 2.5, timeout: 7.5)
+    );
 
     $this->assertSame(2.5, $this->captured[0][RequestOptions::CONNECT_TIMEOUT]);
     $this->assertSame(7.5, $this->captured[0][RequestOptions::TIMEOUT]);
@@ -176,7 +205,10 @@ final class GuzzleHttpClientTest extends TestCase {
     $client->get('https://blink.sv/x', new HttpRequestOptions());
     $this->assertSame(CURLPROTO_HTTPS, $this->captured[0]['curl'][CURLOPT_PROTOCOLS]);
 
-    $client->get('http://localhost:8889/x', (new HttpRequestOptions())->withPlainHttpAllowed(true));
+    $client->get(
+      'http://localhost:8889/x',
+      (new HttpRequestOptions())->withPlainHttpAllowed(true)
+    );
     $this->assertSame(
       CURLPROTO_HTTPS | CURLPROTO_HTTP,
       $this->captured[1]['curl'][CURLOPT_PROTOCOLS]
@@ -210,7 +242,10 @@ final class GuzzleHttpClientTest extends TestCase {
   public function testEmptyPinListIsSkippedRatherThanSentAsGarbage(): void {
     $client = $this->clientFor(new Response(200, [], '{}'));
 
-    $client->get('https://blink.sv/x', (new HttpRequestOptions())->withDnsPins(['blink.sv:443' => []]));
+    $client->get(
+      'https://blink.sv/x',
+      (new HttpRequestOptions())->withDnsPins(['blink.sv:443' => []])
+    );
 
     $this->assertArrayNotHasKey(CURLOPT_RESOLVE, $this->captured[0]['curl']);
   }
@@ -226,7 +261,10 @@ final class GuzzleHttpClientTest extends TestCase {
   public function testHeadersReachTheOutboundRequest(): void {
     $client = $this->clientFor(new Response(200, [], '{}'));
 
-    $client->get('https://blink.sv/x', new HttpRequestOptions(headers: ['Accept' => 'text/plain']));
+    $client->get(
+      'https://blink.sv/x',
+      new HttpRequestOptions(headers: ['Accept' => 'text/plain'])
+    );
 
     // Guzzle folds the headers option into the request itself, so assert there
     // rather than on the effective options.

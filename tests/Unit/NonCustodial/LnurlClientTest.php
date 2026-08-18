@@ -26,7 +26,10 @@ final class LnurlClientTest extends TestCase {
     parent::setUp();
     $this->http = new FakeHttpClient();
     $this->log = new SpyLogger();
-    $policy = new UrlPolicy((new FakeDnsResolver())->fallbackTo('93.184.216.34'), $this->log);
+    $policy = new UrlPolicy(
+      (new FakeDnsResolver())->fallbackTo('93.184.216.34'),
+      $this->log
+    );
     $this->client = new LnurlClient($this->http, $policy, $this->log);
     $this->address = LnAddress::parse('shop@blink.sv');
   }
@@ -87,7 +90,10 @@ final class LnurlClientTest extends TestCase {
   }
 
   public function testMetadataMissingThePayRequestTagIsRejected(): void {
-    $this->http->queueJson(['tag' => 'withdrawRequest', 'callback' => 'https://blink.sv/cb']);
+    $this->http->queueJson([
+      'tag' => 'withdrawRequest',
+      'callback' => 'https://blink.sv/cb',
+    ]);
 
     $result = $this->client->fetchPayMetadata($this->address);
 
@@ -164,7 +170,9 @@ final class LnurlClientTest extends TestCase {
   }
 
   public function testARedirectIsTreatedAsAFailureRatherThanFollowed(): void {
-    $this->http->queue(new HttpResponse(302, '', ['location' => 'https://elsewhere.test/']));
+    $this->http->queue(
+      new HttpResponse(302, '', ['location' => 'https://elsewhere.test/'])
+    );
 
     $result = $this->client->fetchPayMetadata($this->address);
 
@@ -181,7 +189,12 @@ final class LnurlClientTest extends TestCase {
       'verify' => 'https://blink.sv/verify/' . str_repeat('ab', 32),
     ]);
 
-    $result = $this->client->requestInvoice($this->address, $this->metadata(), 10000000, '');
+    $result = $this->client->requestInvoice(
+      $this->address,
+      $this->metadata(),
+      10000000,
+      ''
+    );
 
     $this->assertNotInstanceOf(LnurlFailure::class, $result);
     $this->assertSame('lnbc100u1xyz', $result->paymentRequest);
@@ -206,7 +219,10 @@ final class LnurlClientTest extends TestCase {
       ''
     );
 
-    $this->assertStringContainsString('user=shop&amount=', (string) $this->http->lastUrl());
+    $this->assertStringContainsString(
+      'user=shop&amount=',
+      (string) $this->http->lastUrl()
+    );
   }
 
   /**
@@ -260,7 +276,10 @@ final class LnurlClientTest extends TestCase {
       'abcdefghij'
     );
 
-    $this->assertStringContainsString('comment=abcde&', (string) $this->http->lastUrl() . '&');
+    $this->assertStringContainsString(
+      'comment=abcde&',
+      (string) $this->http->lastUrl() . '&'
+    );
   }
 
   /** A byte-wise cut would split a multi-byte character in half. */
@@ -296,7 +315,12 @@ final class LnurlClientTest extends TestCase {
    * @dataProvider badAmounts
    */
   public function testRejectsAmountsThatAreNotWholeSatoshis(int $amountMsat): void {
-    $result = $this->client->requestInvoice($this->address, $this->metadata(), $amountMsat, '');
+    $result = $this->client->requestInvoice(
+      $this->address,
+      $this->metadata(),
+      $amountMsat,
+      ''
+    );
 
     $this->assertInstanceOf(LnurlFailure::class, $result);
     $this->assertSame('LNURL_BAD_AMOUNT', $result->code);
@@ -353,7 +377,12 @@ final class LnurlClientTest extends TestCase {
   public function testCallbackErrorBodyIsReported(): void {
     $this->http->queueJson(['status' => 'ERROR', 'reason' => 'no route']);
 
-    $result = $this->client->requestInvoice($this->address, $this->metadata(), 10000000, '');
+    $result = $this->client->requestInvoice(
+      $this->address,
+      $this->metadata(),
+      10000000,
+      ''
+    );
 
     $this->assertInstanceOf(LnurlFailure::class, $result);
     $this->assertSame('LNURL_ERROR', $result->code);
@@ -362,7 +391,12 @@ final class LnurlClientTest extends TestCase {
   public function testCallbackWithoutAnInvoiceIsRejected(): void {
     $this->http->queueJson(['verify' => 'https://blink.sv/verify/x']);
 
-    $result = $this->client->requestInvoice($this->address, $this->metadata(), 10000000, '');
+    $result = $this->client->requestInvoice(
+      $this->address,
+      $this->metadata(),
+      10000000,
+      ''
+    );
 
     $this->assertInstanceOf(LnurlFailure::class, $result);
     $this->assertSame('LNURL_NO_INVOICE', $result->code);
@@ -372,7 +406,12 @@ final class LnurlClientTest extends TestCase {
   public function testCallbackWithoutAVerifyUrlIsRejected(): void {
     $this->http->queueJson(['pr' => 'lnbc100u1xyz']);
 
-    $result = $this->client->requestInvoice($this->address, $this->metadata(), 10000000, '');
+    $result = $this->client->requestInvoice(
+      $this->address,
+      $this->metadata(),
+      10000000,
+      ''
+    );
 
     $this->assertInstanceOf(LnurlFailure::class, $result);
     $this->assertSame('LNURL_NO_VERIFY', $result->code);
@@ -384,7 +423,12 @@ final class LnurlClientTest extends TestCase {
       'verify' => 'https://attacker.example/verify/' . str_repeat('ab', 32),
     ]);
 
-    $result = $this->client->requestInvoice($this->address, $this->metadata(), 10000000, '');
+    $result = $this->client->requestInvoice(
+      $this->address,
+      $this->metadata(),
+      10000000,
+      ''
+    );
 
     $this->assertInstanceOf(LnurlFailure::class, $result);
     $this->assertSame('LNURL_URL_REJECTED', $result->code);
@@ -396,7 +440,12 @@ final class LnurlClientTest extends TestCase {
       'verify' => 'http://blink.sv/verify/' . str_repeat('ab', 32),
     ]);
 
-    $result = $this->client->requestInvoice($this->address, $this->metadata(), 10000000, '');
+    $result = $this->client->requestInvoice(
+      $this->address,
+      $this->metadata(),
+      10000000,
+      ''
+    );
 
     $this->assertInstanceOf(LnurlFailure::class, $result);
     $this->assertSame('LNURL_URL_REJECTED', $result->code);
@@ -434,7 +483,12 @@ final class LnurlClientTest extends TestCase {
   public function testCallbackServerErrorIsReported(): void {
     $this->http->queue(new HttpResponse(503, 'Service Unavailable'));
 
-    $result = $this->client->requestInvoice($this->address, $this->metadata(), 10000000, '');
+    $result = $this->client->requestInvoice(
+      $this->address,
+      $this->metadata(),
+      10000000,
+      ''
+    );
 
     $this->assertInstanceOf(LnurlFailure::class, $result);
     $this->assertSame('LNURL_HTTP_503', $result->code);
@@ -443,7 +497,12 @@ final class LnurlClientTest extends TestCase {
   public function testCallbackTransportFailureIsReported(): void {
     $this->http->queue(HttpResponse::transportFailure('connect timeout'));
 
-    $result = $this->client->requestInvoice($this->address, $this->metadata(), 10000000, '');
+    $result = $this->client->requestInvoice(
+      $this->address,
+      $this->metadata(),
+      10000000,
+      ''
+    );
 
     $this->assertInstanceOf(LnurlFailure::class, $result);
     $this->assertSame('LNURL_UNREACHABLE', $result->code);
@@ -452,7 +511,12 @@ final class LnurlClientTest extends TestCase {
   public function testMalformedCallbackResponseIsRejected(): void {
     $this->http->queue(new HttpResponse(200, 'not json'));
 
-    $result = $this->client->requestInvoice($this->address, $this->metadata(), 10000000, '');
+    $result = $this->client->requestInvoice(
+      $this->address,
+      $this->metadata(),
+      10000000,
+      ''
+    );
 
     $this->assertInstanceOf(LnurlFailure::class, $result);
     $this->assertSame('LNURL_MALFORMED', $result->code);
@@ -461,10 +525,17 @@ final class LnurlClientTest extends TestCase {
   /**
    * @dataProvider unhashableVerifyUrls
    */
-  public function testVerifyUrlWithoutAUsableHashStillYieldsAnOffer(string $verifyUrl): void {
+  public function testVerifyUrlWithoutAUsableHashStillYieldsAnOffer(
+    string $verifyUrl
+  ): void {
     $this->http->queueJson(['pr' => 'lnbc100u1xyz', 'verify' => $verifyUrl]);
 
-    $result = $this->client->requestInvoice($this->address, $this->metadata(), 10000000, '');
+    $result = $this->client->requestInvoice(
+      $this->address,
+      $this->metadata(),
+      10000000,
+      ''
+    );
 
     $this->assertNotInstanceOf(LnurlFailure::class, $result);
     $this->assertNull(
@@ -488,7 +559,12 @@ final class LnurlClientTest extends TestCase {
       'verify' => 'https://blink.sv/verify/' . strtoupper(str_repeat('ab', 32)),
     ]);
 
-    $result = $this->client->requestInvoice($this->address, $this->metadata(), 10000000, '');
+    $result = $this->client->requestInvoice(
+      $this->address,
+      $this->metadata(),
+      10000000,
+      ''
+    );
 
     $this->assertSame(str_repeat('ab', 32), $result->verifyUrlPaymentHash);
   }
@@ -498,7 +574,12 @@ final class LnurlClientTest extends TestCase {
   private const VERIFY_URL = 'https://blink.sv/verify/aabbccddeeff00112233445566778899aabbccddeeff001122334455667788';
 
   public function testSettledPaymentIsReported(): void {
-    $this->http->queueJson(['status' => 'OK', 'settled' => true, 'preimage' => 'ff00', 'pr' => 'lnbc1']);
+    $this->http->queueJson([
+      'status' => 'OK',
+      'settled' => true,
+      'preimage' => 'ff00',
+      'pr' => 'lnbc1',
+    ]);
 
     $result = $this->client->verify(self::VERIFY_URL, $this->address);
 
@@ -594,7 +675,13 @@ final class LnurlClientTest extends TestCase {
 
   /** @return array<string,array{int}> */
   public static function serverErrors(): array {
-    return ['500' => [500], '502' => [502], '503' => [503], '429' => [429], '403' => [403]];
+    return [
+      '500' => [500],
+      '502' => [502],
+      '503' => [503],
+      '429' => [429],
+      '403' => [403],
+    ];
   }
 
   public function testMalformedVerifyBodyIsATransportError(): void {
@@ -634,7 +721,10 @@ final class LnurlClientTest extends TestCase {
   }
 
   public function testPlainHttpIsOnlyPermittedForLocalDevelopment(): void {
-    $this->http->queueJson(['tag' => 'payRequest', 'callback' => 'http://localhost:8889/cb']);
+    $this->http->queueJson([
+      'tag' => 'payRequest',
+      'callback' => 'http://localhost:8889/cb',
+    ]);
     $local = LnAddress::parse('ok@localhost:8889');
 
     $this->client->fetchPayMetadata($local);

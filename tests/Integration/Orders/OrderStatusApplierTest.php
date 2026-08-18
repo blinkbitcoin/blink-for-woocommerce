@@ -79,7 +79,11 @@ final class OrderStatusApplierTest extends IntegrationTestCase {
     $this->applier->apply($order, 'PAID', 'webhook');
 
     $this->assertSame('pending', $this->reload($order)->get_status());
-    $this->assertSame(1, $this->countNotesContaining($order, 'settled'), 'the note is still added');
+    $this->assertSame(
+      1,
+      $this->countNotesContaining($order, 'settled'),
+      'the note is still added'
+    );
   }
 
   public function test_a_custom_mapping_is_honoured(): void {
@@ -114,7 +118,10 @@ final class OrderStatusApplierTest extends IntegrationTestCase {
 
     $this->assertSame('PENDING', $result);
     $this->assertSame('processing', $this->reload($order)->get_status());
-    $this->assertSame(1, $this->countNotesContaining($order, 'already processing or completed'));
+    $this->assertSame(
+      1,
+      $this->countNotesContaining($order, 'already processing or completed')
+    );
   }
 
   public function test_a_protected_completed_order_reports_paid(): void {
@@ -165,7 +172,10 @@ final class OrderStatusApplierTest extends IntegrationTestCase {
       $this->applier->apply($order, 'PAID', 'ajax-poll', true);
     }
 
-    $this->assertSame(1, $this->countNotesContaining($order, 'already processing or completed'));
+    $this->assertSame(
+      1,
+      $this->countNotesContaining($order, 'already processing or completed')
+    );
   }
 
   /** The webhook's note behaviour is deliberately unchanged. */
@@ -178,7 +188,10 @@ final class OrderStatusApplierTest extends IntegrationTestCase {
     $this->applier->apply($order, 'PAID', 'webhook');
     $this->applier->apply($order, 'PAID', 'webhook');
 
-    $this->assertSame(2, $this->countNotesContaining($order, 'already processing or completed'));
+    $this->assertSame(
+      2,
+      $this->countNotesContaining($order, 'already processing or completed')
+    );
   }
 
   // -------------------------------------------------------- payment_complete

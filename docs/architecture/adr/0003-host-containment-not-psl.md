@@ -17,7 +17,7 @@ address host. For `pay.example.co.uk` that reduces to `co.uk`, so every
 Require the target host to equal the address host, or be a subdomain of it.
 
 ```php
-$host === $address->host || str_ends_with($host, '.' . $address->host)
+$host === $address->host || str_ends_with($host, '.' . $address->host);
 ```
 
 ## Rationale
@@ -25,7 +25,7 @@ $host === $address->host || str_ends_with($host, '.' . $address->host)
 A public suffix list is the general solution, but it is a large file that ships
 with the plugin and goes stale.
 
-It is also not needed, because the correct rule here is *tighter* than "same
+It is also not needed, because the correct rule here is _tighter_ than "same
 registrable domain". An address at `blink.sv` may legitimately be served from
 `blink.sv` or `api.blink.sv`; nothing in LUD-06 or LUD-16 entitles it to
 `blink.io`, and no real provider does that.

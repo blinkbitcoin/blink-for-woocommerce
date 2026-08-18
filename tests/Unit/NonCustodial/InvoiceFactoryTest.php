@@ -41,7 +41,8 @@ final class InvoiceFactoryTest extends TestCase {
 
   private function rate(?int $satoshis): SatsRateProviderInterface {
     return new class ($satoshis) implements SatsRateProviderInterface {
-      public function __construct(private ?int $satoshis) {}
+      public function __construct(private ?int $satoshis) {
+      }
 
       public function toSatoshis(float $amount, string $currency): ?int {
         return $this->satoshis;
@@ -53,7 +54,10 @@ final class InvoiceFactoryTest extends TestCase {
     ?int $satoshis = 10000,
     bool $requireDescriptionBinding = true
   ): InvoiceFactory {
-    $policy = new UrlPolicy((new FakeDnsResolver())->fallbackTo('93.184.216.34'), $this->log);
+    $policy = new UrlPolicy(
+      (new FakeDnsResolver())->fallbackTo('93.184.216.34'),
+      $this->log
+    );
     $client = new LnurlClient($this->http, $policy, $this->log);
 
     return new InvoiceFactory(
@@ -67,7 +71,10 @@ final class InvoiceFactoryTest extends TestCase {
   }
 
   /** 10,000 sat = 10,000,000 msat = 100u. */
-  private function invoiceFor(int $expirySeconds = 3600, string $hrp = 'lnbc100u'): string {
+  private function invoiceFor(
+    int $expirySeconds = 3600,
+    string $hrp = 'lnbc100u'
+  ): string {
     return Bolt11Encoder::create($hrp)
       ->timestamp(self::NOW)
       ->tagHex('p', self::HASH)
@@ -94,7 +101,14 @@ final class InvoiceFactoryTest extends TestCase {
   public function testCreatesAnInvoice(): void {
     $this->queueHappyPath();
 
-    $result = $this->factory()->create($this->address, 10.0, 'USD', '10.00', 'USD', 'GW-1');
+    $result = $this->factory()->create(
+      $this->address,
+      10.0,
+      'USD',
+      '10.00',
+      'USD',
+      'GW-1'
+    );
 
     $this->assertInstanceOf(StoredInvoice::class, $result);
     $this->assertSame(self::HASH, $result->paymentHash);
@@ -138,11 +152,22 @@ final class InvoiceFactoryTest extends TestCase {
   }
 
   public function testFailsWhenNoRateIsAvailable(): void {
-    $result = $this->factory(null)->create($this->address, 10.0, 'USD', '10.00', 'USD', '');
+    $result = $this->factory(null)->create(
+      $this->address,
+      10.0,
+      'USD',
+      '10.00',
+      'USD',
+      ''
+    );
 
     $this->assertInstanceOf(LnurlFailure::class, $result);
     $this->assertSame('RATE_UNAVAILABLE', $result->code);
-    $this->assertSame(0, $this->http->requestCount(), 'nothing should be fetched without a rate');
+    $this->assertSame(
+      0,
+      $this->http->requestCount(),
+      'nothing should be fetched without a rate'
+    );
   }
 
   public function testFailsWhenTheRateIsNotPositive(): void {
@@ -235,8 +260,14 @@ final class InvoiceFactoryTest extends TestCase {
 
     $this->http = new FakeHttpClient();
     $this->queueHappyPath($unbound);
-    $relaxed = $this->factory(10000, false)
-      ->create($this->address, 10.0, 'USD', '10.00', 'USD', '');
+    $relaxed = $this->factory(10000, false)->create(
+      $this->address,
+      10.0,
+      'USD',
+      '10.00',
+      'USD',
+      ''
+    );
 
     $this->assertInstanceOf(StoredInvoice::class, $relaxed);
   }

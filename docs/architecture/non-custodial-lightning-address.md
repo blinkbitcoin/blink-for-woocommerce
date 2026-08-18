@@ -64,7 +64,7 @@ who paid on a phone and closed the laptop.
 
 **Uncertainty never expires an order.** A timeout, a 5xx, a malformed body or a
 rejected URL says nothing about whether the customer paid, so all of them yield
-`PENDING`. An order is expired only when the window has passed *and* the verify
+`PENDING`. An order is expired only when the window has passed _and_ the verify
 endpoint is answering, or when it answers a definitive "no such invoice" after
 expiry. After eight consecutive failures the plugin stops checking, leaves the
 order pending and logs why. A merchant finding an order that needs a human is
@@ -82,13 +82,13 @@ completed.
 
 ### Settlement states
 
-| State | Meaning | Terminal |
-|---|---|---|
-| `PENDING` | not paid yet, or nothing conclusive was learned | no |
-| `PAID` | settled, preimage verified, totals unchanged | yes |
-| `EXPIRED` | window passed with the endpoint answering, or definitively gone | yes |
-| `REVIEW` | paid, but the order changed after the invoice was created | yes |
-| `UNKNOWN` | budget spent, lock held, or no invoice — callers must not act on it | no |
+| State     | Meaning                                                             | Terminal |
+| --------- | ------------------------------------------------------------------- | -------- |
+| `PENDING` | not paid yet, or nothing conclusive was learned                     | no       |
+| `PAID`    | settled, preimage verified, totals unchanged                        | yes      |
+| `EXPIRED` | window passed with the endpoint answering, or definitively gone     | yes      |
+| `REVIEW`  | paid, but the order changed after the invoice was created           | yes      |
+| `UNKNOWN` | budget spent, lock held, or no invoice — callers must not act on it | no       |
 
 ## What is trusted
 
@@ -100,7 +100,7 @@ verify URL, the invoice — is treated as attacker-controlled. See
 
 The invoice is not signature-checked, deliberately. It arrives over TLS from a
 host inside the merchant's own domain, so a valid signature would only prove
-that some node signed it. What matters is *binding*: that the invoice asks for
+that some node signed it. What matters is _binding_: that the invoice asks for
 the amount that was requested, matches the payment hash settlement is checked
 against, and is bound to the metadata the address advertised. Those are checked,
 and the preimage proves payment at settlement.
@@ -112,36 +112,36 @@ protected meta and hides from the order editor's custom-fields box. That matters
 `_blink_verify_url` is fetched over HTTP and decides settlement, so a shop
 manager must not be able to repoint it at a server that always answers "settled".
 
-| Key | Type | Written by | Read by | Purpose |
-|---|---|---|---|---|
-| `blink_id` | string | InvoiceRepository | webhook lookup, settlement | Payment hash. Keeps its unprefixed name because the custodial webhook queries orders by it. |
-| `blink_payment_request` | string | InvoiceRepository | pay page | The BOLT11 invoice |
-| `blink_redirect` | string | custodial path | — | Custodial off-site pay URL |
-| `_blink_account_type` | string | InvoiceRepository | pay page, poll endpoint, scheduler | Marks the order as non-custodial |
-| `_blink_verify_url` | string | InvoiceRepository | settlement | LUD-21 endpoint |
-| `_blink_ln_address` | string | InvoiceRepository | settlement | The address the invoice was created against |
-| `_blink_amount_msat` | int | InvoiceRepository | — | Exact amount requested |
-| `_blink_satoshis` | int | InvoiceRepository | pay page | Amount shown to the customer |
-| `_blink_created_at` | int | InvoiceRepository | scheduler | Invoice creation time |
-| `_blink_expires_at` | int | InvoiceRepository | settlement, pay page | Decoded from the invoice, not assumed |
-| `_blink_order_total` | string | InvoiceRepository | settlement | Total at creation, for the change check |
-| `_blink_order_currency` | string | InvoiceRepository | settlement | Currency at creation |
-| `_blink_status` | string | SettlementService | poll endpoint | Last observed status |
-| `_blink_status_at` | int | SettlementService | poll endpoint | When it was observed |
-| `_blink_attempts` | int | SettlementService | retry budget | Checks made |
-| `_blink_errors` | int | SettlementService | retry budget | Consecutive failures |
-| `_blink_settled_at` | int | SettlementService | idempotency latch | When settlement was first recorded |
-| `_blink_preimage` | string | SettlementService | — | Payment proof |
-| `_blink_terminal` | string | SettlementService | everything | Final state, short-circuits further work |
+| Key                     | Type   | Written by        | Read by                            | Purpose                                                                                     |
+| ----------------------- | ------ | ----------------- | ---------------------------------- | ------------------------------------------------------------------------------------------- |
+| `blink_id`              | string | InvoiceRepository | webhook lookup, settlement         | Payment hash. Keeps its unprefixed name because the custodial webhook queries orders by it. |
+| `blink_payment_request` | string | InvoiceRepository | pay page                           | The BOLT11 invoice                                                                          |
+| `blink_redirect`        | string | custodial path    | —                                  | Custodial off-site pay URL                                                                  |
+| `_blink_account_type`   | string | InvoiceRepository | pay page, poll endpoint, scheduler | Marks the order as non-custodial                                                            |
+| `_blink_verify_url`     | string | InvoiceRepository | settlement                         | LUD-21 endpoint                                                                             |
+| `_blink_ln_address`     | string | InvoiceRepository | settlement                         | The address the invoice was created against                                                 |
+| `_blink_amount_msat`    | int    | InvoiceRepository | —                                  | Exact amount requested                                                                      |
+| `_blink_satoshis`       | int    | InvoiceRepository | pay page                           | Amount shown to the customer                                                                |
+| `_blink_created_at`     | int    | InvoiceRepository | scheduler                          | Invoice creation time                                                                       |
+| `_blink_expires_at`     | int    | InvoiceRepository | settlement, pay page               | Decoded from the invoice, not assumed                                                       |
+| `_blink_order_total`    | string | InvoiceRepository | settlement                         | Total at creation, for the change check                                                     |
+| `_blink_order_currency` | string | InvoiceRepository | settlement                         | Currency at creation                                                                        |
+| `_blink_status`         | string | SettlementService | poll endpoint                      | Last observed status                                                                        |
+| `_blink_status_at`      | int    | SettlementService | poll endpoint                      | When it was observed                                                                        |
+| `_blink_attempts`       | int    | SettlementService | retry budget                       | Checks made                                                                                 |
+| `_blink_errors`         | int    | SettlementService | retry budget                       | Consecutive failures                                                                        |
+| `_blink_settled_at`     | int    | SettlementService | idempotency latch                  | When settlement was first recorded                                                          |
+| `_blink_preimage`       | string | SettlementService | —                                  | Payment proof                                                                               |
+| `_blink_terminal`       | string | SettlementService | everything                         | Final state, short-circuits further work                                                    |
 
 `_blink_ln_address` is the fix for a specific bug: settlement used to read the
-shop's *current* address, so changing it in the settings screen stranded every
+shop's _current_ address, so changing it in the settings screen stranded every
 order already in flight.
 
 ## Filters
 
-| Filter | Purpose |
-|---|---|
-| `blink_service_*` | Replace any service in the graph (`blink_service_http`, `blink_service_clock`, …) |
+| Filter                                     | Purpose                                                                                                           |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `blink_service_*`                          | Replace any service in the graph (`blink_service_http`, `blink_service_clock`, …)                                 |
 | `blink_bolt11_require_description_binding` | Relax the metadata binding check for a server that does not echo metadata. On by default; disabling it is logged. |
-| `blink_client_ip` | Supply the real client address on a proxied site. Only `REMOTE_ADDR` is trusted by default. |
+| `blink_client_ip`                          | Supply the real client address on a proxied site. Only `REMOTE_ADDR` is trusted by default.                       |

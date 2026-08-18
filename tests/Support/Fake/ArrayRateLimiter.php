@@ -13,7 +13,8 @@ final class ArrayRateLimiter implements RateLimiterInterface {
 
   public int $gcCalls = 0;
 
-  public function __construct(private ClockInterface $clock) {}
+  public function __construct(private ClockInterface $clock) {
+  }
 
   public function hit(string $bucket, int $limit, int $windowSeconds): bool {
     if ($limit <= 0) {

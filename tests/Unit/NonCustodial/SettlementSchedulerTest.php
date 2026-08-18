@@ -54,7 +54,10 @@ final class SettlementSchedulerTest extends TestCase {
     $this->order = new FakeOrder(42, '10.00', 'USD');
     $this->outcomeApplier = new RecordingOutcomeApplier();
 
-    $policy = new UrlPolicy((new FakeDnsResolver())->fallbackTo('93.184.216.34'), $this->log);
+    $policy = new UrlPolicy(
+      (new FakeDnsResolver())->fallbackTo('93.184.216.34'),
+      $this->log
+    );
     $this->settlement = new SettlementService(
       new LnurlClient($this->http, $policy, $this->log),
       $this->repository,
@@ -105,7 +108,10 @@ final class SettlementSchedulerTest extends TestCase {
     $this->assertSame(self::NOW + 20, $this->scheduler->scheduled[0]['timestamp']);
     $this->assertSame(SettlementScheduler::HOOK, $this->scheduler->scheduled[0]['hook']);
     $this->assertSame([42], $this->scheduler->scheduled[0]['args']);
-    $this->assertSame(SettlementScheduler::GROUP, $this->scheduler->scheduled[0]['group']);
+    $this->assertSame(
+      SettlementScheduler::GROUP,
+      $this->scheduler->scheduled[0]['group']
+    );
   }
 
   /** A replaced invoice must not leave the old one's checks running. */
@@ -149,9 +155,15 @@ final class SettlementSchedulerTest extends TestCase {
 
     $this->http->queueJson(['settled' => true, 'preimage' => $this->preimage]);
     $this->clock->travel(45);
-    $this->assertFalse($scheduler->tick($this->order), 'a settled order needs no further checks');
+    $this->assertFalse(
+      $scheduler->tick($this->order),
+      'a settled order needs no further checks'
+    );
 
-    $this->assertSame(SettlementStatus::Paid, $this->repository->terminalStatus($this->order));
+    $this->assertSame(
+      SettlementStatus::Paid,
+      $this->repository->terminalStatus($this->order)
+    );
   }
 
   public function testChecksFollowAnEscalatingSchedule(): void {
@@ -218,7 +230,10 @@ final class SettlementSchedulerTest extends TestCase {
     // And that final check resolves the order instead of scheduling more.
     $this->clock->freezeAt($deadline);
     $this->assertFalse($scheduler->tick($this->order));
-    $this->assertSame(SettlementStatus::Expired, $this->repository->terminalStatus($this->order));
+    $this->assertSame(
+      SettlementStatus::Expired,
+      $this->repository->terminalStatus($this->order)
+    );
   }
 
   public function testAScheduledCheckIsNeverDueInThePast(): void {
@@ -240,7 +255,10 @@ final class SettlementSchedulerTest extends TestCase {
     $this->clock->travel(60 + SettlementService::EXPIRY_GRACE_SECONDS + 1);
 
     $this->assertFalse($scheduler->tick($this->order));
-    $this->assertSame(SettlementStatus::Expired, $this->repository->terminalStatus($this->order));
+    $this->assertSame(
+      SettlementStatus::Expired,
+      $this->repository->terminalStatus($this->order)
+    );
   }
 
   public function testAnAlreadyResolvedOrderIsNotChecked(): void {

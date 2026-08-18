@@ -20,13 +20,19 @@ final class FakeScheduler implements SchedulerInterface {
   /** @var list<array{hook:string,args:array,group:string}> */
   public array $unscheduled = [];
 
-  public function __construct(private bool $available = true) {}
+  public function __construct(private bool $available = true) {
+  }
 
   public function isAvailable(): bool {
     return $this->available;
   }
 
-  public function scheduleSingle(int $timestamp, string $hook, array $args, string $group): void {
+  public function scheduleSingle(
+    int $timestamp,
+    string $hook,
+    array $args,
+    string $group
+  ): void {
     if (!$this->available) {
       return;
     }
@@ -38,7 +44,11 @@ final class FakeScheduler implements SchedulerInterface {
     $this->scheduled = array_values(
       array_filter(
         $this->scheduled,
-        static fn(array $a): bool => !($a['hook'] === $hook && $a['args'] === $args && $a['group'] === $group)
+        static fn(array $a): bool => !(
+          $a['hook'] === $hook &&
+          $a['args'] === $args &&
+          $a['group'] === $group
+        )
       )
     );
   }
@@ -46,7 +56,11 @@ final class FakeScheduler implements SchedulerInterface {
   public function nextScheduled(string $hook, array $args, string $group): ?int {
     $times = [];
     foreach ($this->scheduled as $action) {
-      if ($action['hook'] === $hook && $action['args'] === $args && $action['group'] === $group) {
+      if (
+        $action['hook'] === $hook &&
+        $action['args'] === $args &&
+        $action['group'] === $group
+      ) {
         $times[] = $action['timestamp'];
       }
     }

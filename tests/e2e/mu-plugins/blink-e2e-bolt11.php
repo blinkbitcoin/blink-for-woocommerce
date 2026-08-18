@@ -48,7 +48,10 @@ final class Blink_E2E_Bolt11 {
   private static function amountToHrp(int $amountMsat): string {
     $pico = $amountMsat * 10;
 
-    foreach (['m' => 1000000000, 'u' => 1000000, 'n' => 1000, 'p' => 1] as $suffix => $unit) {
+    foreach (
+      ['m' => 1000000000, 'u' => 1000000, 'n' => 1000, 'p' => 1]
+      as $suffix => $unit
+    ) {
       if ($pico % $unit === 0) {
         return ((string) intdiv($pico, $unit)) . $suffix;
       }
@@ -76,7 +79,7 @@ final class Blink_E2E_Bolt11 {
   private static function intToGroups(int $value, int $groups): array {
     $result = [];
     for ($i = $groups - 1; $i >= 0; $i--) {
-      $result[] = ($value >> ($i * 5)) & 31;
+      $result[] = ($value >> $i * 5) & 31;
     }
 
     return $result;
@@ -109,7 +112,7 @@ final class Blink_E2E_Bolt11 {
       }
     }
     if ($bits > 0) {
-      $result[] = ($acc << ($to - $bits)) & $max;
+      $result[] = ($acc << $to - $bits) & $max;
     }
 
     return $result;
@@ -122,7 +125,7 @@ final class Blink_E2E_Bolt11 {
 
     $checksum = [];
     for ($i = 0; $i < 6; $i++) {
-      $checksum[] = ($polymod >> (5 * (5 - $i))) & 31;
+      $checksum[] = ($polymod >> 5 * (5 - $i)) & 31;
     }
 
     return $checksum;

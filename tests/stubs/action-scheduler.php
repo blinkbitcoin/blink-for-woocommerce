@@ -28,7 +28,11 @@ function as_schedule_single_action(
 /**
  * @param array<int|string,mixed>|null $args
  */
-function as_unschedule_all_actions(string $hook, ?array $args = [], string $group = ''): void {
+function as_unschedule_all_actions(
+  string $hook,
+  ?array $args = [],
+  string $group = ''
+): void {
 }
 
 /**

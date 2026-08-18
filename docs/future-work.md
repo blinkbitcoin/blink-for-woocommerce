@@ -216,7 +216,7 @@ on the hot path.
 
 **Why it was not done now.** It is an optimisation with a second code path to
 cover, and the database path is not a bottleneck at the volumes this handles.
-Note that `wp_cache_add()` is only atomic *with* a persistent object cache —
+Note that `wp_cache_add()` is only atomic _with_ a persistent object cache —
 using it unconditionally would silently disable the lock on a default install.
 
 ---

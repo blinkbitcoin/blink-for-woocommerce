@@ -24,11 +24,17 @@ final class SpyLogger implements LoggerInterface {
 
   /** @return list<string> */
   public function messages(?string $level = null): array {
-    $records = $level === null
-      ? $this->records
-      : array_filter($this->records, static fn(array $r): bool => $r['level'] === $level);
+    $records =
+      $level === null
+        ? $this->records
+        : array_filter(
+          $this->records,
+          static fn(array $r): bool => $r['level'] === $level
+        );
 
-    return array_values(array_map(static fn(array $r): string => $r['message'], $records));
+    return array_values(
+      array_map(static fn(array $r): string => $r['message'], $records)
+    );
   }
 
   public function hasMessageContaining(string $needle, ?string $level = null): bool {

@@ -1,0 +1,10 @@
+node_modules
+vendor
+build
+languages
+assets/js/frontend/qrcode.min.js
+docs/wordpress-org
+package-lock.json
+composer.lock
+phpstan-baseline.neon
+tests/fixtures

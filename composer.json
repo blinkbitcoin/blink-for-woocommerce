@@ -44,13 +44,20 @@
   "scripts": {
     "test:unit": "phpunit -c phpunit-unit.xml.dist --no-coverage",
     "test:integration": "phpunit -c phpunit.xml.dist --no-coverage",
-    "test": ["@test:unit", "@test:integration"],
+    "test": [
+      "@test:unit",
+      "@test:integration"
+    ],
     "coverage": "bin/run-coverage.sh",
     "coverage:gate": "php bin/coverage-gate.php build/coverage/cobertura.xml",
     "lint:phpcs": "phpcs",
     "lint:phpcbf": "phpcbf",
     "lint:phpstan": "phpstan analyse --memory-limit=1G",
     "lint:ignores": "php bin/check-coverage-ignores.php",
-    "lint": ["@lint:phpcs", "@lint:phpstan", "@lint:ignores"]
+    "lint": [
+      "@lint:phpcs",
+      "@lint:phpstan",
+      "@lint:ignores"
+    ]
   }
 }

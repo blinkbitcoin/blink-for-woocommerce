@@ -73,7 +73,11 @@ final class FakeHttpClient implements HttpClientInterface {
     }
 
     throw new \LogicException(
-      sprintf('FakeHttpClient had no scripted response for request #%d to %s', count($this->requests), $url)
+      sprintf(
+        'FakeHttpClient had no scripted response for request #%d to %s',
+        count($this->requests),
+        $url
+      )
     );
   }
 

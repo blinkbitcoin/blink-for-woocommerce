@@ -37,7 +37,10 @@ export interface OrderState {
  * no invoice existed, the pay page rendered nothing, and the specs asserting
  * "no invoice was created" passed for entirely the wrong reason.
  */
-export async function seedOrder(request: APIRequestContext, total = '10.00'): Promise<SeededOrder> {
+export async function seedOrder(
+  request: APIRequestContext,
+  total = '10.00',
+): Promise<SeededOrder> {
   const response = await request.post(`${BASE}/blink-e2e/control/order?total=${total}`);
   expect(response.ok()).toBeTruthy();
 
@@ -50,17 +53,24 @@ export async function seedOrder(request: APIRequestContext, total = '10.00'): Pr
 
 export async function orderState(
   request: APIRequestContext,
-  orderId: number
+  orderId: number,
 ): Promise<OrderState> {
-  const response = await request.get(`${BASE}/blink-e2e/control/order-state?id=${orderId}`);
+  const response = await request.get(
+    `${BASE}/blink-e2e/control/order-state?id=${orderId}`,
+  );
   expect(response.ok()).toBeTruthy();
 
   return (await response.json()) as OrderState;
 }
 
 /** Marks an invoice paid on the fake LNURL server. */
-export async function settle(request: APIRequestContext, paymentHash: string): Promise<void> {
-  const response = await request.post(`${BASE}/blink-e2e/control/settle?hash=${paymentHash}`);
+export async function settle(
+  request: APIRequestContext,
+  paymentHash: string,
+): Promise<void> {
+  const response = await request.post(
+    `${BASE}/blink-e2e/control/settle?hash=${paymentHash}`,
+  );
   expect(response.ok()).toBeTruthy();
 }
 

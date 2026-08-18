@@ -314,7 +314,11 @@ final class InvoiceValidatorTest extends TestCase {
     $result = $this->validator->validate($invoice, $this->expectation());
 
     $this->assertTrue($result->valid);
-    $this->assertSame(self::NOW + 3600, $result->expiresAt, 'expiry should clamp to the maximum');
+    $this->assertSame(
+      self::NOW + 3600,
+      $result->expiresAt,
+      'expiry should clamp to the maximum'
+    );
   }
 
   public function testExpiryFollowsTheInvoiceWhenShorterThanTheMaximum(): void {

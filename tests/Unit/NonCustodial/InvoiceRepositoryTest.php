@@ -74,13 +74,16 @@ final class InvoiceRepositoryTest extends TestCase {
   public function testSettlementCriticalKeysAreProtectedMeta(): void {
     $this->repository->store($this->order, $this->invoice());
 
-    foreach ([
-      InvoiceRepository::VERIFY_URL,
-      InvoiceRepository::LN_ADDRESS,
-      InvoiceRepository::EXPIRES_AT,
-      InvoiceRepository::AMOUNT_MSAT,
-      InvoiceRepository::ACCOUNT_TYPE,
-    ] as $key) {
+    foreach (
+      [
+        InvoiceRepository::VERIFY_URL,
+        InvoiceRepository::LN_ADDRESS,
+        InvoiceRepository::EXPIRES_AT,
+        InvoiceRepository::AMOUNT_MSAT,
+        InvoiceRepository::ACCOUNT_TYPE,
+      ]
+      as $key
+    ) {
       $this->assertStringStartsWith('_', $key, $key . ' must be protected meta');
       $this->assertArrayHasKey($key, $this->order->meta);
     }
@@ -220,7 +223,11 @@ final class InvoiceRepositoryTest extends TestCase {
     $this->repository->recordAttempt($this->order, false);
 
     $this->assertSame(0, $this->repository->consecutiveErrors($this->order));
-    $this->assertSame(3, $this->repository->attempts($this->order), 'attempts still count');
+    $this->assertSame(
+      3,
+      $this->repository->attempts($this->order),
+      'attempts still count'
+    );
   }
 
   /**
@@ -258,7 +265,10 @@ final class InvoiceRepositoryTest extends TestCase {
 
     $this->repository->markTerminal($this->order, SettlementStatus::Expired);
 
-    $this->assertSame(SettlementStatus::Expired, $this->repository->terminalStatus($this->order));
+    $this->assertSame(
+      SettlementStatus::Expired,
+      $this->repository->terminalStatus($this->order)
+    );
   }
 
   public function testAnUnrecognisedTerminalMarkerIsIgnored(): void {
@@ -275,7 +285,10 @@ final class InvoiceRepositoryTest extends TestCase {
     $this->order->setTotal('10');
 
     $this->assertTrue(
-      $this->repository->totalsUnchanged($this->order, $this->invoice(['orderTotal' => '10.00']))
+      $this->repository->totalsUnchanged(
+        $this->order,
+        $this->invoice(['orderTotal' => '10.00'])
+      )
     );
   }
 
@@ -286,13 +299,17 @@ final class InvoiceRepositoryTest extends TestCase {
   public function testAChangedTotalIsDetected(): void {
     $this->order->setTotal('99.00');
 
-    $this->assertFalse($this->repository->totalsUnchanged($this->order, $this->invoice()));
+    $this->assertFalse(
+      $this->repository->totalsUnchanged($this->order, $this->invoice())
+    );
   }
 
   public function testAChangedCurrencyIsDetected(): void {
     $this->order->setCurrency('EUR');
 
-    $this->assertFalse($this->repository->totalsUnchanged($this->order, $this->invoice()));
+    $this->assertFalse(
+      $this->repository->totalsUnchanged($this->order, $this->invoice())
+    );
   }
 
   /** Invoices stored before totals were recorded cannot be compared. */
@@ -300,10 +317,16 @@ final class InvoiceRepositoryTest extends TestCase {
     $this->order->setTotal('99.00');
 
     $this->assertTrue(
-      $this->repository->totalsUnchanged($this->order, $this->invoice(['orderTotal' => '']))
+      $this->repository->totalsUnchanged(
+        $this->order,
+        $this->invoice(['orderTotal' => ''])
+      )
     );
     $this->assertTrue(
-      $this->repository->totalsUnchanged($this->order, $this->invoice(['orderCurrency' => '']))
+      $this->repository->totalsUnchanged(
+        $this->order,
+        $this->invoice(['orderCurrency' => ''])
+      )
     );
   }
 

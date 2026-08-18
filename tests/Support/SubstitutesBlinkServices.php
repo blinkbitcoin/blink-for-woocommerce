@@ -38,7 +38,10 @@ trait SubstitutesBlinkServices {
 
     add_filter('blink_service_clock', fn() => $this->clock);
     add_filter('blink_service_http', fn() => $this->http);
-    add_filter('blink_service_dnsResolver', fn() => new FakeDnsResolver([], ['93.184.216.34']));
+    add_filter(
+      'blink_service_dnsResolver',
+      fn() => new FakeDnsResolver([], ['93.184.216.34'])
+    );
     $this->rates = new FixedSatsRateProvider();
     add_filter('blink_service_satsRateProvider', fn() => $this->rates);
 
@@ -69,7 +72,10 @@ trait SubstitutesBlinkServices {
     return Services::instance();
   }
 
-  protected function makeOrder(string $total = '10.00', string $currency = 'USD'): \WC_Order {
+  protected function makeOrder(
+    string $total = '10.00',
+    string $currency = 'USD'
+  ): \WC_Order {
     $order = wc_create_order();
     $order->set_currency($currency);
     $order->set_total($total);
@@ -87,7 +93,10 @@ trait SubstitutesBlinkServices {
     return $this->services()->invoiceRepository();
   }
 
-  protected function storeInvoice(\WC_Order $order, array $overrides = []): StoredInvoice {
+  protected function storeInvoice(
+    \WC_Order $order,
+    array $overrides = []
+  ): StoredInvoice {
     $hash = $overrides['paymentHash'] ?? $this->paymentHash;
     $invoice = new StoredInvoice(
       $hash,

@@ -40,7 +40,12 @@ final class AjaxCheckInvoiceTest extends WP_Ajax_UnitTestCase {
 
   public function tear_down() {
     $this->restoreBlinkServices();
-    unset($_POST['nonce'], $_POST['order_id'], $_POST['order_key'], $_SERVER['REMOTE_ADDR']);
+    unset(
+      $_POST['nonce'],
+      $_POST['order_id'],
+      $_POST['order_key'],
+      $_SERVER['REMOTE_ADDR']
+    );
     parent::tear_down();
   }
 

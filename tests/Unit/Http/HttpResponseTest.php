@@ -49,7 +49,10 @@ final class HttpResponseTest extends TestCase {
   /**
    * @dataProvider bodies
    */
-  public function testJsonDecodesOnlyObjectsAndArrays(string $body, ?array $expected): void {
+  public function testJsonDecodesOnlyObjectsAndArrays(
+    string $body,
+    ?array $expected
+  ): void {
     $this->assertSame($expected, (new HttpResponse(200, $body))->json());
   }
 
@@ -70,7 +73,13 @@ final class HttpResponseTest extends TestCase {
   }
 
   public function testHeadersAndTruncationAreCarried(): void {
-    $response = new HttpResponse(200, 'x', ['content-type' => 'application/json'], null, true);
+    $response = new HttpResponse(
+      200,
+      'x',
+      ['content-type' => 'application/json'],
+      null,
+      true
+    );
 
     $this->assertSame('application/json', $response->headers['content-type']);
     $this->assertTrue($response->truncated);

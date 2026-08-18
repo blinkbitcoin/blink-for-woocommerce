@@ -2,18 +2,22 @@
 
 Three tiers, each answering a different question.
 
-| Tier | Question | WordPress? | Speed |
-|---|---|---|---|
-| Unit (`tests/Unit`) | Does this class behave correctly, including its edge cases? | No | milliseconds |
-| Integration (`tests/Integration`) | Does it work against real WordPress, WooCommerce and MySQL? | Yes | ~1 minute |
-| End to end (`tests/e2e`) | Do the scripts load, the QR render, and a real poll navigate? | Yes, in a browser | ~3 seconds |
-| JavaScript (`tests/js`) | Does the pay page behave? | jsdom | seconds |
+| Tier                              | Question                                                      | WordPress?        | Speed        |
+| --------------------------------- | ------------------------------------------------------------- | ----------------- | ------------ |
+| Unit (`tests/Unit`)               | Does this class behave correctly, including its edge cases?   | No                | milliseconds |
+| Integration (`tests/Integration`) | Does it work against real WordPress, WooCommerce and MySQL?   | Yes               | ~1 minute    |
+| End to end (`tests/e2e`)          | Do the scripts load, the QR render, and a real poll navigate? | Yes, in a browser | ~3 seconds   |
+| JavaScript (`tests/js`)           | Does the pay page behave?                                     | jsdom             | seconds      |
 
 ## Running them
 
 ```bash
 composer test:unit          # no setup needed
 npm run test:js             # no setup needed
+
+# Linting: PHP on one side, everything else on the other.
+composer lint               # phpcs, phpstan, coverage-ignore register
+npm run lint                # prettier, eslint, tsc --noEmit
 
 # Integration needs a database and the WordPress test library:
 bash bin/install-wp-tests.sh wordpress_test root '' 127.0.0.1 6.6 true
@@ -52,17 +56,17 @@ class under test is reaching for something it should be receiving.**
 
 In `tests/Support/Fake`:
 
-| Fake | Notes |
-|---|---|
-| `FakeClock` | `freezeAt()` and `travel()`. Use it to stand exactly on a boundary. |
-| `FakeHttpClient` | Scripted responses plus a call log. `onRequest()` fires *during* a request — see below. |
-| `FakeDnsResolver` | Host → addresses. |
-| `FakeRandomSource` | Scripted floats; **throws when exhausted**, so an unexpected draw fails loudly. |
-| `ArrayLock` / `ArrayRateLimiter` | In-memory, same expiry semantics as the database versions. |
-| `FakeScheduler` | Records what was scheduled without running it. |
-| `FakeOrder` | Implements `OrderRecord` in memory. |
-| `SpyLogger` | Asserts that a swallowed failure was still reported. |
-| `FixedSatsRateProvider` | Keeps the conversion off the network. |
+| Fake                             | Notes                                                                                   |
+| -------------------------------- | --------------------------------------------------------------------------------------- |
+| `FakeClock`                      | `freezeAt()` and `travel()`. Use it to stand exactly on a boundary.                     |
+| `FakeHttpClient`                 | Scripted responses plus a call log. `onRequest()` fires _during_ a request — see below. |
+| `FakeDnsResolver`                | Host → addresses.                                                                       |
+| `FakeRandomSource`               | Scripted floats; **throws when exhausted**, so an unexpected draw fails loudly.         |
+| `ArrayLock` / `ArrayRateLimiter` | In-memory, same expiry semantics as the database versions.                              |
+| `FakeScheduler`                  | Records what was scheduled without running it.                                          |
+| `FakeOrder`                      | Implements `OrderRecord` in memory.                                                     |
+| `SpyLogger`                      | Asserts that a swallowed failure was still reported.                                    |
+| `FixedSatsRateProvider`          | Keeps the conversion off the network.                                                   |
 
 `tests/Support/Bolt11Encoder` builds syntactically valid invoices, which is
 possible precisely because the decoder does not verify signatures. It gives
@@ -79,7 +83,7 @@ arriving mid-request, and it is deterministic:
 
 ```php
 $this->http->onRequest(function () use (&$reentrant): void {
-    $reentrant = $this->service->poll($this->order);
+  $reentrant = $this->service->poll($this->order);
 });
 $first = $this->service->poll($this->order);
 
@@ -99,7 +103,7 @@ that previously left all 620 tests green while breaking every real pay page.
 **Background settlement.** Integration tests fire the scheduler's hook directly
 with `do_action(SettlementScheduler::HOOK, $orderId)`, which is what Action
 Scheduler does when it runs the queue. A test that never touches the AJAX
-endpoint and still sees the order settle *is* the "customer closed the laptop"
+endpoint and still sees the order settle _is_ the "customer closed the laptop"
 case.
 
 **Time.** Travel the fake clock. Boundaries are tested at −1, 0 and +1.
@@ -156,9 +160,9 @@ testable:
 - `wp_safe_redirect(); exit;` — testable through the `wp_redirect` filter
 - `catch (\Throwable)` — the fake HTTP client throws whatever you want
 
-| File | Symbol | Reason | Reviewer |
-|---|---|---|---|
-| _(none)_ | | | |
+| File     | Symbol | Reason | Reviewer |
+| -------- | ------ | ------ | -------- |
+| _(none)_ |        |        |          |
 
 The register is empty, which is the point: the code that would have needed
 exemptions is covered in the integration tier instead.

@@ -6,13 +6,13 @@ it.
 
 ## Choosing between the two modes
 
-|  | Custodial | Non-custodial |
-|---|---|---|
-| What you enter | A Blink API key | A Lightning address, e.g. `shop@blink.sv` |
-| Where the customer pays | On `pay.blink.sv` | On your own site |
-| How your shop learns about payment | Blink calls your site | Your site checks, repeatedly |
-| Who holds the funds | Your Blink account | Whoever runs the address |
-| Stablesats (USD-pegged) | Yes | No — Bitcoin only |
+|                                    | Custodial             | Non-custodial                             |
+| ---------------------------------- | --------------------- | ----------------------------------------- |
+| What you enter                     | A Blink API key       | A Lightning address, e.g. `shop@blink.sv` |
+| Where the customer pays            | On `pay.blink.sv`     | On your own site                          |
+| How your shop learns about payment | Blink calls your site | Your site checks, repeatedly              |
+| Who holds the funds                | Your Blink account    | Whoever runs the address                  |
+| Stablesats (USD-pegged)            | Yes                   | No — Bitcoin only                         |
 
 The honest summary: non-custodial means your shop is not connected to an account
 it can be locked out of, but it also means your shop has no authenticated
@@ -24,7 +24,7 @@ comes from asking the address's server, over the public internet.
 1. **Get a Lightning address.** Any provider works. In the Blink app it is shown
    in your wallet as `something@blink.sv`.
 2. **WooCommerce → Settings → Payments → Blink.**
-3. Set **Account Type** to *Non-custodial (lightning address)*.
+3. Set **Account Type** to _Non-custodial (lightning address)_.
 4. Enter the address and save.
 
 The settings screen checks the address when you save and tells you if it cannot

@@ -36,7 +36,10 @@ final class DbLockTest extends IntegrationTestCase {
   public function test_a_held_lock_is_refused(): void {
     $this->assertNotNull($this->lock->acquire('order_1', 30));
 
-    $this->assertNull($this->lock->acquire('order_1', 30), 'a second holder must be refused');
+    $this->assertNull(
+      $this->lock->acquire('order_1', 30),
+      'a second holder must be refused'
+    );
   }
 
   public function test_locks_are_independent_per_key(): void {

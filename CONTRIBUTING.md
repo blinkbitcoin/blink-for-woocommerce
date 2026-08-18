@@ -37,8 +37,7 @@ npm run test:js             # the pay page
 npm run test:e2e            # browser, needs `npx wp-env start`
 
 composer lint               # phpcs + phpstan + the coverage-ignore register
-npm run prettier:check
-npm run lint:js
+npm run lint                # prettier + eslint + tsc --noEmit
 
 XDEBUG_MODE=coverage bin/run-coverage.sh && composer coverage:gate
 ```
@@ -54,9 +53,16 @@ the gate fails (sometimes the answer is to delete an unreachable branch).
 `wp_rand()`, DNS functions, or construct an HTTP client. It receives them. See
 [docs/architecture/seams.md](docs/architecture/seams.md).
 
-**Formatting.** Prettier is the authority. Run `npm run prettier:fix` rather
-than hand-formatting; `.editorconfig` matches it. PHPCS is configured for
-security and WordPress-API correctness only, deliberately not style.
+**Formatting and JavaScript.** Prettier is the authority for every file it can
+parse — PHP, JavaScript, TypeScript, JSON, YAML and Markdown. Run
+`npm run prettier:fix` rather than hand-formatting; `.editorconfig` matches it.
+PHPCS is configured for security and WordPress-API correctness only,
+deliberately not style.
+
+`npm run lint` also runs ESLint over every JavaScript file and `tsc --noEmit`
+over the TypeScript. The type check earns its place because Playwright strips
+types without checking them, so nothing else would notice a type error in the
+end-to-end helpers.
 
 **Anything touching money or settlement.** Read
 [docs/architecture/non-custodial-lightning-address.md](docs/architecture/non-custodial-lightning-address.md)
@@ -74,7 +80,7 @@ it is fetched.
 
 Conventional commits (`feat:`, `fix:`, `test:`, `docs:`, `chore:`, `ci:`).
 
-Explain *why* in the body, especially for a behaviour change. A commit that says
+Explain _why_ in the body, especially for a behaviour change. A commit that says
 what the code now does is less useful than one saying what went wrong before —
 the reader can see the diff, but they cannot see the bug.
 

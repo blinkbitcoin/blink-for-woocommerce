@@ -30,7 +30,10 @@ final class Bolt11DecoderTest extends TestCase {
    *
    * @dataProvider validSpecVectors
    */
-  public function testDecodesEverySpecificationExample(string $label, string $invoice): void {
+  public function testDecodesEverySpecificationExample(
+    string $label,
+    string $invoice
+  ): void {
     $decoded = $this->decoder->decode($invoice);
 
     $this->assertContains($decoded->network, ['bc', 'tb', 'bcrt', 'sb'], $label);
@@ -41,7 +44,10 @@ final class Bolt11DecoderTest extends TestCase {
   public static function validSpecVectors(): array {
     $cases = [];
     foreach (self::specVectors()['valid'] as $i => $vector) {
-      $cases[$i . ': ' . substr($vector['label'], 0, 50)] = [$vector['label'], $vector['invoice']];
+      $cases[$i . ': ' . substr($vector['label'], 0, 50)] = [
+        $vector['label'],
+        $vector['invoice'],
+      ];
     }
 
     return $cases;
@@ -52,7 +58,11 @@ final class Bolt11DecoderTest extends TestCase {
    *
    * @dataProvider specAmounts
    */
-  public function testDecodesSpecAmounts(int $index, ?int $expectedMsat, int $expectedExpiry): void {
+  public function testDecodesSpecAmounts(
+    int $index,
+    ?int $expectedMsat,
+    int $expectedExpiry
+  ): void {
     $invoice = self::specVectors()['valid'][$index]['invoice'];
 
     $decoded = $this->decoder->decode($invoice);
@@ -101,7 +111,10 @@ final class Bolt11DecoderTest extends TestCase {
     $decoded = $this->decoder->decode(self::specVectors()['valid'][2]['invoice']);
 
     $this->assertNotNull($decoded->description);
-    $this->assertStringContainsString("\u{30CA}\u{30F3}\u{30BB}\u{30F3}\u{30B9}", $decoded->description);
+    $this->assertStringContainsString(
+      "\u{30CA}\u{30F3}\u{30BB}\u{30F3}\u{30B9}",
+      $decoded->description
+    );
   }
 
   /**
@@ -109,7 +122,10 @@ final class Bolt11DecoderTest extends TestCase {
    *
    * @dataProvider rejectableSpecVectors
    */
-  public function testRejectsSpecInvoicesThatFailChecksItPerforms(int $index, string $expected): void {
+  public function testRejectsSpecInvoicesThatFailChecksItPerforms(
+    int $index,
+    string $expected
+  ): void {
     $invoice = self::specVectors()['invalid'][$index]['invoice'];
 
     $this->expectException(Bolt11Exception::class);
@@ -212,7 +228,10 @@ final class Bolt11DecoderTest extends TestCase {
       ->tagHex('p', str_repeat('cd', 32))
       ->build();
 
-    $this->assertSame(str_repeat('cd', 32), $this->decoder->decode($invoice)->paymentHash);
+    $this->assertSame(
+      str_repeat('cd', 32),
+      $this->decoder->decode($invoice)->paymentHash
+    );
   }
 
   public function testPaymentHashOfTheWrongLengthIsIgnored(): void {
@@ -253,7 +272,10 @@ final class Bolt11DecoderTest extends TestCase {
       ->raw([1, 0])
       ->build();
 
-    $this->assertSame(str_repeat('ef', 32), $this->decoder->decode($invoice)->paymentHash);
+    $this->assertSame(
+      str_repeat('ef', 32),
+      $this->decoder->decode($invoice)->paymentHash
+    );
   }
 
   /**
@@ -269,7 +291,10 @@ final class Bolt11DecoderTest extends TestCase {
   public static function malformedInvoices(): array {
     return [
       'empty' => ['', 'empty bech32 string'],
-      'not lightning' => ['bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4', 'not a lightning invoice'],
+      'not lightning' => [
+        'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4',
+        'not a lightning invoice',
+      ],
       'no separator' => ['lnbc', 'no human-readable part'],
     ];
   }
