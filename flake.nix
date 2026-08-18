@@ -31,6 +31,10 @@
             php
             php.packages.composer
             pkgs.nodejs_20
+            # bin/install-wp-tests.sh fetches the WordPress test library over
+            # subversion, and needs a mysql client to create the test database.
+            pkgs.subversion
+            pkgs.mariadb.client
           ];
 
           shellHook = ''

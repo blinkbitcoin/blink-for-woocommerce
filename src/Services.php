@@ -23,7 +23,9 @@ use Blink\WC\NonCustodial\SettlementService;
 use Blink\WC\NonCustodial\SystemDnsResolver;
 use Blink\WC\NonCustodial\UrlPolicy;
 use Blink\WC\NonCustodial\UrlPolicyInterface;
+use Blink\WC\NonCustodial\SettlementOutcomeApplier;
 use Blink\WC\Orders\OrderStatusApplier;
+use Blink\WC\Orders\WcSettlementOutcomeApplier;
 use Blink\WC\Support\ActionSchedulerAdapter;
 use Blink\WC\Support\ClockInterface;
 use Blink\WC\Support\DbLock;
@@ -206,6 +208,16 @@ final class Services {
     });
   }
 
+  public function outcomeApplier(): SettlementOutcomeApplier {
+    return $this->memo(
+      __FUNCTION__,
+      fn(): SettlementOutcomeApplier => new WcSettlementOutcomeApplier(
+        $this->statusApplier(),
+        $this->invoiceRepository()
+      )
+    );
+  }
+
   public function settlementScheduler(): SettlementScheduler {
     return $this->memo(
       __FUNCTION__,
@@ -213,6 +225,7 @@ final class Services {
         $this->scheduler(),
         $this->settlement(),
         $this->invoiceRepository(),
+        $this->outcomeApplier(),
         $this->clock(),
         $this->jitter(),
         $this->logger()

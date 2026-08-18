@@ -22,6 +22,7 @@ use Blink\WC\Tests\Support\Fake\FakeHttpClient;
 use Blink\WC\Tests\Support\Fake\FakeOrder;
 use Blink\WC\Tests\Support\Fake\FakeRandomSource;
 use Blink\WC\Tests\Support\Fake\FakeScheduler;
+use Blink\WC\Tests\Support\Fake\RecordingOutcomeApplier;
 use Blink\WC\Tests\Support\Fake\SpyLogger;
 use PHPUnit\Framework\TestCase;
 
@@ -38,6 +39,7 @@ final class SettlementSchedulerTest extends TestCase {
   private SettlementService $settlement;
   private SpyLogger $log;
   private FakeOrder $order;
+  private RecordingOutcomeApplier $outcomeApplier;
 
   protected function setUp(): void {
     parent::setUp();
@@ -50,6 +52,7 @@ final class SettlementSchedulerTest extends TestCase {
     $this->scheduler = new FakeScheduler();
     $this->repository = new InvoiceRepository($this->clock);
     $this->order = new FakeOrder(42, '10.00', 'USD');
+    $this->outcomeApplier = new RecordingOutcomeApplier();
 
     $policy = new UrlPolicy((new FakeDnsResolver())->fallbackTo('93.184.216.34'), $this->log);
     $this->settlement = new SettlementService(
@@ -68,6 +71,7 @@ final class SettlementSchedulerTest extends TestCase {
       $this->scheduler,
       $this->settlement,
       $this->repository,
+      $this->outcomeApplier,
       $this->clock,
       new RandomJitter(new FakeRandomSource($draws ?? array_fill(0, 50, 0.5))),
       $this->log

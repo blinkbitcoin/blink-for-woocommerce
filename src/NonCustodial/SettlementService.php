@@ -79,11 +79,20 @@ final class SettlementService {
       return $this->unknown('stored lightning address is unusable');
     }
 
-    // Resolve expiry without a network call when the window has clearly passed
-    // and nothing has been observed as paid.
+    // Resolve expiry without a network call once the window has clearly passed.
+    //
+    // Only when the verify endpoint is actually answering, though: if the most
+    // recent checks all failed, the payment status is genuinely unknown, and
+    // cancelling on the clock alone would do exactly what this class exists to
+    // prevent -- cancel an order the customer paid for while the endpoint
+    // happened to be unreachable.
     $now = $this->clock->now();
     if ($invoice->expiresAt > 0 && $now > $invoice->expiresAt + self::EXPIRY_GRACE_SECONDS) {
-      return $this->expire($order, 'invoice expired');
+      if ($this->repository->consecutiveErrors($order) === 0) {
+        return $this->expire($order, 'invoice expired');
+      }
+
+      return $this->unknown('invoice expired, but its status was never confirmed');
     }
 
     if ($this->exhausted($order)) {

@@ -351,6 +351,46 @@ register_activation_hook(__FILE__, function () {
 });
 
 // Initialize payment gateways and plugin.
+/**
+ * Background settlement for non-custodial orders.
+ *
+ * Registered here rather than on the gateway, because the gateway is only
+ * constructed on checkout-ish requests while the scheduler runs its queue in
+ * its own request, where no gateway exists.
+ */
+add_action(
+  \Blink\WC\NonCustodial\SettlementScheduler::HOOK,
+  function ($order_id): void {
+    $order = wc_get_order((int) $order_id);
+    if (!$order instanceof \WC_Order) {
+      return;
+    }
+
+    \Blink\WC\Services::instance()
+      ->settlementScheduler()
+      ->tick(new \Blink\WC\NonCustodial\WcOrderRecord($order));
+  },
+  10,
+  1
+);
+
+/**
+ * Stop checking an order that has been resolved by any other route -- paid
+ * through a different gateway, cancelled, refunded, or completed by hand.
+ */
+add_action(
+  'woocommerce_order_status_changed',
+  function ($order_id, $from, $to): void {
+    if (!in_array($to, ['cancelled', 'refunded', 'failed', 'completed', 'processing'], true)) {
+      return;
+    }
+
+    \Blink\WC\Services::instance()->settlementScheduler()->cancel((int) $order_id);
+  },
+  10,
+  3
+);
+
 add_filter('woocommerce_payment_gateways', ['BlinkWCPlugin', 'initPaymentGateways']);
 add_action('plugins_loaded', 'init_blink_plugin', 0);
 

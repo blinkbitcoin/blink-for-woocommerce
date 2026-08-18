@@ -37,6 +37,7 @@ final class SettlementScheduler {
     private SchedulerInterface $scheduler,
     private SettlementService $settlement,
     private InvoiceRepository $repository,
+    private SettlementOutcomeApplier $outcomeApplier,
     private ClockInterface $clock,
     private JitterInterface $jitter,
     private LoggerInterface $log
@@ -89,7 +90,14 @@ final class SettlementScheduler {
 
     $outcome = $this->settlement->poll($order);
 
+    // Applying the outcome is what makes background settlement worth running:
+    // without it the order would be resolved in meta but never actually move.
+    $this->outcomeApplier->applyOutcome($order, $outcome);
+
     if ($outcome->terminal) {
+      // Drop any remaining checks; the order will never change again.
+      $this->cancel($order->id());
+
       return false;
     }
 
