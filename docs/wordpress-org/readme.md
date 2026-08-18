@@ -1,8 +1,8 @@
 # Blink For WooCommerce #
 **Contributors:** [blink](https://profiles.wordpress.org/blink/)  
 **Tags:** Bitcoin, Lightning Network, WooCommerce, payment gateway  
-**Requires at least:** 6.0  
-**Tested up to:** 6.6.2  
+**Requires at least:** 6.5  
+**Tested up to:** 7.0  
 **Requires PHP:** 8.1  
 **Stable tag:** 0.3.0  
 **License:** MIT  

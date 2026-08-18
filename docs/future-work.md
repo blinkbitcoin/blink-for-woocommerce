@@ -134,26 +134,27 @@ file per pull request as it gets covered. §3 unblocks the largest of them.
 
 ---
 
-## 7. Reduce the cost of the coverage job
+## 7. Extend branch coverage to the WordPress adapters
 
-**Now.** Branch coverage requires Xdebug in path-coverage mode. Over the
-integration suite — which boots WordPress and WooCommerce for every test — that
-turns a one-minute run into tens of minutes. It is one CI job and it is
-correct, but it is slow enough to discourage running locally.
+**Done since.** The coverage job used to take tens of minutes and never
+completed in CI. The integration tier is now measured for lines only, and the
+whole gate runs in about 30 seconds. See `docs/testing.md`.
 
-**Options, roughly in order of appeal.**
+**Now.** That was the option this document called a last resort, and taking it
+should be recorded honestly: branch coverage is no longer measured for the
+classes only the integration suite reaches — the thin adapters onto WordPress.
+They are held to 100% lines, and their conditional logic is deliberately thin,
+but a branch added to one of them today would not be caught.
 
-- Split the integration suite so only the tests that cover adapter classes run
-  under path coverage; the behavioural tests contribute nothing the adapters
-  suite does not already cover.
-- Cache the static-analysis results between runs more aggressively
-  (`cacheDirectory` is set; its effect on repeat runs has not been measured).
-- Accept line-only coverage from the integration tier and gate branches solely
-  on the unit tier, documenting that adapters are line-gated. This weakens the
-  guarantee and should be the last resort.
+**What would fix it.** A third PHPUnit tier: the adapter tests only, run under
+path coverage. They are a small fraction of the suite, so the cost would be a
+few seconds rather than twenty minutes, and the gate could require branches
+everywhere. The obstacle is that adapter coverage is currently spread across
+behavioural tests too, so the split needs those tests reorganised first.
 
-**Why it matters.** A gate developers avoid running locally gets discovered in
-CI, which is the slowest possible feedback.
+**Meanwhile**, the cheaper move — used for `SystemDnsResolver::lookupAaaa()` —
+is to pull a branch worth pinning out of the adapter and into a seam the unit
+tier can reach.
 
 ---
 

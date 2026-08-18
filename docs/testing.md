@@ -31,11 +31,30 @@ composer coverage:gate
 # End to end: a plain WordPress served by PHP's built-in server, no Docker.
 bash bin/install-e2e-site.sh
 npm run test:e2e
+
+# The plugin as WordPress.org receives it, which is what Plugin Check reads:
+bash bin/build-dist.sh
 ```
 
 `nix develop` provides PHP 8.3 with Xdebug, Composer, Node, subversion and a
 MySQL client. Xdebug matters: **pcov cannot produce branch coverage at all**, so
 it is not a substitute for the gate.
+
+## The distribution is not the repository
+
+`bin/build-dist.sh` applies `.distignore` to produce `build/blink-for-woocommerce`,
+which holds only what ships: the plugin file, `src`, `assets`, `languages`,
+`vendor` and the readme. The tests, build scripts, Nix flake and documentation
+stay behind.
+
+Quality checks that speak for WordPress.org — Plugin Check in particular — run
+against that directory, not the repository root. Pointed at the root they report
+problems in files no shop receives, which is both noise and, when the check
+blocks a merge, a demand to delete the development tooling.
+
+The directory is named after the plugin slug deliberately: Plugin Check infers
+the expected text domain from the directory name, so building into `dist` makes
+every translated string look like a text-domain mismatch.
 
 ## Why the unit tier has no WordPress
 
@@ -128,6 +147,21 @@ code in files outside the gate list.
 **Path coverage is not gated.** It is combinatorial: `LnAddress` sits at 26%
 paths while fully covered on lines and branches. Requiring it would mean writing
 tests for combinations that cannot occur.
+
+**Branch coverage comes from the unit tier.** The integration suite is measured
+for lines only. Xdebug's path-coverage mode over a suite that boots WordPress
+and WooCommerce for every test measured 16x slower than line coverage — 20+
+minutes against 75 seconds — which was slow enough that the CI job never once
+finished, and the gaps it existed to catch went unreported for weeks.
+
+In practice this costs little: everything the unit tier covers is branch-gated,
+and that is all the domain logic. What only the integration tier reaches are the
+thin WordPress adapters — `DbLock`, `WcOrderRecord`, `OrderStatusApplier`,
+`ActionSchedulerAdapter` — which are line-gated. Where an adapter had a branch
+worth pinning, the branch was made reachable from the unit tier instead of left
+unmeasured; `SystemDnsResolver::lookupAaaa()` is the worked example.
+
+The whole gate now runs in about 30 seconds.
 
 `coverage-gate.json` is a ratchet. Files may be added, never removed, so the
 codebase converges without this PR having to fix every untested legacy file.

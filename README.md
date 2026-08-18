@@ -48,7 +48,10 @@ Then: WooCommerce → Settings → Payments → Blink.
 
 ## Requirements
 
-PHP 8.1+, WordPress 6.0+, WooCommerce 9.0+.
+PHP 8.1+, WordPress 6.5+, WooCommerce 9.0+.
+
+WordPress 6.5 rather than 6.0 because the oldest WooCommerce this plugin is
+tested against requires it, and the plugin cannot run without WooCommerce.
 
 ## Licence
 
