@@ -70,6 +70,16 @@ expiry. After eight consecutive failures the plugin stops checking, leaves the
 order pending and logs why. A merchant finding an order that needs a human is
 recoverable; a customer whose paid order was cancelled is not.
 
+**A payable invoice is always being watched.** Creating an invoice schedules
+its checks, but plenty of things remove them again -- any status change the
+plugin treats as a resolution, including a failed attempt on another gateway.
+Reusing an invoice and rendering the pay page therefore both restore the
+schedule if it is missing, which matters because the usual way back to a live
+invoice is a GET (an emailed pay link, the My Account "Pay" button, a reloaded
+tab) that never reaches `process_payment()`. The restore is conditional: an
+existing check is left exactly where it is, so reloading the page cannot walk
+the next check further away.
+
 **WooCommerce's stock timer defers to a payable invoice.** `wc_cancel_unpaid_orders()`
 cancels pending orders once `woocommerce_hold_stock_minutes` has passed -- 60 by
 default, against invoices that may be valid for 3600 seconds -- and that

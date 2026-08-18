@@ -90,6 +90,57 @@ final class SettlementScheduler {
     );
   }
 
+  /**
+   * Guarantees a payable invoice is being watched, without disturbing a check
+   * that already exists.
+   *
+   * Anything that resolves an order -- a status change, a settled payment --
+   * tears the chain down, and until now only creating a *new* invoice ever
+   * built one again. An order that went to `failed` and was then retried on a
+   * still-valid invoice had nobody watching it, so a customer who paid and
+   * closed the tab was never credited.
+   *
+   * Unlike onInvoiceCreated() this must not cancel first. That method replaces
+   * a schedule made obsolete by a new invoice; here the existing schedule is
+   * still correct, and re-arming unconditionally would push the next check
+   * further away every time the customer reloaded the pay page.
+   */
+  public function ensureScheduled(OrderRecord $order): void {
+    if (!$this->scheduler->isAvailable()) {
+      $this->log->debug(
+        'No background scheduler available; settlement will rely on the pay page only.'
+      );
+
+      return;
+    }
+
+    if ($this->repository->terminalStatus($order) !== null) {
+      return;
+    }
+
+    // Compared against null rather than tested for truth: nextScheduled()
+    // reports a check that is due right now as 0, and treating that as "no
+    // check" would queue a duplicate on every page load.
+    if (
+      $this->scheduler->nextScheduled(
+        self::HOOK,
+        self::argsFor($order->id()),
+        self::GROUP
+      ) !== null
+    ) {
+      return;
+    }
+
+    // Deliberately the same offset a brand new invoice gets, not the
+    // createdAt-relative position in SCHEDULE: a customer who has just come
+    // back to pay should be checked on promptly rather than dropped straight
+    // into the five-minute tail.
+    $this->scheduleAt(
+      $order->id(),
+      $this->clock->now() + $this->jitter->apply(self::SCHEDULE[0])
+    );
+  }
+
   public function cancel(int $orderId): void {
     $this->scheduler->unscheduleAll(self::HOOK, self::argsFor($orderId), self::GROUP);
   }

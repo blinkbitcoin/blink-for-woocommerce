@@ -376,4 +376,78 @@ final class SettlementSchedulerTest extends TestCase {
   public function testArgumentsAreASingleOrderIdSoUnschedulingMatches(): void {
     $this->assertSame([42], SettlementScheduler::argsFor(42));
   }
+
+  // ------------------------------------------------------- re-arming a check
+
+  /**
+   * The defect: an order resolved elsewhere loses its schedule, and until now
+   * only a brand new invoice ever built one again.
+   */
+  public function testARemovedScheduleIsRestored(): void {
+    $invoice = $this->storeInvoice();
+    $scheduler = $this->makeScheduler();
+    $scheduler->onInvoiceCreated($this->order, $invoice);
+    $scheduler->cancel(42);
+    $this->assertSame([], $this->scheduler->scheduled);
+
+    $scheduler->ensureScheduled($this->order);
+
+    $this->assertSame([self::NOW + 20], $this->scheduler->scheduledTimestamps());
+  }
+
+  /**
+   * Re-arming has to be conditional. Rescheduling on every pay-page load would
+   * push the next check further out each time the customer reloaded.
+   */
+  public function testAnExistingCheckIsLeftExactlyAsItWas(): void {
+    $invoice = $this->storeInvoice();
+    $scheduler = $this->makeScheduler();
+    $scheduler->onInvoiceCreated($this->order, $invoice);
+    $before = $this->scheduler->scheduledTimestamps();
+
+    $this->clock->travel(5);
+    $scheduler->ensureScheduled($this->order);
+    $scheduler->ensureScheduled($this->order);
+
+    $this->assertSame($before, $this->scheduler->scheduledTimestamps());
+  }
+
+  /**
+   * nextScheduled() reports a check due right now as 0, not null. Testing it
+   * for truth rather than for null would read that as "nothing scheduled" and
+   * queue a duplicate on every render.
+   */
+  public function testACheckDueRightNowCountsAsScheduled(): void {
+    $this->storeInvoice();
+    $scheduler = $this->makeScheduler();
+    $this->scheduler->scheduleSingle(
+      0,
+      SettlementScheduler::HOOK,
+      SettlementScheduler::argsFor(42),
+      SettlementScheduler::GROUP
+    );
+
+    $scheduler->ensureScheduled($this->order);
+
+    $this->assertSame([0], $this->scheduler->scheduledTimestamps());
+  }
+
+  public function testAResolvedOrderIsNotReArmed(): void {
+    $this->storeInvoice();
+    $this->repository->markTerminal($this->order, SettlementStatus::Paid);
+
+    $this->makeScheduler()->ensureScheduled($this->order);
+
+    $this->assertSame([], $this->scheduler->scheduled);
+  }
+
+  public function testReArmingWithoutASchedulerIsHarmless(): void {
+    $this->scheduler = new FakeScheduler(available: false);
+    $this->storeInvoice();
+
+    $this->makeScheduler()->ensureScheduled($this->order);
+
+    $this->assertSame([], $this->scheduler->scheduled);
+    $this->assertTrue($this->log->hasMessageContaining('No background scheduler'));
+  }
 }

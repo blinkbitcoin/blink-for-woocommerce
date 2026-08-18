@@ -261,6 +261,11 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
         // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- WooCommerce escapes notice text when it renders it.
         throw new \Exception($message);
       }
+    } else {
+      // Creating an invoice schedules its own checks; reusing one does not, and
+      // anything that resolved this order in the meantime -- a failed attempt on
+      // another gateway, say -- tore the existing schedule down.
+      $this->services->settlementScheduler()->ensureScheduled($record);
     }
 
     return [
@@ -548,6 +553,13 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
       wp_safe_redirect($order->get_checkout_order_received_url());
       exit();
     }
+
+    // Showing a customer a payable invoice is the point at which it must be
+    // watched. Re-submitting checkout is not the usual way back here -- an
+    // emailed pay link, the My Account "Pay" button and a reloaded tab all
+    // render this page without going through process_payment() -- so this is
+    // the route that would otherwise leave a retried order unmonitored.
+    $this->services->settlementScheduler()->ensureScheduled($record);
 
     $this->enqueuePayScripts();
 

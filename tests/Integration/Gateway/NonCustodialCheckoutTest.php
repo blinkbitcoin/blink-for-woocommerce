@@ -144,6 +144,71 @@ final class NonCustodialCheckoutTest extends IntegrationTestCase {
     );
   }
 
+  /**
+   * The defect, from the customer's side. An order that failed elsewhere has
+   * its checks torn down by the status hook; retrying on a still-valid invoice
+   * takes the reuse path, which used to schedule nothing. Pay and close the
+   * tab at that point and the payment was never credited.
+   */
+  public function test_retrying_a_failed_order_puts_settlement_back_in_place(): void {
+    $scheduler = $this->useFakeScheduler();
+    $gateway = new BlinkLnGateway();
+    $order = $this->makeOrder();
+    $this->storeInvoice($order);
+    $gateway->process_payment($order->get_id());
+
+    // The real hook removes the chain on the way to failed.
+    $order->update_status('failed');
+    $this->assertNull(
+      $scheduler->nextScheduled(
+        SettlementScheduler::HOOK,
+        [$order->get_id()],
+        SettlementScheduler::GROUP
+      ),
+      'precondition: the failure really did tear the schedule down'
+    );
+
+    $gateway->process_payment($order->get_id());
+
+    $this->assertSame(
+      0,
+      $this->http->requestCount(),
+      'the invoice is still reused; nothing new is created'
+    );
+    $this->assertNotNull(
+      $scheduler->nextScheduled(
+        SettlementScheduler::HOOK,
+        [$order->get_id()],
+        SettlementScheduler::GROUP
+      ),
+      'a reused invoice must be watched again'
+    );
+  }
+
+  /**
+   * The usual way back to a live invoice is a GET -- an emailed pay link or a
+   * reloaded tab -- which never reaches process_payment() at all.
+   */
+  public function test_rendering_the_pay_page_puts_settlement_back_in_place(): void {
+    $scheduler = $this->useFakeScheduler();
+    $gateway = new BlinkLnGateway();
+    $order = $this->makeOrder();
+    $this->storeInvoice($order);
+    $order->update_status('failed');
+
+    ob_start();
+    $gateway->renderPayPage($order->get_id());
+    ob_end_clean();
+
+    $this->assertNotNull(
+      $scheduler->nextScheduled(
+        SettlementScheduler::HOOK,
+        [$order->get_id()],
+        SettlementScheduler::GROUP
+      )
+    );
+  }
+
   public function test_an_invoice_close_to_expiry_is_replaced(): void {
     $order = $this->makeOrder();
     $this->storeInvoice($order, ['expiresAt' => self::NOW + 30]);
