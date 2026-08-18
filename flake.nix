@@ -13,13 +13,24 @@
           inherit system;
           config.allowUnfree = true;
         };
+
+        # Xdebug is required for the coverage gate: it is the only driver that
+        # can produce branch coverage. pcov is a line-hit sampler and cannot,
+        # so it is not a substitute here.
+        php = pkgs.php83.buildEnv {
+          extensions = { all, enabled }: enabled ++ [ all.xdebug ];
+          extraConfig = ''
+            xdebug.mode = off
+            memory_limit = 1G
+          '';
+        };
       in
       {
-        devShell = pkgs.mkShell {
-          buildInputs = with pkgs; [
-            php83
-            php83Packages.composer
-            nodejs_20
+        devShells.default = pkgs.mkShell {
+          buildInputs = [
+            php
+            php.packages.composer
+            pkgs.nodejs_20
           ];
 
           shellHook = ''
