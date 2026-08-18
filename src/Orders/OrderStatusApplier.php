@@ -121,7 +121,7 @@ final class OrderStatusApplier {
   }
 
   /**
-   * Applies WooCommerce's own payment bookkeeping.
+   * Applies WooCommerce's payment bookkeeping and the merchant's paid status.
    *
    * Without this, _date_paid and transaction_id are never set and
    * woocommerce_payment_complete never fires, so shipping, accounting and
@@ -134,12 +134,12 @@ final class OrderStatusApplier {
    *
    * - unmapped, so nobody has chosen a status: WC_Order::payment_complete()
    *   does everything, including picking processing or completed.
-   * - mapped: apply() has already set the merchant's status, so the same
-   *   bookkeeping is done by hand. payment_complete() cannot be used here --
-   *   for a mapping like on-hold it would run and then move the order off it,
-   *   and for one like processing it would silently do nothing at all, which
-   *   is the bug. Stock on this path is reduced by WooCommerce's own hooks on
-   *   the transition apply() made.
+   * - mapped: the bookkeeping is saved first, then apply() changes the status,
+   *   and only then is the payment-complete hook fired. payment_complete()
+   *   cannot be used here -- for a mapping like on-hold it would move the
+   *   order off the merchant's chosen status, and for one like processing it
+   *   would silently do nothing at all. Stock on this path is reduced by
+   *   WooCommerce's own hooks on the transition apply() makes.
    *
    * TODO: the custodial path has the same gap and should be brought in line
    * once the change can be tested against a live Blink account.
@@ -147,18 +147,25 @@ final class OrderStatusApplier {
   public function completePayment(
     \WC_Order $order,
     string $transactionId,
-    ?bool $wasProtected = null
+    ?bool $wasProtected = null,
+    string $context = 'webhook',
+    bool $dedupeNotes = false
   ): void {
     // Another gateway already carried this order; do not stamp our payment
-    // over it. Settlement callers pass the state captured before apply(),
-    // because Blink's own paid-state mapping may have just moved the order to
-    // processing. Other callers retain the existing current-state check.
+    // over it. Settlement callers pass the state captured before this method
+    // applies Blink's own paid-state mapping. Other callers retain the
+    // existing current-state check.
     if ($wasProtected ?? $this->isProtected($order)) {
+      $this->apply($order, 'PAID', $context, $dedupeNotes);
+
       return;
     }
 
     $states = $this->configuredStates();
     if ($states[OrderStates::PAID] === OrderStates::IGNORE) {
+      // This only adds Blink's settlement note. WooCommerce owns the status
+      // transition and saves the payment fields before its status hooks fire.
+      $this->apply($order, 'PAID', $context, $dedupeNotes);
       $order->payment_complete($transactionId);
 
       return;
@@ -172,6 +179,11 @@ final class OrderStatusApplier {
       $order->set_date_paid(time());
     }
     $order->save();
+
+    // Status hooks must be able to reload the payment fields that were just
+    // persisted. The completion hook, in turn, should observe the final
+    // merchant-mapped status just as it does on WooCommerce's native path.
+    $this->apply($order, 'PAID', $context, $dedupeNotes);
 
     if (!$wasCompleted) {
       // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WooCommerce's own hook, fired here because payment_complete() declines to.

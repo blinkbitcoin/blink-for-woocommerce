@@ -257,8 +257,7 @@ final class OrderStatusApplierTest extends IntegrationTestCase {
       2
     );
 
-    $this->applier->apply($order, 'PAID', 'blink', true);
-    $this->applier->completePayment($order, 'txn-123');
+    $this->applier->completePayment($order, 'txn-123', null, 'blink', true);
 
     $reloaded = $this->reload($order);
     $this->assertSame('processing', $reloaded->get_status());
@@ -275,8 +274,7 @@ final class OrderStatusApplierTest extends IntegrationTestCase {
     ]);
     $order = $this->makeOrder();
 
-    $this->applier->apply($order, 'PAID', 'blink', true);
-    $this->applier->completePayment($order, 'txn-123');
+    $this->applier->completePayment($order, 'txn-123', null, 'blink', true);
 
     $reloaded = $this->reload($order);
     $this->assertSame(
@@ -304,12 +302,10 @@ final class OrderStatusApplierTest extends IntegrationTestCase {
       2
     );
 
-    $this->applier->apply($order, 'PAID', 'blink', true);
-    $this->applier->completePayment($order, 'txn-123');
+    $this->applier->completePayment($order, 'txn-123', null, 'blink', true);
 
     $order = $this->reload($order);
-    $this->applier->apply($order, 'PAID', 'blink', true);
-    $this->applier->completePayment($order, 'txn-123');
+    $this->applier->completePayment($order, 'txn-123', null, 'blink', true);
 
     $this->assertSame('on-hold', $this->reload($order)->get_status());
     $this->assertSame([[$order->get_id(), 'txn-123']], $fired);

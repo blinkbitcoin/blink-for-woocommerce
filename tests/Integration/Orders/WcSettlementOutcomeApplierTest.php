@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Blink\WC\Tests\Integration\Orders;
 
+use Blink\WC\Helpers\OrderStates;
 use Blink\WC\NonCustodial\OrderRecord;
 use Blink\WC\NonCustodial\SettlementOutcome;
 use Blink\WC\NonCustodial\SettlementStatus;
@@ -120,5 +121,60 @@ final class WcSettlementOutcomeApplierTest extends IntegrationTestCase {
     $this->assertSame($invoice->paymentHash, $reloaded->get_transaction_id());
     $this->assertNotNull($reloaded->get_date_paid());
     $this->assertSame([[$order->get_id(), $invoice->paymentHash]], $fired);
+  }
+
+  /**
+   * @dataProvider mappedPaidStatuses
+   */
+  public function test_paid_hooks_observe_complete_payment_data_and_final_status(
+    ?string $configuredStatus,
+    string $expectedStatus
+  ): void {
+    if ($configuredStatus === null) {
+      delete_option('blink_order_states');
+    } else {
+      update_option('blink_order_states', [
+        OrderStates::PAID => $configuredStatus,
+        OrderStates::EXPIRED => 'cancelled',
+      ]);
+    }
+
+    $order = $this->makeOrder();
+    $invoice = $this->storeInvoice($order);
+    $statusHookPayment = null;
+    $paymentCompleteStatus = null;
+
+    add_action(
+      'woocommerce_order_status_' . $expectedStatus,
+      function ($orderId) use (&$statusHookPayment): void {
+        $observed = wc_get_order($orderId);
+        $statusHookPayment = [
+          $observed->get_transaction_id(),
+          $observed->get_date_paid() !== null,
+        ];
+      }
+    );
+    add_action(
+      'woocommerce_payment_complete',
+      function ($orderId) use (&$paymentCompleteStatus): void {
+        $paymentCompleteStatus = wc_get_order($orderId)->get_status();
+      }
+    );
+
+    $this->outcomeApplier->applyOutcome(
+      $this->record($order),
+      $this->outcome(SettlementStatus::Paid)
+    );
+
+    $this->assertSame([$invoice->paymentHash, true], $statusHookPayment);
+    $this->assertSame($expectedStatus, $paymentCompleteStatus);
+  }
+
+  /** @return array<string,array{string|null,string}> */
+  public static function mappedPaidStatuses(): array {
+    return [
+      'shipped processing mapping' => [null, 'processing'],
+      'explicit on-hold mapping' => ['on-hold', 'on-hold'],
+    ];
   }
 }

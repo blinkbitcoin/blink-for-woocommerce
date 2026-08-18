@@ -39,20 +39,24 @@ final class WcSettlementOutcomeApplier implements SettlementOutcomeApplier {
     }
 
     $wcOrder = $order->order();
-    // Protection describes the order before Blink applies its own paid-state
-    // mapping. With the default mapping that transition itself moves a
-    // pending order to processing, which must not then be mistaken for an
-    // order that was already protected from Blink updates.
-    $wasProtected = $this->applier->isProtected($wcOrder);
-    $this->applier->apply($wcOrder, $outcome->status->value, 'blink', true);
-
     if ($outcome->status === SettlementStatus::Paid) {
       $invoice = $this->repository->load($order);
+
+      // Protection describes the order before Blink applies its own paid-state
+      // mapping. completePayment() persists the payment fields before changing
+      // that status so synchronous WooCommerce status hooks see a paid order.
+      $wasProtected = $this->applier->isProtected($wcOrder);
       $this->applier->completePayment(
         $wcOrder,
         (string) $invoice?->paymentHash,
-        $wasProtected
+        $wasProtected,
+        'blink',
+        true
       );
+
+      return;
     }
+
+    $this->applier->apply($wcOrder, $outcome->status->value, 'blink', true);
   }
 }
