@@ -1,0 +1,10 @@
+parameters:
+  level: 8
+  phpVersion: 80100
+  paths:
+    - src
+  bootstrapFiles:
+    - tests/phpstan-bootstrap.php
+  # Legacy noise is frozen so new code is held to level 8 from day one; the
+  # baseline may shrink but never grow.
+  ignoreErrors: []

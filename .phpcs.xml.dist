@@ -1,47 +1,75 @@
 <?xml version="1.0"?>
-<ruleset name="WordPress Coding Standards based custom ruleset for your plugin">
-	<description>Generally-applicable sniffs for WordPress plugins.</description>
+<ruleset name="Blink for WooCommerce">
+  <description>
+    Security and WordPress-API correctness only.
 
-	<!-- What to scan -->
-	<file>.</file>
-	<exclude-pattern>/vendor/</exclude-pattern>
-	<exclude-pattern>/node_modules/</exclude-pattern>
+    Formatting is prettier's job (see the prettier block in package.json). The
+    previous ruleset asked for the full WordPress standard -- tabs, Yoda
+    conditions, snake_case, aligned array arrows -- every one of which
+    contradicts the code actually in this repository, which is why it could
+    never be run.
+  </description>
 
-	<!-- How to scan -->
-	<!-- Usage instructions: https://github.com/squizlabs/PHP_CodeSniffer/wiki/Usage -->
-	<!-- Annotated ruleset: https://github.com/squizlabs/PHP_CodeSniffer/wiki/Annotated-ruleset.xml -->
-	<arg value="sp"/> <!-- Show sniff and progress -->
-	<arg name="basepath" value="./"/><!-- Strip the file paths down to the relevant bit -->
-	<arg name="colors"/>
-	<arg name="extensions" value="php"/>
-	<arg name="parallel" value="8"/><!-- Enables parallel processing when available for faster results. -->
+  <file>src</file>
+  <file>blink-for-woocommerce.php</file>
+  <file>tests</file>
 
-	<!-- Rules: Check PHP version compatibility -->
-	<!-- https://github.com/PHPCompatibility/PHPCompatibility#sniffing-your-code-for-compatibility-with-specific-php-versions -->
-	<config name="testVersion" value="5.6-"/>
-	<!-- https://github.com/PHPCompatibility/PHPCompatibilityWP -->
-	<rule ref="PHPCompatibilityWP"/>
+  <exclude-pattern>*/vendor/*</exclude-pattern>
+  <exclude-pattern>*/node_modules/*</exclude-pattern>
+  <exclude-pattern>*/build/*</exclude-pattern>
 
-	<!-- Rules: WordPress Coding Standards -->
-	<!-- https://github.com/WordPress-Coding-Standards/WordPress-Coding-Standards -->
-	<!-- https://github.com/WordPress-Coding-Standards/WordPress-Coding-Standards/wiki/Customizable-sniff-properties -->
-	<config name="minimum_supported_wp_version" value="4.6"/>
-	<rule ref="WordPress"/>
-	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
-		<properties>
-			<!-- Value: replace the function, class, and variable prefixes used. Separate multiple prefixes with a comma. -->
-			<property name="prefixes" type="array" value="my-plugin"/>
-		</properties>
-	</rule>
-	<rule ref="WordPress.WP.I18n">
-		<properties>
-			<!-- Value: replace the text domain used. -->
-			<property name="text_domain" type="array" value="my-plugin"/>
-		</properties>
-	</rule>
-	<rule ref="WordPress.WhiteSpace.ControlStructureSpacing">
-		<properties>
-			<property name="blank_line_check" value="true"/>
-		</properties>
-	</rule>
+  <arg name="extensions" value="php"/>
+  <arg name="basepath" value="./"/>
+  <arg name="parallel" value="8"/>
+  <arg name="colors"/>
+  <arg value="sp"/>
+
+  <!-- The plugin requires PHP 8.1; the old value here claimed 5.6. -->
+  <config name="testVersion" value="8.1-"/>
+  <rule ref="PHPCompatibilityWP">
+    <!--
+      This sniff predates enums and reports $this inside an enum method as
+      "$this in a plain function". Enums require PHP 8.1, which is this
+      plugin's floor, so the construct is always valid here.
+    -->
+    <exclude name="PHPCompatibility.Variables.ForbiddenThisUseContexts"/>
+  </rule>
+
+  <config name="minimum_supported_wp_version" value="6.0"/>
+
+  <rule ref="WordPress.Security.EscapeOutput"/>
+  <rule ref="WordPress.Security.NonceVerification"/>
+  <rule ref="WordPress.Security.ValidatedSanitizedInput"/>
+  <rule ref="WordPress.Security.SafeRedirect"/>
+  <rule ref="WordPress.DB.PreparedSQL"/>
+  <rule ref="WordPress.WP.GlobalVariablesOverride"/>
+  <rule ref="WordPress.WP.EnqueuedResourceParameters"/>
+
+  <rule ref="WordPress.WP.I18n">
+    <properties>
+      <property name="text_domain" type="array" value="blink-for-woocommerce"/>
+    </properties>
+  </rule>
+
+  <rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+    <properties>
+      <property name="prefixes" type="array" value="blink,BLINK,Blink"/>
+    </properties>
+    <!--
+      Test doubles have to use the names of the things they stand in for
+      (WC_Logger, ABSPATH), and test files are never shipped.
+    -->
+    <exclude-pattern>tests/*</exclude-pattern>
+  </rule>
+
+  <!--
+    Tests deliberately reach into globals and build SQL directly to assert on
+    storage; the production rules above are what matter.
+  -->
+  <rule ref="WordPress.DB.PreparedSQL">
+    <exclude-pattern>tests/*</exclude-pattern>
+  </rule>
+  <rule ref="WordPress.WP.GlobalVariablesOverride">
+    <exclude-pattern>tests/*</exclude-pattern>
+  </rule>
 </ruleset>

@@ -1,22 +1,21 @@
-# This file is for unifying the coding style for different editors and IDEs
-# editorconfig.org
-
-# WordPress Coding Standards
-# https://make.wordpress.org/core/handbook/coding-standards/
-
+# Matches what prettier actually produces for this repository. The previous
+# values (tabs, width 4) told editors to write code prettier would immediately
+# rewrite.
 root = true
 
 [*]
 charset = utf-8
 end_of_line = lf
+indent_style = space
+indent_size = 2
 insert_final_newline = true
 trim_trailing_whitespace = true
-indent_style = tab
-indent_size = 4
 
-[{.jshintrc,*.json,*.yml}]
+[*.{php,js,ts,json,yml,yaml,md,css}]
 indent_style = space
 indent_size = 2
 
-[{*.txt,wp-config-sample.php}]
+# WordPress.org readmes are distributed with CRLF line endings.
+[*.txt]
 end_of_line = crlf
+trim_trailing_whitespace = false
