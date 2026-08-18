@@ -387,6 +387,28 @@ add_action(
 );
 
 /**
+ * Housekeeping for the lock and rate-limiter rows.
+ *
+ * Both are written on a hot path and expire by time rather than by deletion,
+ * so without this they accumulate in wp_options indefinitely. They are stored
+ * with autoload disabled, so the cost is table size rather than page loads.
+ */
+add_action('blink_cleanup', function (): void {
+  \Blink\WC\Services::instance()->lock()->collectGarbage();
+  \Blink\WC\Services::instance()->rateLimiter()->collectGarbage();
+});
+
+add_action('init', function (): void {
+  if (!wp_next_scheduled('blink_cleanup')) {
+    wp_schedule_event(time() + HOUR_IN_SECONDS, 'daily', 'blink_cleanup');
+  }
+});
+
+register_deactivation_hook(__FILE__, function (): void {
+  wp_clear_scheduled_hook('blink_cleanup');
+});
+
+/**
  * Stop checking an order that has been resolved by any other route -- paid
  * through a different gateway, cancelled, refunded, or completed by hand.
  */

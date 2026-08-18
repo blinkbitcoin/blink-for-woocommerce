@@ -54,6 +54,26 @@ function _manually_load_plugin() {
 	require dirname( __DIR__ ) . '/blink-for-woocommerce.php';
 }
 
+/**
+ * Selects WooCommerce's order storage backend.
+ *
+ * WooCommerce can keep orders in the posts table or in its own tables (HPOS).
+ * The plugin reads and writes order meta either way, so CI runs the suite
+ * against both rather than assuming they behave identically.
+ */
+function _blink_set_order_storage() {
+	if ( getenv( 'BLINK_TEST_HPOS' ) !== 'yes' ) {
+		return;
+	}
+
+	if ( class_exists( '\Automattic\WooCommerce\Utilities\OrderUtil' ) ) {
+		update_option( 'woocommerce_custom_orders_table_enabled', 'yes' );
+		update_option( 'woocommerce_feature_custom_order_tables_enabled', 'yes' );
+	}
+}
+
+tests_add_filter( 'setup_theme', '_blink_set_order_storage', 20 );
+
 tests_add_filter( 'muplugins_loaded', '_manually_load_plugin' );
 
 /**

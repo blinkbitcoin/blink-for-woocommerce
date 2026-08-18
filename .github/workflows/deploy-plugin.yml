@@ -4,10 +4,69 @@ on:
   release:
     types: [released]
 
+permissions:
+  contents: write
+
 jobs:
+  # A release used to publish whatever was tagged, with no check that it
+  # worked. For a plugin that takes payments, the tests are the last thing
+  # standing between a bad tag and every shop that auto-updates.
+  verify:
+    name: Verify the release before publishing
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: wordpress_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -proot"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          extensions: mysqli, bcmath
+          tools: composer:v2
+      - uses: ramsey/composer-install@v3
+
+      - name: Check the tag matches the version in the plugin
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          HEADER=$(grep -m1 '^ \* Version:' blink-for-woocommerce.php | awk '{print $3}')
+          STABLE=$(grep -m1 '^Stable tag:' readme.txt | awk '{print $3}')
+          echo "tag=$TAG header=$HEADER stable=$STABLE"
+          if [ "$TAG" != "$HEADER" ] || [ "$TAG" != "$STABLE" ]; then
+            echo "Version mismatch: the tag, the plugin header and readme.txt must agree."
+            exit 1
+          fi
+
+      - run: composer validate --strict
+      - run: composer audit --locked
+      - run: composer test:unit
+
+      - name: Install WordPress test library
+        run: bash bin/install-wp-tests.sh wordpress_test root root '127.0.0.1:3306' 6.6 true
+      - name: Install WooCommerce
+        run: bash bin/install-woocommerce.sh 9.3.2
+      - name: Run the integration suite
+        env:
+          WP_TESTS_PHPUNIT_POLYFILLS_PATH: ${{ github.workspace }}/vendor/yoast/phpunit-polyfills
+          WC_PLUGIN_DIR: /tmp/wordpress/wp-content/plugins/woocommerce
+        run: composer test:integration
+
   deploy_to_wp_repository:
     name: Deploy to WP.org
+    needs: verify
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

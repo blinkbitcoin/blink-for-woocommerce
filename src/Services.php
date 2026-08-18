@@ -107,7 +107,12 @@ final class Services {
   public function urlPolicy(): UrlPolicyInterface {
     return $this->memo(
       __FUNCTION__,
-      fn(): UrlPolicyInterface => new UrlPolicy($this->dnsResolver(), $this->logger())
+      fn(): UrlPolicyInterface => new UrlPolicy(
+        $this->dnsResolver(),
+        $this->logger(),
+        // A site can allow a provider that serves LNURL from another host.
+        array_values((array) apply_filters('blink_lnurl_extra_allowed_hosts', []))
+      )
     );
   }
 

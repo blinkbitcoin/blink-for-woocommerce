@@ -25,9 +25,15 @@ use Blink\WC\Support\LoggerInterface;
 final class UrlPolicy implements UrlPolicyInterface {
   private const MAX_URL_LENGTH = 2048;
 
+  /**
+   * @param list<string> $extraAllowedHosts Hosts a site owner has explicitly
+   *   allowed beyond the address domain. Resolved at wiring time rather than
+   *   read here, so this class stays free of WordPress.
+   */
   public function __construct(
     private DnsResolverInterface $dns,
-    private LoggerInterface $log
+    private LoggerInterface $log,
+    private array $extraAllowedHosts = []
   ) {
   }
 
@@ -85,7 +91,7 @@ final class UrlPolicy implements UrlPolicyInterface {
       return UrlDecision::deny('ip literal host');
     }
 
-    if (!$this->isContainedBy($host, $address->host)) {
+    if (!$this->isContainedBy($host, $address->host) && !$this->isExplicitlyAllowed($host)) {
       return UrlDecision::deny('host outside the address domain');
     }
 
@@ -109,6 +115,23 @@ final class UrlPolicy implements UrlPolicyInterface {
 
   private function isIpLiteral(string $host): bool {
     return filter_var($host, FILTER_VALIDATE_IP) !== false;
+  }
+
+  /**
+   * A per-site escape hatch for a provider that genuinely serves LNURL from a
+   * different domain.
+   *
+   * Deliberately explicit and opt-in: a site owner adding a host here is
+   * making a decision, where a broad heuristic would make it for them.
+   */
+  private function isExplicitlyAllowed(string $host): bool {
+    foreach ($this->extraAllowedHosts as $allowed) {
+      if (strtolower(trim((string) $allowed)) === $host) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   /** The target host must equal the address host or be a subdomain of it. */

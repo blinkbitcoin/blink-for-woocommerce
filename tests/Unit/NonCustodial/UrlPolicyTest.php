@@ -65,6 +65,52 @@ final class UrlPolicyTest extends TestCase {
     $this->assertFalse($this->policy->check('https://blink.io/cb', $this->address())->allowed);
   }
 
+  /**
+   * The documented escape hatch for a provider that genuinely serves LNURL
+   * from a different domain. Opt-in per site, never a default.
+   */
+  public function testAnExplicitlyAllowedHostIsPermitted(): void {
+    $policy = new UrlPolicy($this->dns, $this->log, ['lnurl.provider.example']);
+
+    $this->assertTrue(
+      $policy->check('https://lnurl.provider.example/cb', $this->address())->allowed
+    );
+  }
+
+  public function testAnAllowedHostEntryIsMatchedCaseInsensitively(): void {
+    $policy = new UrlPolicy($this->dns, $this->log, ['  LNURL.Provider.Example ']);
+
+    $this->assertTrue(
+      $policy->check('https://lnurl.provider.example/cb', $this->address())->allowed
+    );
+  }
+
+  public function testAnAllowedHostStillHasToResolvePublicly(): void {
+    $this->dns->map('lnurl.provider.example', ['10.0.0.1']);
+    $policy = new UrlPolicy($this->dns, $this->log, ['lnurl.provider.example']);
+
+    $this->assertFalse(
+      $policy->check('https://lnurl.provider.example/cb', $this->address())->allowed,
+      'the allow-list widens the domain rule, not the private-address rule'
+    );
+  }
+
+  public function testAnAllowedHostStillHasToUseHttps(): void {
+    $policy = new UrlPolicy($this->dns, $this->log, ['lnurl.provider.example']);
+
+    $this->assertFalse(
+      $policy->check('http://lnurl.provider.example/cb', $this->address())->allowed
+    );
+  }
+
+  public function testHostsNotOnTheListAreStillRejected(): void {
+    $policy = new UrlPolicy($this->dns, $this->log, ['lnurl.provider.example']);
+
+    $this->assertFalse(
+      $policy->check('https://other.example/cb', $this->address())->allowed
+    );
+  }
+
   public function testRejectsPlainHttpOnAPublicDomain(): void {
     $decision = $this->policy->check('http://blink.sv/cb', $this->address());
 

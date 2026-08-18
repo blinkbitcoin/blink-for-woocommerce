@@ -121,6 +121,35 @@ final class DbLockTest extends IntegrationTestCase {
     $this->assertMatchesRegularExpression('/^\d{10}:[0-9a-f]{16}$/', (string) $value);
   }
 
+  /**
+   * The rows expire by time rather than by deletion, so something has to
+   * remove them or they accumulate in wp_options forever.
+   */
+  public function test_cleanup_is_scheduled(): void {
+    $this->assertNotFalse(
+      wp_next_scheduled('blink_cleanup'),
+      'the housekeeping event must be scheduled'
+    );
+  }
+
+  public function test_the_cleanup_event_collects_garbage(): void {
+    global $wpdb;
+    $this->lock->acquire('order_1', 30);
+    $wpdb->query(
+      "UPDATE {$wpdb->options} SET option_value = '0000000001:stale'
+       WHERE option_name = 'blink_lock_order_1'"
+    );
+
+    do_action('blink_cleanup');
+
+    $this->assertSame(
+      '0',
+      (string) $wpdb->get_var(
+        "SELECT COUNT(*) FROM {$wpdb->options} WHERE option_name = 'blink_lock_order_1'"
+      )
+    );
+  }
+
   public function test_garbage_collection_removes_long_expired_locks(): void {
     global $wpdb;
     $this->lock->acquire('order_1', 30);
