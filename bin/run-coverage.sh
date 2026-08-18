@@ -24,7 +24,8 @@ vendor/bin/phpunit -c phpunit-unit.xml.dist --path-coverage
 
 if [ "${SKIP_INTEGRATION:-0}" != "1" ]; then
   echo "==> integration suite"
-  vendor/bin/phpunit -c phpunit.xml.dist --path-coverage
+  # No --path-coverage here: see the comment in phpunit.xml.dist.
+  vendor/bin/phpunit -c phpunit.xml.dist
 fi
 
 echo "==> merging"
