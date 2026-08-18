@@ -297,6 +297,20 @@ final class LnurlClientTest extends TestCase {
     $this->assertSame("\u{00E5}\u{00E4}\u{00F6}", $query['comment']);
   }
 
+  public function testMalformedUtf8CommentIsOmittedWithoutFailingCheckout(): void {
+    $this->http->queueJson(['pr' => 'lnbc1', 'verify' => 'https://blink.sv/verify/x']);
+
+    $result = $this->client->requestInvoice(
+      $this->address,
+      $this->metadata(['commentAllowed' => 10]),
+      10000000,
+      "invalid\xC3\x28"
+    );
+
+    $this->assertNotInstanceOf(LnurlFailure::class, $result);
+    $this->assertStringNotContainsString('comment=', (string) $this->http->lastUrl());
+  }
+
   public function testCommentIsNeverLongerThanTheProtocolMaximum(): void {
     $this->http->queueJson(['pr' => 'lnbc1', 'verify' => 'https://blink.sv/verify/x']);
 

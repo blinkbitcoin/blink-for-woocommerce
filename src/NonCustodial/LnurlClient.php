@@ -99,7 +99,10 @@ final class LnurlClient implements LnurlClientInterface {
       $limit = min($metadata->commentAllowed, self::MAX_COMMENT_LENGTH);
       // Truncate by characters, not bytes: a byte-wise cut can split a UTF-8
       // sequence and leave the server with an invalid string.
-      $query['comment'] = mb_substr($comment, 0, $limit);
+      $comment = $this->truncateComment($comment, $limit);
+      if ($comment !== '') {
+        $query['comment'] = $comment;
+      }
     }
 
     // Note the deliberate absence of an "expiry" parameter. It is not part of
@@ -158,6 +161,16 @@ final class LnurlClient implements LnurlClientInterface {
       $verifyUrl,
       $this->paymentHashFromVerifyUrl($verifyUrl)
     );
+  }
+
+  /**
+   * Truncate an optional LNURL comment without requiring PHP's mbstring extension.
+   */
+  private function truncateComment(string $comment, int $limit): string {
+    $matched = preg_match('/^.{1,' . $limit . '}/us', $comment, $prefix);
+
+    // A malformed UTF-8 comment is optional, so omit it rather than failing checkout.
+    return $matched === 1 ? $prefix[0] : '';
   }
 
   public function verify(string $verifyUrl, LnAddress $address): VerifyResult {
