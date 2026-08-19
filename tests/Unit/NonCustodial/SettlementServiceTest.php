@@ -64,8 +64,8 @@ final class SettlementServiceTest extends TestCase {
     );
   }
 
-  private function storeInvoice(array $overrides = []): StoredInvoice {
-    $invoice = new StoredInvoice(
+  private function invoice(array $overrides = []): StoredInvoice {
+    return new StoredInvoice(
       $overrides['paymentHash'] ?? $this->paymentHash,
       'lnbc100u1xyz',
       $overrides['verifyUrl'] ??
@@ -78,6 +78,10 @@ final class SettlementServiceTest extends TestCase {
       $overrides['orderTotal'] ?? '10.00',
       $overrides['orderCurrency'] ?? 'USD'
     );
+  }
+
+  private function storeInvoice(array $overrides = []): StoredInvoice {
+    $invoice = $this->invoice($overrides);
     $this->repository->store($this->order, $invoice);
 
     return $invoice;
@@ -115,6 +119,152 @@ final class SettlementServiceTest extends TestCase {
     $this->http->queueJson(['settled' => true]);
 
     $this->assertSame(SettlementStatus::Paid, $this->service->poll($this->order)->status);
+  }
+
+  public function testAReplacedInvoiceCanStillSettleTheOrder(): void {
+    $previous = $this->storeInvoice();
+    $current = $this->invoice([
+      'paymentHash' => str_repeat('cd', 32),
+      'verifyUrl' => 'https://blink.sv/verify/' . str_repeat('cd', 32),
+    ]);
+    $this->repository->replace($this->order, $current);
+    $this->http->queueJson(['settled' => true, 'preimage' => $this->preimage]);
+
+    $outcome = $this->service->poll($this->order);
+
+    $this->assertSame(SettlementStatus::Paid, $outcome->status);
+    $this->assertSame(
+      $previous->paymentHash,
+      $this->repository->settledPaymentHash($this->order)
+    );
+    $this->assertStringContainsString(
+      $previous->paymentHash,
+      (string) $this->http->lastUrl()
+    );
+  }
+
+  public function testPaymentToAReplacedInvoiceForAnOldTotalIsHeldForReview(): void {
+    $previous = $this->storeInvoice();
+    $this->order->setTotal('25.00');
+    $this->repository->replace(
+      $this->order,
+      $this->invoice([
+        'paymentHash' => str_repeat('cd', 32),
+        'verifyUrl' => 'https://blink.sv/verify/' . str_repeat('cd', 32),
+        'orderTotal' => '25.00',
+      ])
+    );
+    $this->http->queueJson(['settled' => true, 'preimage' => $this->preimage]);
+
+    $outcome = $this->service->poll($this->order);
+
+    $this->assertSame(SettlementStatus::Review, $outcome->status);
+    $this->assertSame(
+      $previous->paymentHash,
+      $this->repository->settledPaymentHash($this->order)
+    );
+  }
+
+  public function testCurrentInvoiceCanSettleWhileAReplacedInvoiceIsUncertain(): void {
+    $this->storeInvoice();
+    $currentPreimage = str_repeat('cd', 32);
+    $currentHash = hash('sha256', (string) hex2bin($currentPreimage));
+    $this->repository->replace(
+      $this->order,
+      $this->invoice([
+        'paymentHash' => $currentHash,
+        'verifyUrl' => 'https://blink.sv/verify/' . $currentHash,
+      ])
+    );
+    $this->http->queue(HttpResponse::transportFailure('old endpoint down'));
+    $this->http->queueJson(['settled' => true, 'preimage' => $currentPreimage]);
+
+    $outcome = $this->service->poll($this->order);
+
+    $this->assertSame(SettlementStatus::Paid, $outcome->status);
+    $this->assertSame(
+      $currentHash,
+      $this->repository->settledPaymentHash($this->order)
+    );
+    $this->assertSame(2, $this->http->requestCount());
+  }
+
+  public function testUncertainReplacedInvoicePreventsFalseExpiry(): void {
+    $this->storeInvoice(['expiresAt' => self::NOW + 60]);
+    $this->repository->replace(
+      $this->order,
+      $this->invoice([
+        'paymentHash' => str_repeat('cd', 32),
+        'verifyUrl' => 'https://blink.sv/verify/' . str_repeat('cd', 32),
+        'expiresAt' => self::NOW + 60,
+      ])
+    );
+    $this->clock->travel(60 + SettlementService::EXPIRY_GRACE_SECONDS + 1);
+    $this->http->queue(HttpResponse::transportFailure('old endpoint down'));
+    $this->http->queueJson(['settled' => false]);
+
+    $outcome = $this->service->poll($this->order);
+
+    $this->assertSame(SettlementStatus::Pending, $outcome->status);
+    $this->assertNull($this->repository->terminalStatus($this->order));
+    $this->assertCount(1, $this->repository->outstanding($this->order));
+  }
+
+  public function testDefinitivelyUnpaidReplacedInvoiceIsPruned(): void {
+    $this->storeInvoice(['expiresAt' => self::NOW + 60]);
+    $this->repository->replace(
+      $this->order,
+      $this->invoice([
+        'paymentHash' => str_repeat('cd', 32),
+        'verifyUrl' => 'https://blink.sv/verify/' . str_repeat('cd', 32),
+      ])
+    );
+    $this->clock->travel(60 + SettlementService::EXPIRY_GRACE_SECONDS + 1);
+    $this->http->queueJson(['settled' => false]);
+    $this->http->queueJson(['settled' => false]);
+
+    $outcome = $this->service->poll($this->order);
+
+    $this->assertSame(SettlementStatus::Pending, $outcome->status);
+    $this->assertSame([], $this->repository->outstanding($this->order));
+  }
+
+  public function testOrderExpiresOnlyAfterEveryTrackedInvoiceIsUnpayable(): void {
+    $this->storeInvoice(['expiresAt' => self::NOW + 60]);
+    $this->repository->replace(
+      $this->order,
+      $this->invoice([
+        'paymentHash' => str_repeat('cd', 32),
+        'verifyUrl' => 'https://blink.sv/verify/' . str_repeat('cd', 32),
+        'expiresAt' => self::NOW + 60,
+      ])
+    );
+    $this->clock->travel(60 + SettlementService::EXPIRY_GRACE_SECONDS + 1);
+    $this->http->queueJson(['settled' => false]);
+    $this->http->queueJson(['settled' => false]);
+
+    $outcome = $this->service->poll($this->order);
+
+    $this->assertSame(SettlementStatus::Expired, $outcome->status);
+    $this->assertSame([], $this->repository->outstanding($this->order));
+  }
+
+  public function testSeveralInvoicesConsumeOneBackgroundAttemptPerCycle(): void {
+    $this->storeInvoice();
+    $this->repository->replace(
+      $this->order,
+      $this->invoice([
+        'paymentHash' => str_repeat('cd', 32),
+        'verifyUrl' => 'https://blink.sv/verify/' . str_repeat('cd', 32),
+      ])
+    );
+    $this->http->queueJson(['settled' => false]);
+    $this->http->queueJson(['settled' => false]);
+
+    $this->service->pollAsBackgroundCheck($this->order);
+
+    $this->assertSame(2, $this->http->requestCount());
+    $this->assertSame(1, $this->repository->attempts($this->order));
   }
 
   /**

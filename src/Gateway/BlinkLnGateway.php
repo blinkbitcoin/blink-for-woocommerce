@@ -316,12 +316,11 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
   }
 
   /**
-   * Swaps a freshly built invoice in for whatever the order was carrying.
+   * Makes a freshly built invoice current without losing a payable predecessor.
    *
    * Reached only with a real invoice in hand, so the order is never left
-   * without one. The old invoice's scheduled checks are dropped explicitly:
-   * they used to die as a side effect of clear() removing the account-type
-   * marker that tick() bails on, and that accident is no longer available.
+   * without one. Replaced invoices remain attached to the order until their
+   * verify endpoints conclusively report that they can no longer be paid.
    */
   private function replaceNonCustodialInvoice(
     WcOrderRecord $record,
@@ -329,9 +328,7 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
   ): void {
     $repository = $this->services->invoiceRepository();
 
-    $this->services->settlementScheduler()->cancel($record->id());
-    $repository->clear($record);
-    $repository->store($record, $invoice);
+    $repository->replace($record, $invoice);
     // Background settlement starts here, so the order no longer depends on the
     // customer keeping the pay page open.
     $this->services->settlementScheduler()->onInvoiceCreated($record, $invoice);

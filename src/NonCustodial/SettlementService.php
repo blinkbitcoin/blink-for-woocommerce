@@ -120,18 +120,10 @@ final class SettlementService {
       );
     }
 
-    $invoice = $this->repository->load($order);
-    if ($invoice === null) {
+    $current = $this->repository->load($order);
+    $invoices = $this->repository->tracked($order);
+    if ($current === null || $invoices === []) {
       return $this->unknown('no invoice stored');
-    }
-
-    $address = $invoice->address();
-    if ($address === null) {
-      return $this->unknown('stored lightning address is unusable');
-    }
-
-    if (!$this->budget->allowOutbound($address->host)) {
-      return $this->unknown('outbound request budget reached');
     }
 
     $lockKey = 'verify_' . $order->id();
@@ -140,29 +132,71 @@ final class SettlementService {
       return $this->unknown('another request for this order is already in flight');
     }
 
+    $madeRequest = false;
+    $hadConclusiveResponse = false;
+    $hasUnresolvedInvoice = false;
+    $currentIsUnpayable = false;
+    $detail = '';
+    $outcome = null;
+
     try {
-      $result = $this->lnurl->verify($invoice->verifyUrl, $address);
-      if ($isBackgroundCheck) {
-        $this->repository->recordAttempt($order, !$result->state->isConclusive());
-      } elseif ($result->state->isConclusive()) {
-        $this->repository->recordEndpointReachable($order);
+      // Replaced invoices come first: they expire first and are the invoices
+      // most likely to be open in an older browser tab.
+      foreach ($invoices as $invoice) {
+        $address = $invoice->address();
+        if ($address === null) {
+          $hasUnresolvedInvoice = true;
+          $detail = 'stored lightning address is unusable';
+          continue;
+        }
+
+        if (!$this->budget->allowOutbound($address->host)) {
+          $hasUnresolvedInvoice = true;
+          $detail = 'outbound request budget reached';
+          break;
+        }
+
+        $madeRequest = true;
+        $result = $this->lnurl->verify($invoice->verifyUrl, $address);
+        $hadConclusiveResponse =
+          $hadConclusiveResponse || $result->state->isConclusive();
+
+        if ($result->state === VerifyState::Settled) {
+          $outcome = $this->settle($order, $invoice, $result);
+          break;
+        }
+
+        if ($this->isDefinitivelyUnpayable($invoice, $result)) {
+          if (hash_equals($current->paymentHash, $invoice->paymentHash)) {
+            $currentIsUnpayable = true;
+          } else {
+            $this->repository->removeOutstanding($order, $invoice->paymentHash);
+          }
+          continue;
+        }
+
+        $hasUnresolvedInvoice = true;
+        if ($result->detail !== '') {
+          $detail = $result->detail;
+        }
       }
 
-      // Written as a chain rather than a match: match on an enum still emits
-      // an unhandled-case arm that can never run, which no test can cover.
-      if ($result->state === VerifyState::Settled) {
-        $outcome = $this->settle($order, $invoice, $result);
-      } elseif ($result->state === VerifyState::Unsettled) {
-        $outcome = $this->onUnsettled($order, $invoice);
-      } elseif ($result->state === VerifyState::NotFound) {
-        $outcome = $this->onNotFound($order, $invoice, $result);
-      } else {
-        // Transport and policy failures tell us nothing about the payment.
-        $outcome = new SettlementOutcome(
-          SettlementStatus::Pending,
-          $this->clock->now(),
-          $result->detail
-        );
+      if ($outcome === null) {
+        if (!$madeRequest) {
+          $outcome = $this->unknown($detail);
+        } elseif (
+          $currentIsUnpayable &&
+          !$hasUnresolvedInvoice &&
+          $this->repository->outstanding($order) === []
+        ) {
+          $outcome = $this->expire($order, 'all invoices expired and remain unpaid');
+        } else {
+          $outcome = new SettlementOutcome(
+            SettlementStatus::Pending,
+            $this->clock->now(),
+            $detail
+          );
+        }
       }
     } finally {
       // Released even when verify() throws, so a failure cannot wedge the
@@ -170,45 +204,36 @@ final class SettlementService {
       $this->lock->release($lockKey, $token);
     }
 
+    // One scheduler tick is one attempt even when an order has several
+    // invoices. Replacement must not consume the backstop budget faster.
+    if ($madeRequest) {
+      if ($isBackgroundCheck) {
+        $this->repository->recordAttempt($order, !$hadConclusiveResponse);
+      } elseif ($hadConclusiveResponse) {
+        $this->repository->recordEndpointReachable($order);
+      }
+    }
+
     $this->repository->cacheStatus($order, $outcome);
 
     return $outcome;
   }
 
-  /** Only a current unpaid observation may expire an invoice on time alone. */
-  private function onUnsettled(
-    OrderRecord $order,
-    StoredInvoice $invoice
-  ): SettlementOutcome {
-    if (
-      $invoice->expiresAt > 0 &&
-      $this->clock->now() > $invoice->expiresAt + self::EXPIRY_GRACE_SECONDS
-    ) {
-      return $this->expire($order, 'invoice expired and remains unpaid');
-    }
-
-    return new SettlementOutcome(SettlementStatus::Pending, $this->clock->now());
-  }
-
-  /**
-   * A server that has forgotten the invoice before it expired is more likely
-   * to be having a bad day than to be telling us the invoice is dead, so this
-   * only expires an order once the window has passed anyway.
-   */
-  private function onNotFound(
-    OrderRecord $order,
+  private function isDefinitivelyUnpayable(
     StoredInvoice $invoice,
     VerifyResult $result
-  ): SettlementOutcome {
-    if ($invoice->expiresAt > 0 && $this->clock->now() > $invoice->expiresAt) {
-      return $this->expire($order, 'verify endpoint no longer knows this invoice');
+  ): bool {
+    if ($invoice->expiresAt <= 0) {
+      return false;
     }
 
-    return new SettlementOutcome(
-      SettlementStatus::Pending,
-      $this->clock->now(),
-      'not found before expiry: ' . $result->detail
-    );
+    if ($result->state === VerifyState::Unsettled) {
+      return $this->clock->now() >
+        $invoice->expiresAt + self::EXPIRY_GRACE_SECONDS;
+    }
+
+    return $result->state === VerifyState::NotFound &&
+      $this->clock->now() > $invoice->expiresAt;
   }
 
   private function settle(
@@ -253,7 +278,11 @@ final class SettlementService {
           $order->id()
         )
       );
-      $this->repository->markSettled($order, $result->preimage);
+      $this->repository->markSettled(
+        $order,
+        $invoice->paymentHash,
+        $result->preimage
+      );
       $this->repository->markTerminal($order, SettlementStatus::Review);
 
       return new SettlementOutcome(
@@ -267,7 +296,11 @@ final class SettlementService {
     // The latch: the scheduler tick and the browser can both see this payment.
     // Reaching here twice is impossible -- poll() returns early once the order
     // is terminal -- but the latch still guards against a caller that skips it.
-    $this->repository->markSettled($order, $result->preimage);
+    $this->repository->markSettled(
+      $order,
+      $invoice->paymentHash,
+      $result->preimage
+    );
     $this->repository->markTerminal($order, SettlementStatus::Paid);
 
     return new SettlementOutcome(

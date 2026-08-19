@@ -33,12 +33,14 @@ final class InvoiceRepository {
   public const EXPIRES_AT = '_blink_expires_at';
   public const ORDER_TOTAL = '_blink_order_total';
   public const ORDER_CURRENCY = '_blink_order_currency';
+  public const OUTSTANDING_INVOICES = '_blink_outstanding_invoices';
 
   public const STATUS = '_blink_status';
   public const STATUS_AT = '_blink_status_at';
   public const ATTEMPTS = '_blink_attempts';
   public const ERRORS = '_blink_errors';
   public const SETTLED_AT = '_blink_settled_at';
+  public const SETTLED_PAYMENT_HASH = '_blink_settled_payment_hash';
   public const PREIMAGE = '_blink_preimage';
   public const TERMINAL = '_blink_terminal';
 
@@ -57,11 +59,13 @@ final class InvoiceRepository {
     self::EXPIRES_AT,
     self::ORDER_TOTAL,
     self::ORDER_CURRENCY,
+    self::OUTSTANDING_INVOICES,
     self::STATUS,
     self::STATUS_AT,
     self::ATTEMPTS,
     self::ERRORS,
     self::SETTLED_AT,
+    self::SETTLED_PAYMENT_HASH,
     self::PREIMAGE,
     self::TERMINAL,
     UnpaidOrderGuard::HOLD_NOTICE,
@@ -138,19 +142,92 @@ final class InvoiceRepository {
   }
 
   public function store(OrderRecord $order, StoredInvoice $invoice): void {
-    $order->setMeta(self::ACCOUNT_TYPE, self::ACCOUNT_TYPE_NON_CUSTODIAL);
-    $order->setMeta(self::PAYMENT_HASH, $invoice->paymentHash);
-    $order->setMeta(self::PAYMENT_REQUEST, $invoice->paymentRequest);
-    $order->setMeta(self::VERIFY_URL, $invoice->verifyUrl);
-    $order->setMeta(self::LN_ADDRESS, $invoice->lnAddress);
-    $order->setMeta(self::AMOUNT_MSAT, $invoice->amountMsat);
-    $order->setMeta(self::SATOSHIS, $invoice->satoshis);
-    $order->setMeta(self::CREATED_AT, $invoice->createdAt);
-    $order->setMeta(self::EXPIRES_AT, $invoice->expiresAt);
-    $order->setMeta(self::ORDER_TOTAL, $invoice->orderTotal);
-    $order->setMeta(self::ORDER_CURRENCY, $invoice->orderCurrency);
+    $this->writeCurrent($order, $invoice);
     $order->setMeta(self::ATTEMPTS, 0);
     $order->setMeta(self::ERRORS, 0);
+    $order->save();
+  }
+
+  /**
+   * Makes a new invoice current without forgetting a predecessor that can
+   * still be paid.
+   */
+  public function replace(OrderRecord $order, StoredInvoice $invoice): void {
+    $previous = $this->load($order);
+    $outstanding = $this->outstanding($order);
+
+    if ($this->terminalStatus($order) !== null) {
+      $outstanding = [];
+    } elseif (
+      $previous !== null &&
+      !in_array(
+        $previous->paymentHash,
+        array_map(
+          static fn(StoredInvoice $stored): string => $stored->paymentHash,
+          $outstanding
+        ),
+        true
+      )
+    ) {
+      $outstanding[] = $previous;
+    }
+
+    foreach (self::INVOICE_KEYS as $key) {
+      if ($key !== self::OUTSTANDING_INVOICES) {
+        $order->deleteMeta($key);
+      }
+    }
+
+    $this->writeCurrent($order, $invoice);
+    $this->storeOutstanding($order, $outstanding);
+    $order->setMeta(self::ATTEMPTS, 0);
+    $order->setMeta(self::ERRORS, 0);
+    $order->save();
+  }
+
+  /** @return list<StoredInvoice> */
+  public function outstanding(OrderRecord $order): array {
+    $stored = $order->getMeta(self::OUTSTANDING_INVOICES);
+    if (!is_array($stored)) {
+      return [];
+    }
+
+    $invoices = [];
+    foreach ($stored as $value) {
+      if (!is_array($value)) {
+        continue;
+      }
+
+      $invoice = $this->invoiceFromArray($value);
+      if ($invoice !== null) {
+        $invoices[] = $invoice;
+      }
+    }
+
+    return $invoices;
+  }
+
+  /** @return list<StoredInvoice> */
+  public function tracked(OrderRecord $order): array {
+    $invoices = $this->outstanding($order);
+    $current = $this->load($order);
+    if ($current !== null) {
+      $invoices[] = $current;
+    }
+
+    return $invoices;
+  }
+
+  public function removeOutstanding(OrderRecord $order, string $paymentHash): void {
+    $remaining = array_values(
+      array_filter(
+        $this->outstanding($order),
+        static fn(StoredInvoice $invoice): bool =>
+          !hash_equals($invoice->paymentHash, $paymentHash)
+      )
+    );
+
+    $this->storeOutstanding($order, $remaining);
     $order->save();
   }
 
@@ -249,18 +326,27 @@ final class InvoiceRepository {
    *
    * @return bool true the first time, false on every subsequent call.
    */
-  public function markSettled(OrderRecord $order, ?string $preimage): bool {
+  public function markSettled(
+    OrderRecord $order,
+    string $paymentHash,
+    ?string $preimage
+  ): bool {
     if ((int) $order->getMeta(self::SETTLED_AT) > 0) {
       return false;
     }
 
     $order->setMeta(self::SETTLED_AT, $this->clock->now());
+    $order->setMeta(self::SETTLED_PAYMENT_HASH, $paymentHash);
     if ($preimage !== null && $preimage !== '') {
       $order->setMeta(self::PREIMAGE, $preimage);
     }
     $order->save();
 
     return true;
+  }
+
+  public function settledPaymentHash(OrderRecord $order): string {
+    return (string) $order->getMeta(self::SETTLED_PAYMENT_HASH);
   }
 
   public function markTerminal(OrderRecord $order, SettlementStatus $status): void {
@@ -307,5 +393,88 @@ final class InvoiceRepository {
     }
 
     return rtrim(rtrim($trimmed, '0'), '.');
+  }
+
+  private function writeCurrent(OrderRecord $order, StoredInvoice $invoice): void {
+    $order->setMeta(self::ACCOUNT_TYPE, self::ACCOUNT_TYPE_NON_CUSTODIAL);
+    $order->setMeta(self::PAYMENT_HASH, $invoice->paymentHash);
+    $order->setMeta(self::PAYMENT_REQUEST, $invoice->paymentRequest);
+    $order->setMeta(self::VERIFY_URL, $invoice->verifyUrl);
+    $order->setMeta(self::LN_ADDRESS, $invoice->lnAddress);
+    $order->setMeta(self::AMOUNT_MSAT, $invoice->amountMsat);
+    $order->setMeta(self::SATOSHIS, $invoice->satoshis);
+    $order->setMeta(self::CREATED_AT, $invoice->createdAt);
+    $order->setMeta(self::EXPIRES_AT, $invoice->expiresAt);
+    $order->setMeta(self::ORDER_TOTAL, $invoice->orderTotal);
+    $order->setMeta(self::ORDER_CURRENCY, $invoice->orderCurrency);
+  }
+
+  /** @param list<StoredInvoice> $invoices */
+  private function storeOutstanding(OrderRecord $order, array $invoices): void {
+    if ($invoices === []) {
+      $order->deleteMeta(self::OUTSTANDING_INVOICES);
+
+      return;
+    }
+
+    $order->setMeta(
+      self::OUTSTANDING_INVOICES,
+      array_map([$this, 'invoiceToArray'], $invoices)
+    );
+  }
+
+  /** @return array<string,int|string> */
+  private function invoiceToArray(StoredInvoice $invoice): array {
+    return [
+      'paymentHash' => $invoice->paymentHash,
+      'paymentRequest' => $invoice->paymentRequest,
+      'verifyUrl' => $invoice->verifyUrl,
+      'lnAddress' => $invoice->lnAddress,
+      'amountMsat' => $invoice->amountMsat,
+      'satoshis' => $invoice->satoshis,
+      'createdAt' => $invoice->createdAt,
+      'expiresAt' => $invoice->expiresAt,
+      'orderTotal' => $invoice->orderTotal,
+      'orderCurrency' => $invoice->orderCurrency,
+    ];
+  }
+
+  /** @param array<mixed> $value */
+  private function invoiceFromArray(array $value): ?StoredInvoice {
+    foreach (['paymentHash', 'paymentRequest', 'verifyUrl', 'lnAddress'] as $key) {
+      if (!isset($value[$key]) || !is_string($value[$key]) || $value[$key] === '') {
+        return null;
+      }
+    }
+
+    foreach (
+      ['amountMsat', 'satoshis', 'createdAt', 'expiresAt']
+      as $key
+    ) {
+      if (!isset($value[$key]) || !is_int($value[$key])) {
+        return null;
+      }
+    }
+
+    if (
+      !isset($value['orderTotal'], $value['orderCurrency']) ||
+      !is_string($value['orderTotal']) ||
+      !is_string($value['orderCurrency'])
+    ) {
+      return null;
+    }
+
+    return new StoredInvoice(
+      $value['paymentHash'],
+      $value['paymentRequest'],
+      $value['verifyUrl'],
+      $value['lnAddress'],
+      $value['amountMsat'],
+      $value['satoshis'],
+      $value['createdAt'],
+      $value['expiresAt'],
+      $value['orderTotal'],
+      $value['orderCurrency']
+    );
   }
 }

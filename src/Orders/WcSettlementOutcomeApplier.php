@@ -41,6 +41,10 @@ final class WcSettlementOutcomeApplier implements SettlementOutcomeApplier {
     $wcOrder = $order->order();
     if ($outcome->status === SettlementStatus::Paid) {
       $invoice = $this->repository->load($order);
+      $paymentHash = $this->repository->settledPaymentHash($order);
+      if ($paymentHash === '') {
+        $paymentHash = (string) $invoice?->paymentHash;
+      }
 
       // Protection describes the order before Blink applies its own paid-state
       // mapping. completePayment() persists the payment fields before changing
@@ -48,7 +52,7 @@ final class WcSettlementOutcomeApplier implements SettlementOutcomeApplier {
       $wasProtected = $this->applier->isProtected($wcOrder);
       $this->applier->completePayment(
         $wcOrder,
-        (string) $invoice?->paymentHash,
+        $paymentHash,
         $wasProtected,
         'blink',
         true

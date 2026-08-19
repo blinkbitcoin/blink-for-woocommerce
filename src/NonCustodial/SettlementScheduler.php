@@ -72,8 +72,9 @@ final class SettlementScheduler {
   }
 
   public function onInvoiceCreated(OrderRecord $order, StoredInvoice $invoice): void {
-    // Drop anything left over from a previous invoice on this order, so an
-    // abandoned attempt cannot keep polling a hash that no longer applies.
+    // There is one chain per order. Replacing its first action keeps the new
+    // invoice on a fresh timetable; the settlement service still checks every
+    // payable predecessor stored against the order.
     $this->cancel($order->id());
 
     if (!$this->scheduler->isAvailable()) {
@@ -161,7 +162,8 @@ final class SettlementScheduler {
     }
 
     $invoice = $this->repository->load($order);
-    if ($invoice === null) {
+    $tracked = $this->repository->tracked($order);
+    if ($invoice === null || $tracked === []) {
       return false;
     }
 
@@ -169,7 +171,14 @@ final class SettlementScheduler {
     // retrying. This one is not: the address is stored with the invoice and
     // will not become parseable, so polling it would repeat forever without
     // ever recording an attempt to exhaust.
-    if ($invoice->address() === null) {
+    $hasUsableAddress = false;
+    foreach ($tracked as $trackedInvoice) {
+      if ($trackedInvoice->address() !== null) {
+        $hasUsableAddress = true;
+        break;
+      }
+    }
+    if (!$hasUsableAddress) {
       $this->log->error(
         sprintf(
           'Order %d: the stored lightning address is unusable, so this order cannot be settled ' .
@@ -232,9 +241,22 @@ final class SettlementScheduler {
     // against a schedule that assumes neither.
     $timestamp = $invoice->createdAt + $elapsed + $this->jitter->apply($next - $elapsed);
 
-    // Never schedule beyond the point where the order can still be resolved.
-    $deadline = $invoice->expiresAt + SettlementService::EXPIRY_GRACE_SECONDS + 1;
-    if ($timestamp > $deadline) {
+    // Keep the chain alive for the longest-lived invoice. A replacement can
+    // have a shorter lifetime than its predecessor, and neither may be
+    // forgotten while it can still settle.
+    $deadline = 0;
+    foreach ($this->repository->tracked($order) as $trackedInvoice) {
+      if ($trackedInvoice->expiresAt <= 0) {
+        $deadline = 0;
+        break;
+      }
+
+      $deadline = max(
+        $deadline,
+        $trackedInvoice->expiresAt + SettlementService::EXPIRY_GRACE_SECONDS + 1
+      );
+    }
+    if ($deadline > 0 && $timestamp > $deadline) {
       $timestamp = $deadline;
     }
 

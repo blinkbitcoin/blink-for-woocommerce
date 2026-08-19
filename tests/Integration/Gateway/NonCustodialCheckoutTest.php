@@ -22,16 +22,23 @@ final class NonCustodialCheckoutTest extends IntegrationTestCase {
   }
 
   /** 10,000 sat = 10,000,000 msat = 100u. */
-  private function bolt11(int $expirySeconds = 3600): string {
+  private function bolt11(
+    int $expirySeconds = 3600,
+    ?string $paymentHash = null
+  ): string {
     return Bolt11Encoder::create('lnbc100u')
       ->timestamp(self::NOW)
-      ->tagHex('p', $this->paymentHash)
+      ->tagHex('p', $paymentHash ?? $this->paymentHash)
       ->tagHex('h', hash('sha256', self::METADATA))
       ->tagInt('x', $expirySeconds)
       ->build();
   }
 
-  private function queueSuccessfulInvoice(?string $bolt11 = null): void {
+  private function queueSuccessfulInvoice(
+    ?string $bolt11 = null,
+    ?string $paymentHash = null
+  ): void {
+    $hash = $paymentHash ?? $this->paymentHash;
     // The conversion is provided by the substituted rate provider.
     $this->http->queueJson([
       'tag' => 'payRequest',
@@ -42,8 +49,8 @@ final class NonCustodialCheckoutTest extends IntegrationTestCase {
       'metadata' => self::METADATA,
     ]);
     $this->http->queueJson([
-      'pr' => $bolt11 ?? $this->bolt11(),
-      'verify' => 'https://blink.sv/verify/' . $this->paymentHash,
+      'pr' => $bolt11 ?? $this->bolt11(3600, $hash),
+      'verify' => 'https://blink.sv/verify/' . $hash,
     ]);
   }
 
@@ -313,8 +320,8 @@ final class NonCustodialCheckoutTest extends IntegrationTestCase {
     );
   }
 
-  /** A successful replacement must not leave the old invoice's checks running. */
-  public function test_a_successful_replacement_drops_the_previous_schedule(): void {
+  /** One order-level chain watches both the new and replaced invoice. */
+  public function test_a_successful_replacement_keeps_one_schedule_for_all_invoices(): void {
     $scheduler = $this->useFakeScheduler();
     $gateway = new BlinkLnGateway();
     $order = $this->makeOrder();
@@ -325,7 +332,8 @@ final class NonCustodialCheckoutTest extends IntegrationTestCase {
         $this->record($order),
         $this->repository()->load($this->record($order))
       );
-    $this->queueSuccessfulInvoice();
+    $newHash = str_repeat('cd', 32);
+    $this->queueSuccessfulInvoice(null, $newHash);
 
     $gateway->process_payment($order->get_id());
 
@@ -335,8 +343,37 @@ final class NonCustodialCheckoutTest extends IntegrationTestCase {
         $scheduler->scheduled,
         static fn(array $a): bool => $a['hook'] === SettlementScheduler::HOOK
       ),
-      'exactly one chain, for the invoice the customer is now looking at'
+      'one order-level chain must watch both invoices'
     );
+    $reloaded = $this->record($this->reload($order));
+    $this->assertSame($newHash, $this->repository()->load($reloaded)?->paymentHash);
+    $this->assertSame(
+      [$this->paymentHash],
+      array_map(
+        static fn($invoice): string => $invoice->paymentHash,
+        $this->repository()->outstanding($reloaded)
+      )
+    );
+  }
+
+  public function test_background_settlement_credits_a_replaced_invoice(): void {
+    $this->useFakeScheduler();
+    $gateway = new BlinkLnGateway();
+    $order = $this->makeOrder();
+    $this->storeInvoice($order, ['expiresAt' => self::NOW + 30]);
+    $newHash = str_repeat('cd', 32);
+    $this->queueSuccessfulInvoice(null, $newHash);
+    $gateway->process_payment($order->get_id());
+    $this->http->queueJson([
+      'settled' => true,
+      'preimage' => $this->preimage,
+    ]);
+
+    $this->services()->settlementScheduler()->tick($this->record($order));
+
+    $reloaded = $this->reload($order);
+    $this->assertSame('processing', $reloaded->get_status());
+    $this->assertSame($this->paymentHash, $reloaded->get_transaction_id());
   }
 
   /**

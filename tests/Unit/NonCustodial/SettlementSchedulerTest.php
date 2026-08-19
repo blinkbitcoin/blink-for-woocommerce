@@ -198,6 +198,19 @@ final class SettlementSchedulerTest extends TestCase {
     $this->assertSame(self::NOW + 3480 + 300, $latest['timestamp']);
   }
 
+  public function testAnInvoiceWithoutAnExpiryKeepsItsScheduleRunning(): void {
+    $this->storeInvoice();
+    $this->order->setMeta(InvoiceRepository::EXPIRES_AT, 0);
+    $scheduler = $this->makeScheduler();
+    $this->http->alwaysRespond(new HttpResponse(200, '{"settled":false}'));
+    $this->clock->freezeAt(self::NOW + 3600);
+
+    $this->assertTrue($scheduler->tick($this->order));
+
+    $latest = end($this->scheduler->scheduled);
+    $this->assertSame(self::NOW + 3600 + 300, $latest['timestamp']);
+  }
+
   public function testChecksAreJitteredAroundTheirNominalTime(): void {
     $invoice = $this->storeInvoice();
 

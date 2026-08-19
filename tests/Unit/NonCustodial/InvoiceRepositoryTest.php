@@ -200,13 +200,98 @@ final class InvoiceRepositoryTest extends TestCase {
     $this->assertSame(0, $this->repository->consecutiveErrors($this->order));
   }
 
+  public function testReplacingKeepsThePreviousInvoiceOutstanding(): void {
+    $previous = $this->invoice();
+    $current = $this->invoice([
+      'paymentHash' => str_repeat('cd', 32),
+      'verifyUrl' => 'https://blink.sv/verify/' . str_repeat('cd', 32),
+      'createdAt' => self::NOW + 10,
+      'expiresAt' => self::NOW + 3610,
+    ]);
+    $this->repository->store($this->order, $previous);
+
+    $this->repository->replace($this->order, $current);
+
+    $this->assertSame($current->paymentHash, $this->repository->load($this->order)?->paymentHash);
+    $this->assertEquals([$previous], $this->repository->outstanding($this->order));
+    $this->assertEquals(
+      [$previous, $current],
+      $this->repository->tracked($this->order)
+    );
+  }
+
+  public function testRepeatedReplacementTracksEveryDistinctInvoice(): void {
+    $first = $this->invoice();
+    $second = $this->invoice([
+      'paymentHash' => str_repeat('cd', 32),
+      'verifyUrl' => 'https://blink.sv/verify/' . str_repeat('cd', 32),
+    ]);
+    $third = $this->invoice([
+      'paymentHash' => str_repeat('ef', 32),
+      'verifyUrl' => 'https://blink.sv/verify/' . str_repeat('ef', 32),
+    ]);
+    $this->repository->store($this->order, $first);
+    $this->repository->replace($this->order, $second);
+
+    $this->repository->replace($this->order, $third);
+
+    $this->assertEquals(
+      [$first, $second],
+      $this->repository->outstanding($this->order)
+    );
+  }
+
+  public function testAResolvedInvoiceIsNotCarriedIntoANewAttempt(): void {
+    $this->repository->store($this->order, $this->invoice());
+    $this->repository->markTerminal($this->order, SettlementStatus::Expired);
+    $current = $this->invoice([
+      'paymentHash' => str_repeat('cd', 32),
+      'verifyUrl' => 'https://blink.sv/verify/' . str_repeat('cd', 32),
+    ]);
+
+    $this->repository->replace($this->order, $current);
+
+    $this->assertSame([], $this->repository->outstanding($this->order));
+    $this->assertNull($this->repository->terminalStatus($this->order));
+  }
+
+  public function testMalformedOutstandingInvoiceMetadataIsIgnored(): void {
+    $otherwiseValid = [
+      'paymentHash' => str_repeat('ab', 32),
+      'paymentRequest' => 'lnbc100u1xyz',
+      'verifyUrl' => 'https://blink.sv/verify/' . str_repeat('ab', 32),
+      'lnAddress' => 'shop@blink.sv',
+      'amountMsat' => 10000000,
+      'satoshis' => 10000,
+      'createdAt' => self::NOW,
+      'expiresAt' => self::NOW + 3600,
+      'orderTotal' => '10.00',
+      'orderCurrency' => 'USD',
+    ];
+    $this->order->setMeta(InvoiceRepository::OUTSTANDING_INVOICES, [
+      'not an invoice',
+      ['paymentHash' => str_repeat('ab', 32)],
+      array_merge($otherwiseValid, ['amountMsat' => 'not an integer']),
+      array_merge($otherwiseValid, ['orderTotal' => []]),
+    ]);
+
+    $this->assertSame([], $this->repository->outstanding($this->order));
+  }
+
   /**
    * Leaving the account-type marker behind meant a cleared order still looked
    * non-custodial to the pay page and the poll endpoint, but had no invoice.
    */
   public function testClearRemovesEverythingIncludingTheAccountTypeMarker(): void {
     $this->repository->store($this->order, $this->invoice());
-    $this->repository->markSettled($this->order, 'ff00');
+    $this->repository->replace(
+      $this->order,
+      $this->invoice([
+        'paymentHash' => str_repeat('cd', 32),
+        'verifyUrl' => 'https://blink.sv/verify/' . str_repeat('cd', 32),
+      ])
+    );
+    $this->repository->markSettled($this->order, str_repeat('ab', 32), 'ff00');
     $this->repository->markTerminal($this->order, SettlementStatus::Paid);
 
     $this->repository->clear($this->order);
@@ -331,27 +416,41 @@ final class InvoiceRepositoryTest extends TestCase {
    * the same payment.
    */
   public function testSettlementIsRecordedExactlyOnce(): void {
-    $this->assertTrue($this->repository->markSettled($this->order, 'ff00'));
-    $this->assertFalse($this->repository->markSettled($this->order, 'ff00'));
-    $this->assertFalse($this->repository->markSettled($this->order, 'different'));
+    $this->assertTrue(
+      $this->repository->markSettled($this->order, str_repeat('ab', 32), 'ff00')
+    );
+    $this->assertFalse(
+      $this->repository->markSettled($this->order, str_repeat('ab', 32), 'ff00')
+    );
+    $this->assertFalse(
+      $this->repository->markSettled(
+        $this->order,
+        str_repeat('ab', 32),
+        'different'
+      )
+    );
   }
 
   public function testSettlementRecordsWhenItHappenedAndThePreimage(): void {
-    $this->repository->markSettled($this->order, 'ff00');
+    $this->repository->markSettled($this->order, str_repeat('ab', 32), 'ff00');
 
     $this->assertSame(self::NOW, $this->order->meta[InvoiceRepository::SETTLED_AT]);
+    $this->assertSame(
+      str_repeat('ab', 32),
+      $this->repository->settledPaymentHash($this->order)
+    );
     $this->assertSame('ff00', $this->order->meta[InvoiceRepository::PREIMAGE]);
   }
 
   public function testSettlementWithoutAPreimageStoresNoPreimage(): void {
-    $this->repository->markSettled($this->order, null);
+    $this->repository->markSettled($this->order, str_repeat('ab', 32), null);
 
     $this->assertArrayNotHasKey(InvoiceRepository::PREIMAGE, $this->order->meta);
     $this->assertSame(self::NOW, $this->order->meta[InvoiceRepository::SETTLED_AT]);
   }
 
   public function testEmptyPreimageIsNotStored(): void {
-    $this->repository->markSettled($this->order, '');
+    $this->repository->markSettled($this->order, str_repeat('ab', 32), '');
 
     $this->assertArrayNotHasKey(InvoiceRepository::PREIMAGE, $this->order->meta);
   }
