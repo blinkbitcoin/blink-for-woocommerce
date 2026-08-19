@@ -8,9 +8,9 @@ namespace Blink\WC\Support;
  * Adapter onto Action Scheduler, which ships inside WooCommerce.
  *
  * WooCommerce is a hard requirement of this plugin, so Action Scheduler is
- * effectively always present. It is preferred over WP-Cron because WP-Cron
- * only advances when someone visits the site, which is precisely the situation
- * background settlement exists to survive.
+ * effectively always present. Action Scheduler provides the durable queue;
+ * its default queue runner is initiated by WP-Cron, so an idle production
+ * store still needs its host to invoke WordPress cron regularly.
  *
  * The methods below call the Action Scheduler API unguarded. Absence is
  * handled once, at selection time: Services::scheduler() hands back a
@@ -20,10 +20,36 @@ namespace Blink\WC\Support;
  * unloaded.
  */
 final class ActionSchedulerAdapter implements SchedulerInterface {
+  /** Action Scheduler's documented return format for action IDs. */
+  private const RETURN_FORMAT_IDS = 'ids';
+
   public function isAvailable(): bool {
     return function_exists('as_schedule_single_action') &&
       function_exists('as_unschedule_all_actions') &&
-      function_exists('as_next_scheduled_action');
+      function_exists('as_next_scheduled_action') &&
+      function_exists('as_get_scheduled_actions');
+  }
+
+  public function health(
+    string $hook,
+    string $group,
+    int $overdueBefore
+  ): SchedulerHealth {
+    $base = ['hook' => $hook, 'group' => $group, 'per_page' => 1];
+    $failed = as_get_scheduled_actions(
+      $base + ['status' => \ActionScheduler_Store::STATUS_FAILED],
+      self::RETURN_FORMAT_IDS
+    );
+    $overdue = as_get_scheduled_actions(
+      $base + [
+        'status' => \ActionScheduler_Store::STATUS_PENDING,
+        'date' => $overdueBefore,
+        'date_compare' => '<='
+      ],
+      self::RETURN_FORMAT_IDS
+    );
+
+    return new SchedulerHealth(true, $failed !== [], $overdue !== []);
   }
 
   public function scheduleSingle(

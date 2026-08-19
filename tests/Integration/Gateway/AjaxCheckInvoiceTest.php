@@ -7,6 +7,7 @@ namespace Blink\WC\Tests\Integration\Gateway;
 use Blink\WC\Gateway\BlinkLnGateway;
 use Blink\WC\Http\HttpResponse;
 use Blink\WC\NonCustodial\SettlementService;
+use Blink\WC\NonCustodial\SettlementMode;
 use Blink\WC\Tests\Support\SubstitutesBlinkServices;
 use Blink\WC\Tests\Support\TestTime;
 use WPAjaxDieContinueException;
@@ -76,7 +77,7 @@ final class AjaxCheckInvoiceTest extends WP_Ajax_UnitTestCase {
       'success' => $decoded['success'] ?? false,
       'status' => $decoded['data']['status'] ?? null,
       'redirect' => $decoded['data']['redirect'] ?? null,
-      'message' => $decoded['data']['message'] ?? null,
+      'message' => $decoded['data']['message'] ?? null
     ];
   }
 
@@ -102,6 +103,25 @@ final class AjaxCheckInvoiceTest extends WP_Ajax_UnitTestCase {
     $this->assertSame('PAID', $result['status']);
     $this->assertNotNull($result['redirect']);
     $this->assertSame('processing', $this->reload($order)->get_status());
+  }
+
+  public function test_worker_only_reads_cache_without_contacting_the_provider(): void {
+    $this->useSettlementMode(SettlementMode::WorkerOnly);
+    // Rebuild the gateway so it receives the graph carrying the selected mode.
+    remove_all_actions('wp_ajax_blink_check_invoice');
+    remove_all_actions('wp_ajax_nopriv_blink_check_invoice');
+    $this->gateway = new BlinkLnGateway();
+
+    $order = $this->makeOrder();
+    $this->storeInvoice($order);
+    $this->http->queueJson(['settled' => true, 'preimage' => $this->preimage]);
+
+    $result = $this->call($order);
+
+    $this->assertSame('PENDING', $result['status']);
+    $this->assertNull($result['redirect']);
+    $this->assertSame('pending', $this->reload($order)->get_status());
+    $this->assertSame(0, $this->http->requestCount());
   }
 
   public function test_an_already_paid_order_short_circuits(): void {

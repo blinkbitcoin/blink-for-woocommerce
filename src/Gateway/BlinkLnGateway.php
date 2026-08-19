@@ -56,7 +56,7 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
     // Actions.
     add_action('woocommerce_update_options_payment_gateways_' . $this->getId(), [
       $this,
-      'process_admin_options',
+      'process_admin_options'
     ]);
     add_action('woocommerce_api_' . $this->getId(), [$this, 'processWebhook']);
 
@@ -80,7 +80,7 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
         'label' => 'Enable this payment gateway.',
         'default' => 'no',
         'value' => 'yes',
-        'desc_tip' => false,
+        'desc_tip' => false
       ],
       'title' => [
         'title' => 'Title',
@@ -88,7 +88,7 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
         'description' =>
           'Controls the name of this payment method as displayed to the customer during checkout.',
         'default' => $this->getTitle(),
-        'desc_tip' => true,
+        'desc_tip' => true
       ],
       'description' => [
         'title' => 'Customer Message',
@@ -96,8 +96,8 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
         'description' =>
           'Message to explain how the customer will be paying for the purchase.',
         'default' => $this->getDescription(),
-        'desc_tip' => true,
-      ],
+        'desc_tip' => true
+      ]
     ];
   }
 
@@ -179,7 +179,7 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
     // wc_get_order() returns false for an unknown id, so this must be checked
     // before anything is called on it.
     $order = wc_get_order($order_id);
-    if (!$order instanceof \WC_Order) {
+    if (!($order instanceof \WC_Order)) {
       $message = 'Could not load order id ' . $order_id . ', aborting.';
       Logger::debug($message, true);
       throw new \Exception(esc_html($message));
@@ -219,7 +219,7 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
         'redirect' =>
           $this->apiHelper->getInvoiceRedirectUrl($existingInvoiceId) .
           '?returnUrl=' .
-          urlencode($order->get_checkout_order_received_url()),
+          urlencode($order->get_checkout_order_received_url())
       ];
     }
 
@@ -248,7 +248,7 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
       'redirect' =>
         $invoice['redirectUrl'] .
         '?returnUrl=' .
-        urlencode($order->get_checkout_order_received_url()),
+        urlencode($order->get_checkout_order_received_url())
     ];
   }
 
@@ -287,7 +287,7 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
 
     return [
       'result' => 'success',
-      'redirect' => $order->get_checkout_payment_url(true),
+      'redirect' => $order->get_checkout_payment_url(true)
     ];
   }
 
@@ -368,7 +368,7 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
         // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- the webhook has only the payment hash to identify the order by.
         'meta_key' => 'blink_id',
         // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value -- see above.
-        'meta_value' => $invoiceId,
+        'meta_value' => $invoiceId
       ]);
 
       // Abort if no orders found
@@ -382,7 +382,7 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
         Logger::debug('Found multiple orders for invoiceId: ' . esc_html($invoiceId));
         Logger::debug(print_r($orders, true));
         wp_die('Multiple orders found for this invoiceId, aborting.', '', [
-          'response' => 200,
+          'response' => 200
         ]);
       }
 
@@ -511,7 +511,7 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
    */
   public function renderPayPage($order_id): void {
     $order = wc_get_order($order_id);
-    if (!$order) {
+    if (!($order instanceof \WC_Order)) {
       return;
     }
 
@@ -613,8 +613,8 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
               'This payment session is no longer valid. Please reload the page.',
               'blink-for-woocommerce'
             ),
-            'checkAgain' => __('Check again', 'blink-for-woocommerce'),
-          ],
+            'checkAgain' => __('Check again', 'blink-for-woocommerce')
+          ]
         ]) .
         ';',
       'before'
@@ -710,7 +710,7 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
 
     $order = $orderId ? wc_get_order($orderId) : null;
     if (
-      !$order instanceof \WC_Order ||
+      !($order instanceof \WC_Order) ||
       !hash_equals($order->get_order_key(), $orderKey)
     ) {
       wp_send_json_error(['message' => 'Invalid order.'], 403);
@@ -727,22 +727,14 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
 
     if ($order->is_paid()) {
       wp_send_json_success([
-        'status' => 'PAID',
-        'redirect' => $order->get_checkout_order_received_url(),
+        'status' => SettlementStatus::Paid->value,
+        'redirect' => $order->get_checkout_order_received_url()
       ]);
     }
 
-    $settlement = $this->services->settlement();
-    $budget = $this->services->pollBudget();
-
-    $useCached =
-      $settlement->isCacheFresh($record) || !$budget->allowIp($this->clientIp());
-    $outcome = $useCached ? $settlement->cached($record) : $settlement->poll($record);
-
-    if ($outcome->status === SettlementStatus::Unknown) {
-      // Nothing was learned; report the last real observation instead.
-      $outcome = $settlement->cached($record);
-    }
+    $outcome = $this->services
+      ->paymentPageSettlementObserver()
+      ->observe($record, $this->clientIp());
     $status = $outcome->status;
 
     // The same applier the background job uses, so a status reached through
@@ -754,7 +746,7 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
       'redirect' =>
         $status === SettlementStatus::Paid
           ? $order->get_checkout_order_received_url()
-          : null,
+          : null
     ]);
   }
 

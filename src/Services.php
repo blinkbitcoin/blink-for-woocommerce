@@ -11,16 +11,22 @@ use Blink\WC\Http\HttpClientInterface;
 use Blink\WC\NonCustodial\BlinkApiSatsRateProvider;
 use Blink\WC\NonCustodial\Bolt11\Bolt11Decoder;
 use Blink\WC\NonCustodial\Bolt11\InvoiceValidator;
+use Blink\WC\NonCustodial\CachedPaymentPageSettlementObserver;
 use Blink\WC\NonCustodial\DnsResolverInterface;
+use Blink\WC\NonCustodial\FixedSettlementModeProvider;
 use Blink\WC\NonCustodial\InvoiceFactory;
 use Blink\WC\NonCustodial\InvoiceRepository;
 use Blink\WC\NonCustodial\InvoiceReusePolicy;
 use Blink\WC\NonCustodial\LnurlClient;
 use Blink\WC\NonCustodial\LnurlClientInterface;
+use Blink\WC\NonCustodial\LivePaymentPageSettlementObserver;
+use Blink\WC\NonCustodial\PaymentPageSettlementObserverInterface;
 use Blink\WC\NonCustodial\PollBudget;
 use Blink\WC\NonCustodial\SatsRateProviderInterface;
 use Blink\WC\NonCustodial\SettlementScheduler;
 use Blink\WC\NonCustodial\SettlementService;
+use Blink\WC\NonCustodial\SettlementMode;
+use Blink\WC\NonCustodial\SettlementModeProviderInterface;
 use Blink\WC\NonCustodial\SystemDnsResolver;
 use Blink\WC\NonCustodial\UnpaidOrderGuard;
 use Blink\WC\NonCustodial\UrlPolicy;
@@ -227,6 +233,28 @@ final class Services {
     );
   }
 
+  public function settlementMode(): SettlementModeProviderInterface {
+    return $this->memo(
+      __FUNCTION__,
+      static fn(): SettlementModeProviderInterface => new FixedSettlementModeProvider(
+        SettlementMode::Hybrid
+      )
+    );
+  }
+
+  public function paymentPageSettlementObserver(): PaymentPageSettlementObserverInterface {
+    return $this->memo(__FUNCTION__, function (): PaymentPageSettlementObserverInterface {
+      if ($this->settlementMode()->mode()->allowsPaymentPageVerification()) {
+        return new LivePaymentPageSettlementObserver(
+          $this->settlement(),
+          $this->pollBudget()
+        );
+      }
+
+      return new CachedPaymentPageSettlementObserver($this->settlement());
+    });
+  }
+
   public function unpaidOrderGuard(): UnpaidOrderGuard {
     return $this->memo(
       __FUNCTION__,
@@ -267,7 +295,8 @@ final class Services {
         $this->outcomeApplier(),
         $this->clock(),
         $this->jitter(),
-        $this->logger()
+        $this->logger(),
+        $this->settlementMode()
       )
     );
   }

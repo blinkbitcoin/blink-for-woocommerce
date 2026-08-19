@@ -39,6 +39,45 @@ final class ActionSchedulerAdapterTest extends IntegrationTestCase {
     $this->assertNull($this->adapter->nextScheduled(self::HOOK, [7], self::GROUP));
   }
 
+  public function test_queue_health_reports_due_work(): void {
+    $this->adapter->scheduleSingle(time() - 60, self::HOOK, [7], self::GROUP);
+
+    $health = $this->adapter->health(self::HOOK, self::GROUP, time() - 30);
+
+    $this->assertTrue($health->available);
+    $this->assertTrue($health->hasOverdueActions);
+    $this->assertFalse($health->healthy());
+  }
+
+  public function test_queue_health_reports_failed_work(): void {
+    $failure = static function (): void {
+      throw new \RuntimeException('expected test failure');
+    };
+    add_action(self::HOOK, $failure);
+    $this->adapter->scheduleSingle(time() - 60, self::HOOK, [7], self::GROUP);
+    $ids = as_get_scheduled_actions(
+      [
+        'hook' => self::HOOK,
+        'args' => [7],
+        'group' => self::GROUP,
+        'status' => \ActionScheduler_Store::STATUS_PENDING
+      ],
+      'ids'
+    );
+    $actionId = (int) reset($ids);
+
+    try {
+      \ActionScheduler::runner()->process_action($actionId, 'blink-test');
+      $health = $this->adapter->health(self::HOOK, self::GROUP, time());
+
+      $this->assertTrue($health->hasFailedActions);
+      $this->assertFalse($health->healthy());
+    } finally {
+      remove_action(self::HOOK, $failure);
+      \ActionScheduler::store()->delete_action($actionId);
+    }
+  }
+
   public function test_a_scheduled_action_is_reported_with_its_timestamp(): void {
     $when = time() + 3600;
 

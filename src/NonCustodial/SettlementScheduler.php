@@ -17,35 +17,19 @@ use Blink\WC\Support\SchedulerInterface;
  * phone and closed the laptop tab paid the merchant and then watched
  * WooCommerce cancel the order when hold-stock expired.
  *
- * The schedule escalates rather than polling at a fixed rate. A Lightning
- * payment settles in seconds, while the tab is almost always still open, so
- * the browser catches the common case for free; the scheduler exists for the
- * abandoned tab, where checking every few seconds for an hour would be pure
- * waste.
+ * Checks settle onto a short fixed interval after an initial fast pair. With
+ * Action Scheduler's normal one-minute runner granularity, the interval keeps
+ * a healthy store inside the two-minute observation target.
  */
 final class SettlementScheduler {
   public const HOOK = 'blink_settle_noncustodial';
   public const GROUP = 'blink';
 
   /** Seconds after invoice creation at which checks fire, before jitter. */
-  private const SCHEDULE = [
-    20,
-    45,
-    90,
-    180,
-    300,
-    480,
-    720,
-    1020,
-    1380,
-    1800,
-    2400,
-    3000,
-    3480,
-  ];
+  private const SCHEDULE = [20, 45];
 
   /** Interval used once the schedule above is exhausted. */
-  private const TAIL_INTERVAL = 300;
+  private const TAIL_INTERVAL = 45;
 
   /**
    * The closest another check may ever be scheduled.
@@ -62,9 +46,9 @@ final class SettlementScheduler {
     private SettlementOutcomeApplier $outcomeApplier,
     private ClockInterface $clock,
     private JitterInterface $jitter,
-    private LoggerInterface $log
-  ) {
-  }
+    private LoggerInterface $log,
+    private SettlementModeProviderInterface $modeProvider
+  ) {}
 
   /** @return array{int} */
   public static function argsFor(int $orderId): array {
@@ -76,6 +60,10 @@ final class SettlementScheduler {
     // invoice on a fresh timetable; the settlement service still checks every
     // payable predecessor stored against the order.
     $this->cancel($order->id());
+
+    if (!$this->modeProvider->mode()->usesBackgroundWorker()) {
+      return;
+    }
 
     if (!$this->scheduler->isAvailable()) {
       $this->log->debug(
@@ -107,6 +95,12 @@ final class SettlementScheduler {
    * further away every time the customer reloaded the pay page.
    */
   public function ensureScheduled(OrderRecord $order): void {
+    if (!$this->modeProvider->mode()->usesBackgroundWorker()) {
+      $this->cancel($order->id());
+
+      return;
+    }
+
     if (!$this->scheduler->isAvailable()) {
       $this->log->debug(
         'No background scheduler available; settlement will rely on the pay page only.'
@@ -153,6 +147,12 @@ final class SettlementScheduler {
    * tests assert on rather than reaching into Action Scheduler.
    */
   public function tick(OrderRecord $order): bool {
+    if (!$this->modeProvider->mode()->usesBackgroundWorker()) {
+      $this->cancel($order->id());
+
+      return false;
+    }
+
     if (!$this->repository->isNonCustodial($order)) {
       return false;
     }
@@ -190,6 +190,11 @@ final class SettlementScheduler {
       return false;
     }
 
+    // Arm the successor first. An unexpected exception after this point must
+    // not silently kill the only mechanism watching an abandoned pay page.
+    // Normal terminal and exhausted outcomes cancel it below.
+    $this->scheduleNext($order, $invoice);
+
     $outcome = $this->settlement->pollAsBackgroundCheck($order);
 
     // Applying the outcome is what makes background settlement worth running:
@@ -204,6 +209,7 @@ final class SettlementScheduler {
     }
 
     if ($this->settlement->exhausted($order)) {
+      $this->cancel($order->id());
       $this->log->error(
         sprintf(
           'Order %d: giving up on background settlement after repeated failures. The order has ' .
@@ -215,7 +221,7 @@ final class SettlementScheduler {
       return false;
     }
 
-    return $this->scheduleNext($order, $invoice);
+    return true;
   }
 
   private function scheduleNext(OrderRecord $order, StoredInvoice $invoice): bool {
@@ -234,11 +240,8 @@ final class SettlementScheduler {
     }
 
     // Jitter belongs on the interval, not on the offset from createdAt. Applied
-    // to the offset it scaled with the age of the invoice: in the tail, where
-    // $next is $elapsed + 300, a 3000-second-old invoice drew +/-825 seconds
-    // against a 300-second interval, so checks oscillated between the floor
-    // below and gaps of a quarter of an hour -- and MAX_ATTEMPTS is documented
-    // against a schedule that assumes neither.
+    // to the full age of the invoice, its spread grows on every check and can
+    // push the worker outside its promised observation window.
     $timestamp = $invoice->createdAt + $elapsed + $this->jitter->apply($next - $elapsed);
 
     // Keep the chain alive for the longest-lived invoice. A replacement can

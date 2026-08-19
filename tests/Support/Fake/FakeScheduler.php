@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Blink\WC\Tests\Support\Fake;
 
 use Blink\WC\Support\SchedulerInterface;
+use Blink\WC\Support\SchedulerHealth;
 
 /**
  * Records scheduling decisions without running anything.
@@ -20,11 +21,18 @@ final class FakeScheduler implements SchedulerInterface {
   /** @var list<array{hook:string,args:array,group:string}> */
   public array $unscheduled = [];
 
-  public function __construct(private bool $available = true) {
-  }
+  public function __construct(private bool $available = true) {}
 
   public function isAvailable(): bool {
     return $this->available;
+  }
+
+  public function health(
+    string $hook,
+    string $group,
+    int $overdueBefore
+  ): SchedulerHealth {
+    return new SchedulerHealth($this->available);
   }
 
   public function scheduleSingle(

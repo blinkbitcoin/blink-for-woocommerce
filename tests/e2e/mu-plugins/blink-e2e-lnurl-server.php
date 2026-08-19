@@ -19,13 +19,34 @@ defined('ABSPATH') || exit();
 
 final class Blink_E2E_Lnurl_Server {
   private const OPTION_PREFIX = 'blink_e2e_';
+  /** WooCommerce has no status constants at the plugin's compatibility floor. */
+  private const ORDER_STATUS_PENDING = 'pending';
+  private const SETTLEMENT_MODE_FIELD = 'blink_e2e_settlement_mode';
+  private const SETTLEMENT_MODE_OPTION = self::OPTION_PREFIX . 'settlement_mode';
 
   public static function boot(): void {
+    add_filter('blink_service_settlementMode', [self::class, 'settlementMode']);
+    // Keep the regression deterministic: WP-Cron is disabled in wp-config and
+    // this also prevents Action Scheduler's request-shutdown loopback runner.
+    // The test's one WP-CLI invocation is therefore the only process allowed
+    // to execute queued settlement work.
+    add_filter('action_scheduler_allow_async_request_runner', '__return_false');
+
     // wp_loaded, not init: the control endpoints call wc_get_order() and the
     // real gateway, and at init priority 0 WooCommerce has not yet registered
     // its data stores, so order lookups fail. wp_loaded still runs well before
     // redirect_canonical would turn /.well-known/... into a 301.
     add_action('wp_loaded', [self::class, 'route'], 0);
+  }
+
+  /** Selects an orchestration mode without changing production configuration. */
+  public static function settlementMode(): \Blink\WC\NonCustodial\SettlementModeProviderInterface {
+    $mode =
+      \Blink\WC\NonCustodial\SettlementMode::tryFrom(
+        (string) get_option(self::SETTLEMENT_MODE_OPTION)
+      ) ?? \Blink\WC\NonCustodial\SettlementMode::Hybrid;
+
+    return new \Blink\WC\NonCustodial\FixedSettlementModeProvider($mode);
   }
 
   public static function route(): void {
@@ -62,9 +83,6 @@ final class Blink_E2E_Lnurl_Server {
     if ($path === '/blink-e2e/control/settings') {
       self::settings();
     }
-    if ($path === '/blink-e2e/control/run-scheduler') {
-      self::runScheduler();
-    }
   }
 
   // ------------------------------------------------------------- endpoints
@@ -94,7 +112,7 @@ final class Blink_E2E_Lnurl_Server {
       case 'oversized':
         self::json([
           'tag' => 'payRequest',
-          'padding' => str_repeat('x', 12 * 1024 * 1024),
+          'padding' => str_repeat('x', 12 * 1024 * 1024)
         ]);
       case 'below-min':
         self::json(self::metadata($identifier, ['minSendable' => 900000000000]));
@@ -116,7 +134,7 @@ final class Blink_E2E_Lnurl_Server {
         'minSendable' => 1000,
         'maxSendable' => 100000000000,
         'commentAllowed' => 255,
-        'metadata' => self::metadataString($identifier),
+        'metadata' => self::metadataString($identifier)
       ],
       $overrides
     );
@@ -143,27 +161,27 @@ final class Blink_E2E_Lnurl_Server {
       case 'insecure-callback':
         self::json([
           'pr' => self::invoice($identifier, $amountMsat, $paymentHash),
-          'verify' => 'http://example.com/verify/' . $paymentHash,
+          'verify' => 'http://example.com/verify/' . $paymentHash
         ]);
       case 'foreign-verify':
         self::json([
           'pr' => self::invoice($identifier, $amountMsat, $paymentHash),
-          'verify' => 'https://attacker.example/verify/' . $paymentHash,
+          'verify' => 'https://attacker.example/verify/' . $paymentHash
         ]);
       case 'wrong-amount':
         self::json([
           'pr' => self::invoice($identifier, (int) ($amountMsat / 100), $paymentHash),
-          'verify' => home_url('/blink-e2e/verify/' . $paymentHash),
+          'verify' => home_url('/blink-e2e/verify/' . $paymentHash)
         ]);
       case 'short-expiry':
         self::json([
           'pr' => self::invoice($identifier, $amountMsat, $paymentHash, 30),
-          'verify' => home_url('/blink-e2e/verify/' . $paymentHash),
+          'verify' => home_url('/blink-e2e/verify/' . $paymentHash)
         ]);
       default:
         self::json([
           'pr' => self::invoice($identifier, $amountMsat, $paymentHash),
-          'verify' => home_url('/blink-e2e/verify/' . $paymentHash),
+          'verify' => home_url('/blink-e2e/verify/' . $paymentHash)
         ]);
     }
   }
@@ -192,7 +210,7 @@ final class Blink_E2E_Lnurl_Server {
       'preimage' => $settled
         ? (string) get_option(self::OPTION_PREFIX . 'preimage_' . $paymentHash)
         : null,
-      'pr' => null,
+      'pr' => null
     ]);
   }
 
@@ -235,7 +253,7 @@ final class Blink_E2E_Lnurl_Server {
     $order->set_currency('USD');
     $order->set_total((string) $total);
     $order->set_payment_method('blink_default');
-    $order->set_status('pending');
+    $order->set_status(self::ORDER_STATUS_PENDING);
     $order->save();
 
     $gateways = WC()->payment_gateways()->payment_gateways();
@@ -251,7 +269,7 @@ final class Blink_E2E_Lnurl_Server {
       self::json([
         'ok' => false,
         'orderId' => $order->get_id(),
-        'error' => $e->getMessage(),
+        'error' => $e->getMessage()
       ]);
     }
 
@@ -262,10 +280,14 @@ final class Blink_E2E_Lnurl_Server {
       'orderId' => $order->get_id(),
       'orderKey' => $order->get_order_key(),
       'payUrl' => $order->get_checkout_payment_url(true),
-      'paymentHash' => (string) $order->get_meta('blink_id'),
-      'satoshis' => (int) $order->get_meta('_blink_satoshis'),
+      'paymentHash' => (string) $order->get_meta(
+        \Blink\WC\NonCustodial\InvoiceRepository::PAYMENT_HASH
+      ),
+      'satoshis' => (int) $order->get_meta(
+        \Blink\WC\NonCustodial\InvoiceRepository::SATOSHIS
+      ),
       'status' => $order->get_status(),
-      'redirect' => $result['redirect'] ?? null,
+      'redirect' => $result['redirect'] ?? null
     ]);
   }
 
@@ -273,20 +295,26 @@ final class Blink_E2E_Lnurl_Server {
     $id = isset($_REQUEST['id']) ? absint($_REQUEST['id']) : 0;
     $order = $id ? wc_get_order($id) : null;
 
-    if (!$order instanceof \WC_Order) {
+    if (!($order instanceof \WC_Order)) {
       status_header(404);
       self::json(['error' => 'no such order']);
     }
 
     self::json([
       'status' => $order->get_status(),
-      'paymentHash' => (string) $order->get_meta('blink_id'),
-      'satoshis' => (int) $order->get_meta('_blink_satoshis'),
-      'terminal' => (string) $order->get_meta('_blink_terminal'),
+      'paymentHash' => (string) $order->get_meta(
+        \Blink\WC\NonCustodial\InvoiceRepository::PAYMENT_HASH
+      ),
+      'satoshis' => (int) $order->get_meta(
+        \Blink\WC\NonCustodial\InvoiceRepository::SATOSHIS
+      ),
+      'terminal' => (string) $order->get_meta(
+        \Blink\WC\NonCustodial\InvoiceRepository::TERMINAL
+      ),
       'notes' => array_map(
         static fn($note): string => trim($note->content),
         wc_get_order_notes(['order_id' => $order->get_id(), 'limit' => 20])
-      ),
+      )
     ]);
   }
 
@@ -300,31 +328,22 @@ final class Blink_E2E_Lnurl_Server {
       }
     }
 
+    if (isset($_REQUEST[self::SETTLEMENT_MODE_FIELD])) {
+      update_option(
+        self::SETTLEMENT_MODE_OPTION,
+        sanitize_text_field(wp_unslash($_REQUEST[self::SETTLEMENT_MODE_FIELD]))
+      );
+    }
+
     self::json([
       'ok' => true,
       'blink_account_type' => get_option('blink_account_type'),
       'blink_ln_address' => get_option('blink_ln_address'),
+      self::SETTLEMENT_MODE_FIELD => get_option(
+        self::SETTLEMENT_MODE_OPTION,
+        \Blink\WC\NonCustodial\SettlementMode::Hybrid->value
+      )
     ]);
-  }
-
-  /** Runs whatever settlement work is due, as the queue would. */
-  private static function runScheduler(): void {
-    $ran = 0;
-    if (class_exists('\ActionScheduler')) {
-      $store = \ActionScheduler::store();
-      $runner = \ActionScheduler::runner();
-      $due = $store->query_actions([
-        'status' => \ActionScheduler_Store::STATUS_PENDING,
-        'group' => 'blink',
-        'per_page' => 50,
-      ]);
-      foreach ($due as $actionId) {
-        $runner->process_action((int) $actionId, 'blink-e2e');
-        $ran++;
-      }
-    }
-
-    self::json(['ok' => true, 'ran' => $ran]);
   }
 
   private static function reset(): void {

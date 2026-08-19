@@ -6,10 +6,12 @@ namespace Blink\WC\Tests\Unit\NonCustodial;
 
 use Blink\WC\Http\HttpResponse;
 use Blink\WC\NonCustodial\InvoiceRepository;
+use Blink\WC\NonCustodial\FixedSettlementModeProvider;
 use Blink\WC\NonCustodial\LnurlClient;
 use Blink\WC\NonCustodial\PollBudget;
 use Blink\WC\NonCustodial\SettlementScheduler;
 use Blink\WC\NonCustodial\SettlementService;
+use Blink\WC\NonCustodial\SettlementMode;
 use Blink\WC\NonCustodial\SettlementStatus;
 use Blink\WC\NonCustodial\StoredInvoice;
 use Blink\WC\NonCustodial\UrlPolicy;
@@ -71,7 +73,10 @@ final class SettlementSchedulerTest extends TestCase {
   }
 
   /** Jitter is scripted at its midpoint so scheduled times are exact. */
-  private function makeScheduler(array $draws = null): SettlementScheduler {
+  private function makeScheduler(
+    ?array $draws = null,
+    SettlementMode $mode = SettlementMode::Hybrid
+  ): SettlementScheduler {
     return new SettlementScheduler(
       $this->scheduler,
       $this->settlement,
@@ -79,7 +84,8 @@ final class SettlementSchedulerTest extends TestCase {
       $this->outcomeApplier,
       $this->clock,
       new RandomJitter(new FakeRandomSource($draws ?? array_fill(0, 50, 0.5))),
-      $this->log
+      $this->log,
+      new FixedSettlementModeProvider($mode)
     );
   }
 
@@ -168,7 +174,23 @@ final class SettlementSchedulerTest extends TestCase {
     );
   }
 
-  public function testChecksFollowAnEscalatingSchedule(): void {
+  public function testWorkerOnlySettlesWithoutAnyPaymentPageTrigger(): void {
+    $invoice = $this->storeInvoice();
+    $scheduler = $this->makeScheduler(mode: SettlementMode::WorkerOnly);
+    $scheduler->onInvoiceCreated($this->order, $invoice);
+    $this->http->queueJson(['settled' => true, 'preimage' => $this->preimage]);
+
+    $this->clock->travel(20);
+    $this->assertFalse($scheduler->tick($this->order));
+
+    $this->assertSame(1, $this->http->requestCount());
+    $this->assertSame(
+      SettlementStatus::Paid,
+      $this->repository->terminalStatus($this->order)
+    );
+  }
+
+  public function testChecksSettleOntoABoundedSchedule(): void {
     $invoice = $this->storeInvoice();
     $scheduler = $this->makeScheduler();
     $this->http->alwaysRespond(new HttpResponse(200, '{"settled":false}'));
@@ -183,7 +205,7 @@ final class SettlementSchedulerTest extends TestCase {
       $times[] = $latest['timestamp'] - self::NOW;
     }
 
-    $this->assertSame([20, 45, 90, 180, 300], $times);
+    $this->assertSame([20, 45, 90, 135, 225], $times);
   }
 
   public function testTheScheduleContinuesAtAFixedIntervalOnceExhausted(): void {
@@ -195,7 +217,7 @@ final class SettlementSchedulerTest extends TestCase {
     $scheduler->tick($this->order);
 
     $latest = end($this->scheduler->scheduled);
-    $this->assertSame(self::NOW + 3480 + 300, $latest['timestamp']);
+    $this->assertSame(self::NOW + 3480 + 45, $latest['timestamp']);
   }
 
   public function testAnInvoiceWithoutAnExpiryKeepsItsScheduleRunning(): void {
@@ -208,7 +230,7 @@ final class SettlementSchedulerTest extends TestCase {
     $this->assertTrue($scheduler->tick($this->order));
 
     $latest = end($this->scheduler->scheduled);
-    $this->assertSame(self::NOW + 3600 + 300, $latest['timestamp']);
+    $this->assertSame(self::NOW + 3600 + 45, $latest['timestamp']);
   }
 
   public function testChecksAreJitteredAroundTheirNominalTime(): void {
@@ -278,12 +300,12 @@ final class SettlementSchedulerTest extends TestCase {
   }
 
   /** @return array<string,array{float,int}> */
-  public function tailJitterDraws(): array {
-    // 300s tail interval, +/-25%.
+  public static function tailJitterDraws(): array {
+    // 45s tail interval, +/-25%, rounded to whole seconds.
     return [
-      'earliest' => [0.0, 225],
-      'midpoint' => [0.5, 300],
-      'latest' => [1.0, 375],
+      'earliest' => [0.0, 34],
+      'midpoint' => [0.5, 45],
+      'latest' => [1.0, 56]
     ];
   }
 
@@ -410,6 +432,56 @@ final class SettlementSchedulerTest extends TestCase {
     $this->assertFalse($result);
     $this->assertNull($this->repository->terminalStatus($this->order));
     $this->assertTrue($this->log->hasMessageContaining('giving up', 'error'));
+  }
+
+  public function testAnUnexpectedExceptionLeavesTheSuccessorScheduled(): void {
+    $this->storeInvoice();
+    $scheduler = $this->makeScheduler();
+    $this->clock->travel(20);
+
+    try {
+      // No HTTP response is scripted, so the fake throws from inside the
+      // verification request after tick() has armed its successor.
+      $scheduler->tick($this->order);
+      $this->fail('Expected the scripted HTTP client to throw.');
+    } catch (\LogicException $e) {
+      $this->assertStringContainsString(
+        'no scripted response',
+        strtolower($e->getMessage())
+      );
+    }
+
+    $this->assertSame([self::NOW + 45], $this->scheduler->scheduledTimestamps());
+  }
+
+  public function testBrowserOnlyNeverSchedulesOrRunsBackgroundChecks(): void {
+    $invoice = $this->storeInvoice();
+    $scheduler = new SettlementScheduler(
+      $this->scheduler,
+      $this->settlement,
+      $this->repository,
+      $this->outcomeApplier,
+      $this->clock,
+      new RandomJitter(new FakeRandomSource([0.5])),
+      $this->log,
+      new FixedSettlementModeProvider(SettlementMode::BrowserOnly)
+    );
+
+    $scheduler->onInvoiceCreated($this->order, $invoice);
+    $this->assertSame([], $this->scheduler->scheduled);
+
+    $this->scheduler->scheduleSingle(
+      self::NOW + 60,
+      SettlementScheduler::HOOK,
+      SettlementScheduler::argsFor($this->order->id()),
+      SettlementScheduler::GROUP
+    );
+    $scheduler->ensureScheduled($this->order);
+    $this->assertSame([], $this->scheduler->scheduled);
+
+    $this->http->queueJson(['settled' => true, 'preimage' => $this->preimage]);
+    $this->assertFalse($scheduler->tick($this->order));
+    $this->assertSame(0, $this->http->requestCount());
   }
 
   public function testCancellingRemovesScheduledChecks(): void {

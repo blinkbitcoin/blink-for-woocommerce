@@ -1,10 +1,15 @@
 import {
   expect,
   orderState,
+  resetHarness,
   runScheduler,
   seedOrder,
+  SettlementMode,
+  setSettlementMode,
   settle,
+  TerminalSettlementStatus,
   test,
+  WooOrderStatus,
 } from '../fixtures/blink';
 
 /**
@@ -18,6 +23,17 @@ import {
  * against admin-ajax navigates the customer.
  */
 test.describe('the pay page', () => {
+  test.describe.configure({ mode: 'serial' });
+
+  test.beforeEach(async ({ request }) => {
+    await resetHarness(request);
+    await setSettlementMode(request, SettlementMode.Hybrid);
+  });
+
+  test.afterEach(async ({ request }) => {
+    await setSettlementMode(request, SettlementMode.Hybrid);
+  });
+
   test('renders a scannable invoice from the payload it was given', async ({
     page,
     request,
@@ -90,33 +106,63 @@ test.describe('the pay page', () => {
       .poll(async () => (await orderState(request, order.orderId)).status, {
         timeout: 30_000,
       })
-      .toBe('processing');
+      .toBe(WooOrderStatus.Processing);
   });
 
-  test('reflects a payment made after the customer closed the page', async ({
+  test('reproduces browser-only failure and proves the worker-only fix', async ({
     page,
     request,
     context,
   }) => {
-    const order = await seedOrder(request);
+    test.setTimeout(75_000);
 
-    const payPage = await context.newPage();
-    await payPage.goto(order.payUrl);
-    await expect(payPage.locator('#blink-pay-qr svg')).toBeVisible();
-    await payPage.close();
+    await setSettlementMode(request, SettlementMode.BrowserOnly);
+    const browserOnlyOrder = await seedOrder(request);
+    const browserOnlyPage = await context.newPage();
+    await browserOnlyPage.goto(browserOnlyOrder.payUrl);
+    await expect(browserOnlyPage.locator('#blink-pay-qr svg')).toBeVisible();
+    await browserOnlyPage.close();
+    await settle(request, browserOnlyOrder.paymentHash);
 
-    await settle(request, order.paymentHash);
-    expect(await runScheduler(request)).toBeGreaterThan(0);
+    await setSettlementMode(request, SettlementMode.WorkerOnly);
+    const workerOnlyOrder = await seedOrder(request, '11.00');
+    const workerOnlyPage = await context.newPage();
+    await workerOnlyPage.goto(workerOnlyOrder.payUrl);
+    await expect(workerOnlyPage.locator('#blink-pay-qr svg')).toBeVisible();
+    await workerOnlyPage.close();
+    await settle(request, workerOnlyOrder.paymentHash);
 
-    const state = await orderState(request, order.orderId);
-    expect(state.status).toBe('processing');
-    expect(state.terminal).toBe('PAID');
+    // The first action is jittered between 15 and 25 seconds after invoice
+    // creation. Wait until it is due, then let the real WP-CLI queue runner
+    // discover and execute it without reopening either customer page.
+    await new Promise((resolve) => setTimeout(resolve, 26_000));
+
+    // DISABLE_WP_CRON is set in this test site. Time passing and status reads
+    // therefore cannot accidentally execute the queue and hide the reported
+    // failure: both closed-page orders are still pending before the store-side
+    // runner is invoked.
+    expect((await orderState(request, browserOnlyOrder.orderId)).status).toBe(
+      WooOrderStatus.Pending,
+    );
+    expect((await orderState(request, workerOnlyOrder.orderId)).status).toBe(
+      WooOrderStatus.Pending,
+    );
+
+    await runScheduler();
+
+    const reproduced = await orderState(request, browserOnlyOrder.orderId);
+    expect(reproduced.status).toBe(WooOrderStatus.Pending);
+    expect(reproduced.terminal).toBe('');
+
+    const fixed = await orderState(request, workerOnlyOrder.orderId);
+    expect(fixed.status).toBe(WooOrderStatus.Processing);
+    expect(fixed.terminal).toBe(TerminalSettlementStatus.Paid);
 
     // Returning to the pay page must not ask them to pay again. WooCommerce
     // itself refuses to render a payment form for an order that is no longer
     // payable, which is why renderPayPage()'s own redirect never fires -- the
     // receipt hook is not reached at all.
-    await page.goto(order.payUrl);
+    await page.goto(workerOnlyOrder.payUrl);
     await expect(page.locator('#blink-pay-qr')).toHaveCount(0);
     await expect(page.locator('body')).toContainText('cannot be paid for');
   });

@@ -7,6 +7,7 @@ namespace Blink\WC\Tests\Integration\NonCustodial;
 use Blink\WC\Http\HttpResponse;
 use Blink\WC\NonCustodial\SettlementScheduler;
 use Blink\WC\NonCustodial\SettlementService;
+use Blink\WC\NonCustodial\SettlementMode;
 use Blink\WC\NonCustodial\SettlementStatus;
 use Blink\WC\Tests\Support\IntegrationTestCase;
 use Automattic\WooCommerce\Utilities\OrderUtil;
@@ -32,6 +33,34 @@ final class BackgroundSettlementTest extends IntegrationTestCase {
     $this->runDueAction($order->get_id());
 
     $this->assertSame('processing', $this->reload($order)->get_status());
+    $this->assertSame(1, $this->countNotesContaining($order, 'settled'));
+  }
+
+  public function test_the_real_queue_runner_settles_a_worker_only_order(): void {
+    $this->useSettlementMode(SettlementMode::WorkerOnly);
+    $order = $this->makeOrder();
+    $invoice = $this->storeInvoice($order);
+    $this->services()
+      ->settlementScheduler()
+      ->onInvoiceCreated($this->record($order), $invoice);
+    $this->http->queueJson(['settled' => true, 'preimage' => $this->preimage]);
+
+    $ids = as_get_scheduled_actions(
+      [
+        'hook' => SettlementScheduler::HOOK,
+        'args' => [$order->get_id()],
+        'group' => SettlementScheduler::GROUP,
+        'status' => \ActionScheduler_Store::STATUS_PENDING
+      ],
+      'ids'
+    );
+    $actionId = (int) reset($ids);
+    $this->assertGreaterThan(0, $actionId, 'checkout must enqueue a real action');
+
+    \ActionScheduler::runner()->process_action($actionId, 'blink-regression-test');
+
+    $this->assertSame('processing', $this->reload($order)->get_status());
+    $this->assertSame(1, $this->http->requestCount());
     $this->assertSame(1, $this->countNotesContaining($order, 'settled'));
   }
 

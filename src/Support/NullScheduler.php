@@ -16,16 +16,22 @@ final class NullScheduler implements SchedulerInterface {
     return false;
   }
 
+  public function health(
+    string $hook,
+    string $group,
+    int $overdueBefore
+  ): SchedulerHealth {
+    return new SchedulerHealth(false);
+  }
+
   public function scheduleSingle(
     int $timestamp,
     string $hook,
     array $args,
     string $group
-  ): void {
-  }
+  ): void {}
 
-  public function unscheduleAll(string $hook, array $args, string $group): void {
-  }
+  public function unscheduleAll(string $hook, array $args, string $group): void {}
 
   public function nextScheduled(string $hook, array $args, string $group): ?int {
     return null;

@@ -24,6 +24,7 @@ final class NullSchedulerTest extends TestCase {
 
   public function testItReportsItselfUnavailable(): void {
     $this->assertFalse($this->scheduler->isAvailable());
+    $this->assertFalse($this->scheduler->health('hook', 'blink', time())->healthy());
   }
 
   public function testSchedulingIsAcceptedAndDiscarded(): void {

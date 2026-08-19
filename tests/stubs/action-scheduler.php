@@ -12,6 +12,11 @@
 
 declare(strict_types=1);
 
+abstract class ActionScheduler_Store {
+  public const STATUS_FAILED = 'failed';
+  public const STATUS_PENDING = 'pending';
+}
+
 /**
  * @param array<int|string,mixed> $args
  */
@@ -22,8 +27,7 @@ function as_schedule_single_action(
   string $group = '',
   bool $unique = false,
   int $priority = 10
-): int {
-}
+): int {}
 
 /**
  * @param array<int|string,mixed>|null $args
@@ -32,12 +36,23 @@ function as_unschedule_all_actions(
   string $hook,
   ?array $args = [],
   string $group = ''
-): void {
-}
+): void {}
 
 /**
  * @param array<int|string,mixed>|null $args
  * @return int|bool Timestamp of the next action, true if due now, false if none.
  */
-function as_next_scheduled_action(string $hook, ?array $args = null, string $group = '') {
-}
+function as_next_scheduled_action(
+  string $hook,
+  ?array $args = null,
+  string $group = ''
+) {}
+
+/**
+ * @param array<string,mixed> $args
+ * @return array<int,mixed>
+ */
+function as_get_scheduled_actions(
+  array $args = [],
+  string $return_format = OBJECT
+): array {}

@@ -13,6 +13,12 @@ namespace Blink\WC\Support;
 interface SchedulerInterface {
   public function isAvailable(): bool;
 
+  public function health(
+    string $hook,
+    string $group,
+    int $overdueBefore
+  ): SchedulerHealth;
+
   /** @param array<int|string,mixed> $args */
   public function scheduleSingle(
     int $timestamp,

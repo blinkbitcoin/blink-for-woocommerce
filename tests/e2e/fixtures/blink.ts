@@ -1,12 +1,14 @@
 import { test as base, expect, type APIRequestContext } from '@playwright/test';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 
 /**
  * Helpers for driving the shop and the fake LNURL server.
  *
- * Everything goes over HTTP to control endpoints inside the test site. The
- * previous version shelled out to a WP-CLI container for every read and write
- * -- ten call sites, each paying process startup and a full WordPress
- * bootstrap, eight to twelve times per spec.
+ * Normal setup and assertions go over HTTP to control endpoints inside the
+ * test site. The one exception is the background-settlement acceptance test:
+ * it invokes Action Scheduler through WP-CLI to prove the customer page is not
+ * what executes settlement.
  */
 
 export const BASE = process.env.WP_BASE_URL ?? 'http://localhost:8889';
@@ -29,6 +31,26 @@ export interface OrderState {
   terminal: string;
   notes: string[];
 }
+
+export const SettlementMode = {
+  BrowserOnly: 'browser_only',
+  Hybrid: 'hybrid',
+  WorkerOnly: 'worker_only',
+} as const;
+
+export type SettlementMode = (typeof SettlementMode)[keyof typeof SettlementMode];
+
+export const WooOrderStatus = {
+  Pending: 'pending',
+  Processing: 'processing',
+} as const;
+
+export const TerminalSettlementStatus = {
+  Paid: 'PAID',
+} as const;
+
+const SETTLEMENT_MODE_FIELD = 'blink_e2e_settlement_mode';
+const SETTLEMENT_ACTION_GROUP = 'blink';
 
 /**
  * Creates an order and takes it through the real gateway.
@@ -74,12 +96,41 @@ export async function settle(
   expect(response.ok()).toBeTruthy();
 }
 
-/** Runs whatever settlement work is due, as the queue would. */
-export async function runScheduler(request: APIRequestContext): Promise<number> {
-  const response = await request.post(`${BASE}/blink-e2e/control/run-scheduler`);
+export async function setSettlementMode(
+  request: APIRequestContext,
+  mode: SettlementMode,
+): Promise<void> {
+  const response = await request.post(
+    `${BASE}/blink-e2e/control/settings?${SETTLEMENT_MODE_FIELD}=${mode}`,
+  );
   expect(response.ok()).toBeTruthy();
+  expect(
+    ((await response.json()) as Record<typeof SETTLEMENT_MODE_FIELD, SettlementMode>)[
+      SETTLEMENT_MODE_FIELD
+    ],
+  ).toBe(mode);
+}
 
-  return ((await response.json()) as { ran: number }).ran;
+export async function resetHarness(request: APIRequestContext): Promise<void> {
+  const response = await request.post(`${BASE}/blink-e2e/control/reset`);
+  expect(response.ok()).toBeTruthy();
+}
+
+/** Runs due settlement work through Action Scheduler's real WP-CLI runner. */
+export async function runScheduler(): Promise<void> {
+  const wpCoreDir =
+    process.env.WP_CORE_DIR ?? `${process.env.TMPDIR ?? '/tmp'}/wordpress`;
+  await promisify(execFile)(
+    process.env.WP_CLI_BIN ?? 'wp',
+    [
+      'action-scheduler',
+      'run',
+      `--group=${SETTLEMENT_ACTION_GROUP}`,
+      '--batches=0',
+      `--path=${wpCoreDir}`,
+    ],
+    { timeout: 20_000 },
+  );
 }
 
 export const test = base.extend({});

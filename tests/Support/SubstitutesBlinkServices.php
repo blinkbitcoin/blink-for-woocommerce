@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Blink\WC\Tests\Support;
 
 use Blink\WC\NonCustodial\InvoiceRepository;
+use Blink\WC\NonCustodial\FixedSettlementModeProvider;
+use Blink\WC\NonCustodial\SettlementMode;
 use Blink\WC\NonCustodial\StoredInvoice;
 use Blink\WC\NonCustodial\WcOrderRecord;
 use Blink\WC\Services;
@@ -65,6 +67,14 @@ trait SubstitutesBlinkServices {
     Services::replace(new Services());
 
     return $this->fakeScheduler;
+  }
+
+  protected function useSettlementMode(SettlementMode $mode): void {
+    add_filter(
+      'blink_service_settlementMode',
+      static fn() => new FixedSettlementModeProvider($mode)
+    );
+    Services::replace(new Services());
   }
 
   protected function services(): Services {

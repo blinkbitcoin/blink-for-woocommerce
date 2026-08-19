@@ -7,8 +7,13 @@ namespace Blink\WC\Admin;
 use Blink\WC\Helpers\Logger;
 use Blink\WC\Helpers\OrderStates;
 use Blink\WC\Helpers\BlinkApiHelper;
+use Blink\WC\NonCustodial\SettlementScheduler;
+use Blink\WC\Services;
 
 class GlobalSettings extends \WC_Settings_Page {
+  /** A settlement action this far behind schedule needs operator attention. */
+  private const SETTLEMENT_OVERDUE_SECONDS = 120;
+
   private BlinkApiHelper $apiHelper;
 
   public function __construct() {
@@ -29,7 +34,7 @@ class GlobalSettings extends \WC_Settings_Page {
       wp_enqueue_script('blink_global_settings');
       wp_localize_script('blink_global_settings', 'BlinkGlobalSettings', [
         'url' => admin_url('admin-ajax.php'),
-        'apiNonce' => wp_create_nonce('blink-api-url-nonce'),
+        'apiNonce' => wp_create_nonce('blink-api-url-nonce')
       ]);
 
       // Register and include CSS.
@@ -83,6 +88,45 @@ class GlobalSettings extends \WC_Settings_Page {
     return $this->notConnectedMarkup('Not connected. Please configure your api key.');
   }
 
+  /** A read-only view of the queue; it never changes checkout availability. */
+  private function getSettlementWorkerMarkup(): string {
+    $services = Services::instance();
+    $mode = $services->settlementMode()->mode();
+    if (!$mode->usesBackgroundWorker()) {
+      return '<p>Disabled by the current browser-only orchestration mode.</p>';
+    }
+
+    $actionsUrl = admin_url(
+      'admin.php?page=wc-status&tab=action-scheduler&s=' . SettlementScheduler::HOOK
+    );
+    $monitor = sprintf(' <a href="%s">View scheduled actions</a>.', esc_url($actionsUrl));
+
+    $health = $services
+      ->scheduler()
+      ->health(
+        SettlementScheduler::HOOK,
+        SettlementScheduler::GROUP,
+        time() - self::SETTLEMENT_OVERDUE_SECONDS
+      );
+    if (!$health->available) {
+      return $this->notConnectedMarkup(
+        'Background settlement is enabled, but Action Scheduler is unavailable.' .
+          $monitor
+      );
+    }
+
+    if (!$health->healthy()) {
+      return $this->notConnectedMarkup(
+        'Background settlement has failed or overdue actions.' . $monitor
+      );
+    }
+
+    return $this->connectedMarkup() .
+      '<p>Background settlement is enabled.' .
+      $monitor .
+      '</p>';
+  }
+
   public function getGlobalSettings(): array {
     Logger::debug('Entering Global Settings form.');
 
@@ -98,45 +142,45 @@ class GlobalSettings extends \WC_Settings_Page {
           BLINK_VERSION,
           PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION
         ),
-        'id' => 'blink_connection',
+        'id' => 'blink_connection'
       ],
       'blink_account_type' => [
         'title' => 'Account Type',
         'type' => 'select',
         'options' => [
           'custodial' => 'Custodial (API key)',
-          'non_custodial' => 'Non-custodial (Lightning address)',
+          'non_custodial' => 'Non-custodial (Lightning address)'
         ],
         'default' => 'custodial',
         'desc' =>
           'Custodial uses a Blink API key. Non-custodial uses your Blink lightning address (self-custody) and does not require an API key or a Blink dashboard webhook.',
         'desc_tip' => true,
-        'id' => 'blink_account_type',
+        'id' => 'blink_account_type'
       ],
       'blink_env' => [
         'title' => 'Blink Environment',
         'type' => 'select',
         'options' => [
           'blink' => 'Blink',
-          'staging' => 'Staging',
+          'staging' => 'Staging'
         ],
         'default' => 'Blink',
         'desc' => 'Blink instance.',
         'desc_tip' => true,
-        'id' => 'blink_env',
+        'id' => 'blink_env'
       ],
       'blink_wallet_type' => [
         'title' => 'Blink Wallet',
         'type' => 'select',
         'options' => [
           'bitcoin' => 'Bitcoin',
-          'stablesats' => 'USD',
+          'stablesats' => 'USD'
         ],
         'default' => 'Blink',
         'desc' =>
           'Which of your Blink wallets receives the payment (custodial account type only). Non-custodial payments are always received in Bitcoin, and this setting is ignored.',
         'desc_tip' => true,
-        'id' => 'blink_wallet_type',
+        'id' => 'blink_wallet_type'
       ],
       'api_key' => [
         'title' => 'Blink API Key',
@@ -144,7 +188,7 @@ class GlobalSettings extends \WC_Settings_Page {
         'desc' =>
           'Your Blink API Key (custodial account type only). If you do not have any yet use <a target="_blank" href="https://dashboard.blink.sv/api-keys">Blink dashboard</a> to get a new one.<br />IMPORTANT: Create an API key with only READ & RECEIVE scopes. <br />⚠️ Using an API key with WRITE scope could result in loss of funds ⚠️',
         'default' => '',
-        'id' => 'blink_api_key',
+        'id' => 'blink_api_key'
       ],
       'ln_address' => [
         'title' => 'Blink Lightning Address',
@@ -153,7 +197,7 @@ class GlobalSettings extends \WC_Settings_Page {
           'Your Blink lightning address (non-custodial account type only), e.g. <code>yourname@blink.sv</code>. Payments are received directly to your self-custodial Blink wallet. No API key or Blink dashboard webhook is required.',
         'default' => '',
         'placeholder' => 'yourname@blink.sv',
-        'id' => 'blink_ln_address',
+        'id' => 'blink_ln_address'
       ],
       'webhook_url' => [
         'title' => 'Webhook Url',
@@ -161,23 +205,29 @@ class GlobalSettings extends \WC_Settings_Page {
         'markup' =>
           WC()->api_request_url('blink_default') .
           '<p class="description"> Custodial account type only. Please use <a target="_blank" href="https://dashboard.blink.sv/callback">Blink dashboard</a> to set it up, and make sure the callback endpoint is <strong>enabled</strong> (a disabled endpoint silently stops payment notifications and orders will stay in "Pending payment"). Not required for non-custodial (lightning address) accounts.</p>',
-        'id' => 'blink_webhook_url',
+        'id' => 'blink_webhook_url'
       ],
       'status' => [
         'title' => 'Setup status',
         'type' => 'blink_custom_markup',
         'markup' => $setupStatus,
-        'id' => 'blink_status',
+        'id' => 'blink_status'
+      ],
+      'settlement_worker' => [
+        'title' => 'Settlement worker',
+        'type' => 'blink_custom_markup',
+        'markup' => $this->getSettlementWorkerMarkup(),
+        'id' => 'blink_settlement_worker'
       ],
       'sectionend_connection' => [
         'type' => 'sectionend',
-        'id' => 'blink_connection',
+        'id' => 'blink_connection'
       ],
       // Section general.
       'title' => [
         'title' => 'General settings',
         'type' => 'title',
-        'id' => 'blink_gf',
+        'id' => 'blink_gf'
       ],
       'default_description' => [
         'title' => 'Default Customer Message',
@@ -186,11 +236,11 @@ class GlobalSettings extends \WC_Settings_Page {
           'Message to explain how the customer will be paying for the purchase. Can be overwritten on a per gateway basis.',
         'default' => 'You will be redirected to Blink to complete your purchase.',
         'desc_tip' => true,
-        'id' => 'blink_default_description',
+        'id' => 'blink_default_description'
       ],
       'order_states' => [
         'type' => 'order_states',
-        'id' => 'blink_order_states',
+        'id' => 'blink_order_states'
       ],
       'protect_orders' => [
         'title' => 'Protect order status',
@@ -198,7 +248,7 @@ class GlobalSettings extends \WC_Settings_Page {
         'default' => 'yes',
         'desc' =>
           'Protects order status from changing if it is already "processing" or "completed". This will protect against orders getting cancelled via webhook if they were paid in the meantime with another payment gateway. Default is ON.',
-        'id' => 'blink_protect_order_status',
+        'id' => 'blink_protect_order_status'
       ],
       'debug' => [
         'title' => 'Debug Log',
@@ -208,12 +258,12 @@ class GlobalSettings extends \WC_Settings_Page {
           'Enable logging <a href="%s" class="button">View Logs</a>',
           Logger::getLogFileUrl()
         ),
-        'id' => 'blink_debug',
+        'id' => 'blink_debug'
       ],
       'sectionend' => [
         'type' => 'sectionend',
-        'id' => 'blink_gf',
-      ],
+        'id' => 'blink_gf'
+      ]
     ];
   }
 
