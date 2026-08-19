@@ -611,11 +611,11 @@ final class LnurlClientTest extends TestCase {
     $this->assertNull($result->preimage);
   }
 
-  public function testMissingSettledFlagIsTreatedAsUnsettled(): void {
+  public function testMissingSettledFlagIsInconclusive(): void {
     $this->http->queueJson(['status' => 'OK']);
 
     $this->assertSame(
-      VerifyState::Unsettled,
+      VerifyState::TransportError,
       $this->client->verify(self::VERIFY_URL, $this->address)->state
     );
   }

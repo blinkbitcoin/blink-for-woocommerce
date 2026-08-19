@@ -234,7 +234,7 @@ final class LnurlClient implements LnurlClientInterface {
     // reading a fuzzy value as settled would credit an order that was not.
     // So only a real boolean is an answer; anything else present is reported
     // as a transport error and retried.
-    $settled = $this->readSettledFlag($json['settled'] ?? false);
+    $settled = $this->readSettledFlag($json['settled'] ?? null);
     if ($settled === null) {
       return VerifyResult::of(
         VerifyState::TransportError,
