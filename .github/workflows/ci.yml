@@ -384,7 +384,7 @@ jobs:
 
   e2e:
     name: End to end
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 12
     services:
       mysql:
@@ -412,12 +412,9 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
-      - name: Cache Playwright browsers
-        uses: actions/cache@v6
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ hashFiles('package-lock.json') }}
-      - run: npx playwright install --with-deps chromium
+      - name: Install pinned headless Chromium
+        timeout-minutes: 5
+        run: npx playwright install --only-shell chromium
       - name: Cache WordPress download
         id: wp-cache
         uses: actions/cache@v6
