@@ -14,8 +14,7 @@ final class PayMetadata {
     public readonly int $maxSendable,
     public readonly int $commentAllowed,
     public readonly string $metadata
-  ) {
-  }
+  ) {}
 
   public function permits(int $amountMsat): bool {
     if ($this->minSendable > 0 && $amountMsat < $this->minSendable) {

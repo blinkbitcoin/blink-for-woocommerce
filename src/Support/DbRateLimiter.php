@@ -21,8 +21,7 @@ final class DbRateLimiter implements RateLimiterInterface {
   /** Rows older than this can never be referenced again. */
   private const RETENTION_SECONDS = 86400;
 
-  public function __construct(private \wpdb $db, private ClockInterface $clock) {
-  }
+  public function __construct(private \wpdb $db, private ClockInterface $clock) {}
 
   public function hit(string $bucket, int $limit, int $windowSeconds): bool {
     if ($limit <= 0) {
@@ -76,8 +75,8 @@ final class DbRateLimiter implements RateLimiterInterface {
         return;
       }
 
-      $names = $this->db->get_col($query);
-      if (!is_array($names) || $names === []) {
+      $names = $this->normalizeOptionNames($this->db->get_col($query));
+      if ($names === []) {
         return;
       }
 
@@ -99,6 +98,16 @@ final class DbRateLimiter implements RateLimiterInterface {
       // make the next batch select the same rows forever.
       $cursor = (string) end($names);
     } while (count($names) === 500);
+  }
+
+  /**
+   * Normalizes the database boundary, whose runtime can be less strict than
+   * the WordPress stub's declared array return type.
+   *
+   * @return array<mixed>
+   */
+  private function normalizeOptionNames(mixed $names): array {
+    return is_array($names) ? $names : [];
   }
 
   /**

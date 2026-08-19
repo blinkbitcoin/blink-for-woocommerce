@@ -34,8 +34,7 @@ final class UrlPolicy implements UrlPolicyInterface {
     private DnsResolverInterface $dns,
     private LoggerInterface $log,
     private array $extraAllowedHosts = []
-  ) {
-  }
+  ) {}
 
   public function check(string $url, LnAddress $address): UrlDecision {
     $decision = $this->evaluate($url, $address);
@@ -161,7 +160,7 @@ final class UrlPolicy implements UrlPolicyInterface {
       // ::ffff:0:0/96
       "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff",
       // 64:ff9b::/96
-      "\x00\x64\xff\x9b\x00\x00\x00\x00\x00\x00\x00\x00",
+      "\x00\x64\xff\x9b\x00\x00\x00\x00\x00\x00\x00\x00"
     ];
 
     foreach ($prefixes as $prefix) {

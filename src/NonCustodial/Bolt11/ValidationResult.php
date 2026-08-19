@@ -20,8 +20,7 @@ final class ValidationResult {
     public readonly string $message,
     public readonly ?DecodedInvoice $invoice,
     public readonly int $expiresAt
-  ) {
-  }
+  ) {}
 
   /**
    * Whether validation succeeded, and therefore whether $invoice is present.

@@ -81,7 +81,7 @@ final class GuzzleHttpClient implements HttpClientInterface {
       CURLOPT_PROTOCOLS => $options->allowPlainHttp
         ? CURLPROTO_HTTPS | CURLPROTO_HTTP
         : CURLPROTO_HTTPS,
-      CURLOPT_REDIR_PROTOCOLS => 0,
+      CURLOPT_REDIR_PROTOCOLS => 0
     ];
 
     $resolve = $this->resolveEntries($options);
@@ -97,7 +97,7 @@ final class GuzzleHttpClient implements HttpClientInterface {
       RequestOptions::TIMEOUT => $options->timeout,
       RequestOptions::VERIFY => true,
       RequestOptions::STREAM => true,
-      'curl' => $curl,
+      'curl' => $curl
     ];
   }
 
@@ -156,13 +156,13 @@ final class GuzzleHttpClient implements HttpClientInterface {
   }
 
   /**
-   * @param array<string,list<string>> $headers
+   * @param array<array<string>> $headers
    * @return array<string,string>
    */
   private function flattenHeaders(array $headers): array {
     $flat = [];
     foreach ($headers as $name => $values) {
-      $flat[strtolower($name)] = implode(', ', $values);
+      $flat[strtolower((string) $name)] = implode(', ', $values);
     }
 
     return $flat;

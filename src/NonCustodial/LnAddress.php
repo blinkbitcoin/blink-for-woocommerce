@@ -27,8 +27,7 @@ final class LnAddress {
     public readonly string $identifier,
     public readonly string $host,
     public readonly ?int $port
-  ) {
-  }
+  ) {}
 
   /**
    * Parses "identifier@host[:port]", or returns null when the input is not a

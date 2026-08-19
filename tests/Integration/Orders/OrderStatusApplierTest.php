@@ -101,7 +101,7 @@ final class OrderStatusApplierTest extends IntegrationTestCase {
   public function test_a_merchant_mapping_of_ignore_leaves_the_status_alone(): void {
     update_option('blink_order_states', [
       OrderStates::PAID => OrderStates::IGNORE,
-      OrderStates::EXPIRED => OrderStates::IGNORE,
+      OrderStates::EXPIRED => OrderStates::IGNORE
     ]);
     $order = $this->makeOrder();
 
@@ -118,7 +118,7 @@ final class OrderStatusApplierTest extends IntegrationTestCase {
   public function test_a_custom_mapping_is_honoured(): void {
     update_option('blink_order_states', [
       OrderStates::PAID => 'completed',
-      OrderStates::EXPIRED => 'failed',
+      OrderStates::EXPIRED => 'failed'
     ]);
     $order = $this->makeOrder();
 
@@ -228,7 +228,7 @@ final class OrderStatusApplierTest extends IntegrationTestCase {
   public function test_payment_complete_runs_when_the_paid_state_is_unmapped(): void {
     update_option('blink_order_states', [
       OrderStates::PAID => OrderStates::IGNORE,
-      OrderStates::EXPIRED => OrderStates::IGNORE,
+      OrderStates::EXPIRED => OrderStates::IGNORE
     ]);
     $order = $this->makeOrder();
 
@@ -270,7 +270,7 @@ final class OrderStatusApplierTest extends IntegrationTestCase {
   public function test_payment_complete_leaves_an_explicit_merchant_mapping_alone(): void {
     update_option('blink_order_states', [
       OrderStates::PAID => 'on-hold',
-      OrderStates::EXPIRED => 'cancelled',
+      OrderStates::EXPIRED => 'cancelled'
     ]);
     $order = $this->makeOrder();
 
@@ -289,7 +289,7 @@ final class OrderStatusApplierTest extends IntegrationTestCase {
   public function test_mapped_payment_complete_hook_fires_only_once(): void {
     update_option('blink_order_states', [
       OrderStates::PAID => 'on-hold',
-      OrderStates::EXPIRED => 'cancelled',
+      OrderStates::EXPIRED => 'cancelled'
     ]);
     $order = $this->makeOrder();
     $fired = [];

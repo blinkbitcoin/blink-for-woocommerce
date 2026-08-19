@@ -162,7 +162,7 @@ final class InvoiceValidatorTest extends TestCase {
     return [
       'one satoshi short' => ['lnbc99999n'],
       'an order of magnitude low' => ['lnbc10u'],
-      'higher than requested' => ['lnbc200u'],
+      'higher than requested' => ['lnbc200u']
     ];
   }
 

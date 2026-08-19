@@ -70,7 +70,7 @@ final class SystemDnsResolverTest extends TestCase {
     $resolver = $this->resolver(false, [
       ['type' => 'AAAA'],
       ['type' => 'AAAA', 'ipv6' => ''],
-      ['type' => 'AAAA', 'ipv6' => '::2'],
+      ['type' => 'AAAA', 'ipv6' => '::2']
     ]);
 
     $this->assertSame(['::2'], $resolver->resolve('partial.example'));

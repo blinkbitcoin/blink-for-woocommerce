@@ -13,8 +13,7 @@ use Blink\WC\Support\ClockInterface;
  * only honest way to test the boundaries is to stand exactly on them.
  */
 final class FakeClock implements ClockInterface {
-  public function __construct(private int $now = 1700000000) {
-  }
+  public function __construct(private int $now = 1700000000) {}
 
   public function now(): int {
     return $this->now;

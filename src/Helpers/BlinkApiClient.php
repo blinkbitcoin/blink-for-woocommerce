@@ -19,13 +19,13 @@ class BlinkApiClient {
     // Prepare HTTP headers
     $headers = [
       'X-API-KEY' => $this->token,
-      'Content-Type' => 'application/json',
+      'Content-Type' => 'application/json'
     ];
 
     // Prepare request body
     $body = wp_json_encode([
       'query' => $query,
-      'variables' => $variables,
+      'variables' => $variables
     ]);
 
     // Make the HTTP POST request
@@ -33,7 +33,7 @@ class BlinkApiClient {
     // API blocks the PHP worker handling a customer's checkout.
     $options = [
       'connect_timeout' => 5,
-      'timeout' => 20,
+      'timeout' => 20
     ];
 
     /**
@@ -53,7 +53,7 @@ class BlinkApiClient {
     $client = new \GuzzleHttp\Client($options);
     $response = $client->request('POST', $this->apiUrl, [
       'headers' => $headers,
-      'body' => $body,
+      'body' => $body
     ]);
 
     // Parse response
@@ -135,8 +135,8 @@ class BlinkApiClient {
         'amount' => $amount,
         'expiresIn' => $expiresIn,
         'memo' => $memo,
-        'walletId' => $walletId,
-      ],
+        'walletId' => $walletId
+      ]
     ];
 
     // Send GraphQL request
@@ -177,8 +177,8 @@ class BlinkApiClient {
         'amount' => $amount,
         'expiresIn' => $expiresIn,
         'memo' => $memo,
-        'walletId' => $walletId,
-      ],
+        'walletId' => $walletId
+      ]
     ];
 
     $response = $this->sendRequest($query, $variables);
@@ -206,8 +206,8 @@ class BlinkApiClient {
     // Prepare variables for the invoice payment status by hash GraphQL query
     $variables = [
       'input' => [
-        'paymentHash' => $paymentHash,
-      ],
+        'paymentHash' => $paymentHash
+      ]
     ];
 
     // Send GraphQL request for invoice payment status by hash
@@ -237,7 +237,7 @@ class BlinkApiClient {
 
     $variables = [
       'amount' => $amount,
-      'currency' => $currency,
+      'currency' => $currency
     ];
 
     $response = $this->sendRequest($query, $variables);

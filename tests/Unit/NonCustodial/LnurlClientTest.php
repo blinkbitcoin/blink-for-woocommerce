@@ -53,7 +53,7 @@ final class LnurlClientTest extends TestCase {
       'minSendable' => 1000,
       'maxSendable' => 100000000,
       'commentAllowed' => 128,
-      'metadata' => '[["text/plain","hi"]]',
+      'metadata' => '[["text/plain","hi"]]'
     ]);
 
     $result = $this->client->fetchPayMetadata($this->address);
@@ -92,7 +92,7 @@ final class LnurlClientTest extends TestCase {
   public function testMetadataMissingThePayRequestTagIsRejected(): void {
     $this->http->queueJson([
       'tag' => 'withdrawRequest',
-      'callback' => 'https://blink.sv/cb',
+      'callback' => 'https://blink.sv/cb'
     ]);
 
     $result = $this->client->fetchPayMetadata($this->address);
@@ -186,7 +186,7 @@ final class LnurlClientTest extends TestCase {
   public function testRequestsAnInvoiceAndReturnsTheOffer(): void {
     $this->http->queueJson([
       'pr' => 'lnbc100u1xyz',
-      'verify' => 'https://blink.sv/verify/' . str_repeat('ab', 32),
+      'verify' => 'https://blink.sv/verify/' . str_repeat('ab', 32)
     ]);
 
     $result = $this->client->requestInvoice(
@@ -346,7 +346,7 @@ final class LnurlClientTest extends TestCase {
     return [
       'zero' => [0],
       'negative' => [-1000],
-      'fractional satoshi' => [1500],
+      'fractional satoshi' => [1500]
     ];
   }
 
@@ -434,7 +434,7 @@ final class LnurlClientTest extends TestCase {
   public function testVerifyUrlOnAForeignHostIsRejected(): void {
     $this->http->queueJson([
       'pr' => 'lnbc100u1xyz',
-      'verify' => 'https://attacker.example/verify/' . str_repeat('ab', 32),
+      'verify' => 'https://attacker.example/verify/' . str_repeat('ab', 32)
     ]);
 
     $result = $this->client->requestInvoice(
@@ -451,7 +451,7 @@ final class LnurlClientTest extends TestCase {
   public function testInsecureVerifyUrlIsRejected(): void {
     $this->http->queueJson([
       'pr' => 'lnbc100u1xyz',
-      'verify' => 'http://blink.sv/verify/' . str_repeat('ab', 32),
+      'verify' => 'http://blink.sv/verify/' . str_repeat('ab', 32)
     ]);
 
     $result = $this->client->requestInvoice(
@@ -563,14 +563,14 @@ final class LnurlClientTest extends TestCase {
     return [
       'not a hash' => ['https://blink.sv/verify/notahash'],
       'too short' => ['https://blink.sv/verify/abcdef'],
-      'no path' => ['https://blink.sv'],
+      'no path' => ['https://blink.sv']
     ];
   }
 
   public function testVerifyUrlHashIsNormalisedToLowercase(): void {
     $this->http->queueJson([
       'pr' => 'lnbc1',
-      'verify' => 'https://blink.sv/verify/' . strtoupper(str_repeat('ab', 32)),
+      'verify' => 'https://blink.sv/verify/' . strtoupper(str_repeat('ab', 32))
     ]);
 
     $result = $this->client->requestInvoice(
@@ -592,7 +592,7 @@ final class LnurlClientTest extends TestCase {
       'status' => 'OK',
       'settled' => true,
       'preimage' => 'ff00',
-      'pr' => 'lnbc1',
+      'pr' => 'lnbc1'
     ]);
 
     $result = $this->client->verify(self::VERIFY_URL, $this->address);
@@ -640,13 +640,13 @@ final class LnurlClientTest extends TestCase {
   }
 
   /** @return array<string,array{mixed}> */
-  public function unreadableSettledValues(): array {
+  public static function unreadableSettledValues(): array {
     return [
       'yes' => ['yes'],
       'string true' => ['true'],
       'integer one' => [1],
       'integer zero' => [0],
-      'array' => [['settled' => true]],
+      'array' => [['settled' => true]]
     ];
   }
 
@@ -714,7 +714,7 @@ final class LnurlClientTest extends TestCase {
       '502' => [502],
       '503' => [503],
       '429' => [429],
-      '403' => [403],
+      '403' => [403]
     ];
   }
 
@@ -757,7 +757,7 @@ final class LnurlClientTest extends TestCase {
   public function testPlainHttpIsOnlyPermittedForLocalDevelopment(): void {
     $this->http->queueJson([
       'tag' => 'payRequest',
-      'callback' => 'http://localhost:8889/cb',
+      'callback' => 'http://localhost:8889/cb'
     ]);
     $local = LnAddress::parse('ok@localhost:8889');
 

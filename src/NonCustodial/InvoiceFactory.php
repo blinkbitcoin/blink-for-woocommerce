@@ -34,8 +34,7 @@ final class InvoiceFactory {
     private ClockInterface $clock,
     private LoggerInterface $log,
     private bool $requireDescriptionBinding = true
-  ) {
-  }
+  ) {}
 
   /**
    * @return StoredInvoice|LnurlFailure

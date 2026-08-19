@@ -55,7 +55,7 @@ final class Bech32Test extends TestCase {
       'space' => ['lnbc 1qqqqqqqqq'],
       'newline' => ["lnbc\n1qqqqqqqqq"],
       'null byte' => ["lnbc\x001qqqqqqqqq"],
-      'del' => ["lnbc\x7f1qqqqqqqqq"],
+      'del' => ["lnbc\x7f1qqqqqqqqq"]
     ];
   }
 
@@ -178,7 +178,7 @@ final class Bech32Test extends TestCase {
       'single group' => [[1], 1],
       'max single group' => [[31], 31],
       'two groups' => [[1, 0], 32],
-      'three groups' => [[1, 2, 3], 1091],
+      'three groups' => [[1, 2, 3], 1091]
     ];
   }
 }

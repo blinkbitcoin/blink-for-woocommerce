@@ -21,7 +21,7 @@ class OrderStates {
       self::PENDING => 'wc-pending',
       self::PAID => 'wc-processing',
       self::SETTLED => self::IGNORE,
-      self::EXPIRED => 'wc-cancelled',
+      self::EXPIRED => 'wc-cancelled'
     ];
   }
 
@@ -31,7 +31,7 @@ class OrderStates {
       self::PENDING => 'Pending',
       self::PAID => 'Paid',
       self::SETTLED => 'Settled',
-      self::EXPIRED => 'Expired',
+      self::EXPIRED => 'Expired'
     ];
   }
 
@@ -42,7 +42,7 @@ class OrderStates {
     $wcStates = wc_get_order_statuses();
     $wcStates =
       [
-        self::IGNORE => '- no mapping / defaults -',
+        self::IGNORE => '- no mapping / defaults -'
       ] + $wcStates;
     $orderStates = get_option($value['id']);
     ?>

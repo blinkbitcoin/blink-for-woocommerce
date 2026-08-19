@@ -33,7 +33,7 @@ final class RandomJitterTest extends TestCase {
       'midpoint is the input' => [0.5, 100, 0.25, 100],
       'upper bound' => [1.0, 100, 0.25, 125],
       'smaller factor narrows the window' => [0.0, 100, 0.1, 90],
-      'zero factor disables jitter' => [0.0, 100, 0.0, 100],
+      'zero factor disables jitter' => [0.0, 100, 0.0, 100]
     ];
   }
 
@@ -67,7 +67,7 @@ final class RandomJitterTest extends TestCase {
   public static function outOfRangeFactors(): array {
     return [
       'negative factor behaves as zero' => [-0.5, 100],
-      'factor above one is capped at one' => [4.0, 200],
+      'factor above one is capped at one' => [4.0, 200]
     ];
   }
 

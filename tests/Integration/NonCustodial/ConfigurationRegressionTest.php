@@ -37,7 +37,7 @@ final class ConfigurationRegressionTest extends IntegrationTestCase {
     $this->reconfigure([
       'blink_account_type' => 'custodial',
       'blink_api_key' => 'some-key',
-      'blink_wallet_type' => 'bitcoin',
+      'blink_wallet_type' => 'bitcoin'
     ]);
 
     $this->http->queueJson(['settled' => true, 'preimage' => $this->preimage]);
@@ -54,7 +54,7 @@ final class ConfigurationRegressionTest extends IntegrationTestCase {
     $order = $this->makeOrder();
     $this->storeInvoice($order, [
       'lnAddress' => 'old@pay.example.com',
-      'verifyUrl' => 'https://pay.example.com/verify/' . $this->paymentHash,
+      'verifyUrl' => 'https://pay.example.com/verify/' . $this->paymentHash
     ]);
 
     $this->reconfigure(['blink_ln_address' => 'new@blink.sv']);
@@ -76,7 +76,7 @@ final class ConfigurationRegressionTest extends IntegrationTestCase {
       'lnAddress' => 'old@pay.example.com',
       // A verify URL from a different domain must still be refused, using the
       // stored address rather than whatever is configured now.
-      'verifyUrl' => 'https://attacker.example/verify/' . $this->paymentHash,
+      'verifyUrl' => 'https://attacker.example/verify/' . $this->paymentHash
     ]);
 
     $this->reconfigure(['blink_ln_address' => 'new@attacker.example']);
@@ -91,13 +91,13 @@ final class ConfigurationRegressionTest extends IntegrationTestCase {
     $first = $this->makeOrder();
     $this->storeInvoice($first, [
       'lnAddress' => 'a@blink.sv',
-      'verifyUrl' => 'https://blink.sv/verify/' . $this->paymentHash,
+      'verifyUrl' => 'https://blink.sv/verify/' . $this->paymentHash
     ]);
 
     $second = $this->makeOrder();
     $this->storeInvoice($second, [
       'lnAddress' => 'b@pay.example.com',
-      'verifyUrl' => 'https://pay.example.com/verify/' . $this->paymentHash,
+      'verifyUrl' => 'https://pay.example.com/verify/' . $this->paymentHash
     ]);
 
     $this->http->queueJson(['settled' => true, 'preimage' => $this->preimage]);

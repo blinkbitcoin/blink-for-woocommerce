@@ -22,8 +22,7 @@ final class WcSettlementOutcomeApplier implements SettlementOutcomeApplier {
   public function __construct(
     private OrderStatusApplier $applier,
     private InvoiceRepository $repository
-  ) {
-  }
+  ) {}
 
   public function applyOutcome(OrderRecord $order, SettlementOutcome $outcome): void {
     // Nothing conclusive was learned, so the order is left alone.
@@ -34,7 +33,7 @@ final class WcSettlementOutcomeApplier implements SettlementOutcomeApplier {
       return;
     }
 
-    if (!$order instanceof WcOrderRecord) {
+    if (!($order instanceof WcOrderRecord)) {
       return;
     }
 

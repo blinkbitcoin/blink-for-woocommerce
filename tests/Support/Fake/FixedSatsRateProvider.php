@@ -17,8 +17,7 @@ final class FixedSatsRateProvider implements SatsRateProviderInterface {
   /** @var list<array{amount:float,currency:string}> */
   public array $calls = [];
 
-  public function __construct(private ?int $satoshis = 10000) {
-  }
+  public function __construct(private ?int $satoshis = 10000) {}
 
   public function toSatoshis(float $amount, string $currency): ?int {
     $this->calls[] = ['amount' => $amount, 'currency' => $currency];

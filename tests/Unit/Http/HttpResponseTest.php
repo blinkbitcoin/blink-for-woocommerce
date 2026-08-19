@@ -26,7 +26,7 @@ final class HttpResponseTest extends TestCase {
       '400' => [400, false],
       '404' => [404, false],
       '500' => [500, false],
-      '199' => [199, false],
+      '199' => [199, false]
     ];
   }
 
@@ -68,7 +68,7 @@ final class HttpResponseTest extends TestCase {
       'bare number' => ['42', null],
       'bare bool' => ['true', null],
       'null literal' => ['null', null],
-      'not json at all' => ['<html>nope</html>', null],
+      'not json at all' => ['<html>nope</html>', null]
     ];
   }
 

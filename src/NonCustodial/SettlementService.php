@@ -54,8 +54,7 @@ final class SettlementService {
     private LockInterface $lock,
     private ClockInterface $clock,
     private LoggerInterface $log
-  ) {
-  }
+  ) {}
 
   /** The last observation, without any network access. */
   public function cached(OrderRecord $order): SettlementOutcome {

@@ -36,8 +36,7 @@ final class UnpaidOrderGuard {
   public function __construct(
     private InvoiceRepository $repository,
     private ClockInterface $clock
-  ) {
-  }
+  ) {}
 
   /**
    * @param bool $wooCommerceWould whether WooCommerce intended to cancel.

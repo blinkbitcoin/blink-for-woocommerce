@@ -10,6 +10,7 @@
 #   DB_NAME       separate from the PHPUnit database, which is wiped per test
 #   DB_USER, DB_PASS, DB_HOST
 #   E2E_PORT      default 8889
+#   WP_CLI_BIN    WP-CLI executable (default: wp)
 
 set -euo pipefail
 
@@ -20,6 +21,7 @@ DB_USER=${DB_USER:-root}
 DB_PASS=${DB_PASS:-root}
 DB_HOST=${DB_HOST:-127.0.0.1}
 E2E_PORT=${E2E_PORT:-8889}
+WP_CLI_BIN=${WP_CLI_BIN:-wp}
 SITE_URL="http://localhost:${E2E_PORT}"
 
 if [ ! -f "${WP_CORE_DIR}/wp-includes/version.php" ]; then
@@ -31,14 +33,14 @@ if [ ! -f "${WP_CORE_DIR}/wp-content/plugins/woocommerce/woocommerce.php" ]; the
   exit 1
 fi
 
-command -v wp >/dev/null 2>&1 || {
+command -v "$WP_CLI_BIN" >/dev/null 2>&1 || {
   echo "WP-CLI is required (https://wp-cli.org)." >&2
   exit 1
 }
 
 echo "==> wp-config"
 rm -f "${WP_CORE_DIR}/wp-config.php"
-wp config create \
+"$WP_CLI_BIN" config create \
   --path="$WP_CORE_DIR" \
   --dbname="$DB_NAME" --dbuser="$DB_USER" --dbpass="$DB_PASS" --dbhost="$DB_HOST" \
   --skip-check --force \
@@ -52,10 +54,10 @@ PHP
 echo "==> database ${DB_NAME}"
 # Through WP-CLI rather than the mysql client: the runner images no longer
 # ship one, and WP-CLI is a hard requirement of this script anyway.
-wp db create --path="$WP_CORE_DIR" 2>/dev/null || echo "(database already exists)"
+"$WP_CLI_BIN" db create --path="$WP_CORE_DIR" 2>/dev/null || echo "(database already exists)"
 
 echo "==> installing the site"
-wp core install \
+"$WP_CLI_BIN" core install \
   --path="$WP_CORE_DIR" \
   --url="$SITE_URL" \
   --title="Blink E2E" \
@@ -64,15 +66,15 @@ wp core install \
 
 # Plain permalinks: the fake LNURL server routes /.well-known/lnurlp/... from
 # an init hook, so rewrite rules must not get there first.
-wp option update permalink_structure '' --path="$WP_CORE_DIR"
+"$WP_CLI_BIN" option update permalink_structure '' --path="$WP_CORE_DIR"
 
 echo "==> plugins"
 PLUGIN_DIR="${WP_CORE_DIR}/wp-content/plugins/blink-for-woocommerce"
 rm -rf "$PLUGIN_DIR"
 ln -s "$(cd "$(dirname "$0")/.." && pwd)" "$PLUGIN_DIR"
 
-wp plugin activate woocommerce --path="$WP_CORE_DIR"
-wp plugin activate blink-for-woocommerce --path="$WP_CORE_DIR"
+"$WP_CLI_BIN" plugin activate woocommerce --path="$WP_CORE_DIR"
+"$WP_CLI_BIN" plugin activate blink-for-woocommerce --path="$WP_CORE_DIR"
 
 # The fake LNURL server, and the encoder it requires. Both must be present:
 # the previous harness mapped only the first and the mu-plugin fatalled.
@@ -90,18 +92,18 @@ for mu in blink-e2e-lnurl-server.php blink-e2e-bolt11.php; do
 done
 
 echo "==> WooCommerce setup"
-wp option update woocommerce_currency USD --path="$WP_CORE_DIR"
-wp option update woocommerce_store_address "1 Test Street" --path="$WP_CORE_DIR"
-wp option update woocommerce_default_country "US:CA" --path="$WP_CORE_DIR"
-wp option update woocommerce_onboarding_profile '{"skipped":true}' --format=json --path="$WP_CORE_DIR"
+"$WP_CLI_BIN" option update woocommerce_currency USD --path="$WP_CORE_DIR"
+"$WP_CLI_BIN" option update woocommerce_store_address "1 Test Street" --path="$WP_CORE_DIR"
+"$WP_CLI_BIN" option update woocommerce_default_country "US:CA" --path="$WP_CORE_DIR"
+"$WP_CLI_BIN" option update woocommerce_onboarding_profile '{"skipped":true}' --format=json --path="$WP_CORE_DIR"
 
 echo "==> Blink settings"
-wp option update blink_account_type non_custodial --path="$WP_CORE_DIR"
-wp option update blink_ln_address "ok@localhost:${E2E_PORT}" --path="$WP_CORE_DIR"
-wp option update blink_env blink --path="$WP_CORE_DIR"
-wp option update blink_debug yes --path="$WP_CORE_DIR"
-wp option patch insert woocommerce_blink_default_settings enabled yes --path="$WP_CORE_DIR" 2>/dev/null \
-  || wp option update woocommerce_blink_default_settings '{"enabled":"yes"}' --format=json --path="$WP_CORE_DIR"
+"$WP_CLI_BIN" option update blink_account_type non_custodial --path="$WP_CORE_DIR"
+"$WP_CLI_BIN" option update blink_ln_address "ok@localhost:${E2E_PORT}" --path="$WP_CORE_DIR"
+"$WP_CLI_BIN" option update blink_env blink --path="$WP_CORE_DIR"
+"$WP_CLI_BIN" option update blink_debug yes --path="$WP_CORE_DIR"
+"$WP_CLI_BIN" option patch insert woocommerce_blink_default_settings enabled yes --path="$WP_CORE_DIR" 2>/dev/null \
+  || "$WP_CLI_BIN" option update woocommerce_blink_default_settings '{"enabled":"yes"}' --format=json --path="$WP_CORE_DIR"
 
 echo
 echo "Site ready at ${SITE_URL}"

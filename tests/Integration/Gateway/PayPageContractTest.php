@@ -39,7 +39,7 @@ final class PayPageContractTest extends IntegrationTestCase {
     'orderKey',
     'paymentRequest',
     'pollInterval',
-    'redirectUrl',
+    'redirectUrl'
   ];
 
   /** Every element id the script looks up, and the page must therefore emit. */
@@ -47,7 +47,7 @@ final class PayPageContractTest extends IntegrationTestCase {
     'blink-pay-qr',
     'blink-pay-bolt11',
     'blink-pay-copy',
-    'blink-pay-status',
+    'blink-pay-status'
   ];
 
   /** Translated strings the script falls back from. */
@@ -60,7 +60,7 @@ final class PayPageContractTest extends IntegrationTestCase {
     'paid',
     'review',
     'unconfirmed',
-    'unreachable',
+    'unreachable'
   ];
 
   private string $html;
@@ -149,7 +149,7 @@ final class PayPageContractTest extends IntegrationTestCase {
       'paymentRequest is a string' => ['paymentRequest', 'string'],
       'lightningUri is a string' => ['lightningUri', 'string'],
       'redirectUrl is a string' => ['redirectUrl', 'string'],
-      'i18n is an object' => ['i18n', 'array'],
+      'i18n is an object' => ['i18n', 'array']
     ];
   }
 

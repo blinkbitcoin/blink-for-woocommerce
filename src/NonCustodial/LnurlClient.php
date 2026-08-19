@@ -26,8 +26,7 @@ final class LnurlClient implements LnurlClientInterface {
     private HttpClientInterface $http,
     private UrlPolicyInterface $policy,
     private LoggerInterface $log
-  ) {
-  }
+  ) {}
 
   public function fetchPayMetadata(LnAddress $address): PayMetadata|LnurlFailure {
     $url = $address->wellKnownUrl();
@@ -276,17 +275,15 @@ final class LnurlClient implements LnurlClientInterface {
    */
   private function paymentHashFromVerifyUrl(string $verifyUrl): ?string {
     // phpcs:ignore WordPress.WP.AlternativeFunctions.parse_url_parse_url -- wp_parse_url() only compensates for PHP < 5.4.7, and this class must stay free of WordPress.
-    $path = parse_url($verifyUrl, PHP_URL_PATH);
-    if (!is_string($path)) {
+    $parts = parse_url($verifyUrl);
+    if ($parts === false || !isset($parts['path'])) {
       return null;
     }
 
-    $segments = explode('/', trim($path, '/'));
+    $segments = explode('/', trim($parts['path'], '/'));
     $last = end($segments);
 
-    return is_string($last) && preg_match('/^[a-f0-9]{64}$/i', $last) === 1
-      ? strtolower($last)
-      : null;
+    return preg_match('/^[a-f0-9]{64}$/i', $last) === 1 ? strtolower($last) : null;
   }
 
   /** @return HttpResponse|LnurlFailure */

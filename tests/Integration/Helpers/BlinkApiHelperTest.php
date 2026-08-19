@@ -53,7 +53,7 @@ final class BlinkApiHelperTest extends IntegrationTestCase {
       'an extra @ keeps the remainder' => ['a@b@blink.sv', 'b@blink.sv'],
       'no domain part' => ['shop', ''],
       'empty' => ['', ''],
-      'null' => [null, ''],
+      'null' => [null, '']
     ];
   }
 
@@ -140,7 +140,7 @@ final class BlinkApiHelperTest extends IntegrationTestCase {
       'callback' => 'https://blink.sv/lnurlp/shop/callback',
       'minSendable' => 1000,
       'maxSendable' => 100000000000,
-      'metadata' => '[["text/plain","shop"]]',
+      'metadata' => '[["text/plain","shop"]]'
     ]);
 
     $this->assertTrue(BlinkApiHelper::verifyLnAddress('shop@blink.sv'));
@@ -160,7 +160,7 @@ final class BlinkApiHelperTest extends IntegrationTestCase {
     $this->http->queueJson([
       'tag' => 'payRequest',
       'callback' => 'https://blink.sv/lnurlp/shop/callback',
-      'metadata' => '[["text/plain","shop"]]',
+      'metadata' => '[["text/plain","shop"]]'
     ]);
 
     $this->assertTrue(BlinkApiHelper::verifyLnAddress('shop@blink.sv'));
@@ -302,8 +302,8 @@ final class BlinkApiHelperTest extends IntegrationTestCase {
     $this->configureCustodial();
     $this->apiReturns([
       'data' => [
-        'lnInvoicePaymentStatusByHash' => ['status' => 'PAID', 'paymentHash' => 'abc123'],
-      ],
+        'lnInvoicePaymentStatusByHash' => ['status' => 'PAID', 'paymentHash' => 'abc123']
+      ]
     ]);
 
     $status = (new BlinkApiHelper())->getInvoiceCustodial('abc123');

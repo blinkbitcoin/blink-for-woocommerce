@@ -57,7 +57,7 @@ final class UnitBootstrapTest extends TestCase {
       'plugin id' => ['BLINK_PLUGIN_ID'],
       'plugin url' => ['BLINK_PLUGIN_URL'],
       'abspath' => ['ABSPATH'],
-      'minute' => ['MINUTE_IN_SECONDS'],
+      'minute' => ['MINUTE_IN_SECONDS']
     ];
   }
 }

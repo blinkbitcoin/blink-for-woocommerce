@@ -30,7 +30,7 @@
           buildInputs = [
             php
             php.packages.composer
-            pkgs.nodejs_20
+            pkgs.nodejs_24
             # bin/install-wp-tests.sh fetches the WordPress test library over
             # subversion, and needs a mysql client to create the test database.
             pkgs.subversion

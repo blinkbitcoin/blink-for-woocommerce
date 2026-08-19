@@ -33,14 +33,14 @@ final class Bolt11DecoderTest extends TestCase {
   }
 
   /** @return array<string,array{string}> */
-  public function overflowingAmounts(): array {
+  public static function overflowingAmounts(): array {
     return [
       'bare bitcoin amount' => ['lnbc' . str_repeat('9', 30)],
       'milli multiplier' => ['lnbc' . str_repeat('9', 30) . 'm'],
       'pico multiplier' => ['lnbc' . str_repeat('9', 30) . 'p'],
       'just over the bare ceiling' => ['lnbc92233721'],
       // Casts cleanly; only the multiplier pushes it past what an int holds.
-      'just over the milli ceiling' => ['lnbc9223372037m'],
+      'just over the milli ceiling' => ['lnbc9223372037m']
     ];
   }
 
@@ -91,7 +91,7 @@ final class Bolt11DecoderTest extends TestCase {
     foreach (self::specVectors()['valid'] as $i => $vector) {
       $cases[$i . ': ' . substr($vector['label'], 0, 50)] = [
         $vector['label'],
-        $vector['invoice'],
+        $vector['invoice']
       ];
     }
 
@@ -125,7 +125,7 @@ final class Bolt11DecoderTest extends TestCase {
       '20m on testnet' => [4, 2000000000, 3600],
       '9678785340p with a week expiry' => [9, 967878534, 604800],
       '25m' => [10, 2500000000, 3600],
-      '10m' => [12, 1000000000, 3600],
+      '10m' => [12, 1000000000, 3600]
     ];
   }
 
@@ -184,7 +184,7 @@ final class Bolt11DecoderTest extends TestCase {
       'bad checksum' => [1, 'checksum mismatch'],
       'too short' => [3, 'too short'],
       'invalid multiplier' => [4, 'unrecognised invoice prefix'],
-      'sub-millisatoshi precision' => [5, 'not representable in millisatoshi'],
+      'sub-millisatoshi precision' => [5, 'not representable in millisatoshi']
     ];
   }
 
@@ -209,7 +209,7 @@ final class Bolt11DecoderTest extends TestCase {
       'high-S signature' => [0],
       'unrecoverable signature' => [2],
       'missing payment secret' => [6],
-      'high-S with n field' => [7],
+      'high-S with n field' => [7]
     ];
   }
 
@@ -338,9 +338,9 @@ final class Bolt11DecoderTest extends TestCase {
       'empty' => ['', 'empty bech32 string'],
       'not lightning' => [
         'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4',
-        'not a lightning invoice',
+        'not a lightning invoice'
       ],
-      'no separator' => ['lnbc', 'no human-readable part'],
+      'no separator' => ['lnbc', 'no human-readable part']
     ];
   }
 

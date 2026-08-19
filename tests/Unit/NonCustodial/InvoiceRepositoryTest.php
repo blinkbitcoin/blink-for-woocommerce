@@ -149,7 +149,7 @@ final class InvoiceRepositoryTest extends TestCase {
         InvoiceRepository::LN_ADDRESS,
         InvoiceRepository::EXPIRES_AT,
         InvoiceRepository::AMOUNT_MSAT,
-        InvoiceRepository::ACCOUNT_TYPE,
+        InvoiceRepository::ACCOUNT_TYPE
       ]
       as $key
     ) {
@@ -185,7 +185,7 @@ final class InvoiceRepositoryTest extends TestCase {
     return [
       'payment hash' => [InvoiceRepository::PAYMENT_HASH],
       'verify url' => [InvoiceRepository::VERIFY_URL],
-      'lightning address' => [InvoiceRepository::LN_ADDRESS],
+      'lightning address' => [InvoiceRepository::LN_ADDRESS]
     ];
   }
 
@@ -206,7 +206,7 @@ final class InvoiceRepositoryTest extends TestCase {
       'paymentHash' => str_repeat('cd', 32),
       'verifyUrl' => 'https://blink.sv/verify/' . str_repeat('cd', 32),
       'createdAt' => self::NOW + 10,
-      'expiresAt' => self::NOW + 3610,
+      'expiresAt' => self::NOW + 3610
     ]);
     $this->repository->store($this->order, $previous);
 
@@ -224,11 +224,11 @@ final class InvoiceRepositoryTest extends TestCase {
     $first = $this->invoice();
     $second = $this->invoice([
       'paymentHash' => str_repeat('cd', 32),
-      'verifyUrl' => 'https://blink.sv/verify/' . str_repeat('cd', 32),
+      'verifyUrl' => 'https://blink.sv/verify/' . str_repeat('cd', 32)
     ]);
     $third = $this->invoice([
       'paymentHash' => str_repeat('ef', 32),
-      'verifyUrl' => 'https://blink.sv/verify/' . str_repeat('ef', 32),
+      'verifyUrl' => 'https://blink.sv/verify/' . str_repeat('ef', 32)
     ]);
     $this->repository->store($this->order, $first);
     $this->repository->replace($this->order, $second);
@@ -243,7 +243,7 @@ final class InvoiceRepositoryTest extends TestCase {
     $this->repository->markTerminal($this->order, SettlementStatus::Expired);
     $current = $this->invoice([
       'paymentHash' => str_repeat('cd', 32),
-      'verifyUrl' => 'https://blink.sv/verify/' . str_repeat('cd', 32),
+      'verifyUrl' => 'https://blink.sv/verify/' . str_repeat('cd', 32)
     ]);
 
     $this->repository->replace($this->order, $current);
@@ -263,13 +263,13 @@ final class InvoiceRepositoryTest extends TestCase {
       'createdAt' => self::NOW,
       'expiresAt' => self::NOW + 3600,
       'orderTotal' => '10.00',
-      'orderCurrency' => 'USD',
+      'orderCurrency' => 'USD'
     ];
     $this->order->setMeta(InvoiceRepository::OUTSTANDING_INVOICES, [
       'not an invoice',
       ['paymentHash' => str_repeat('ab', 32)],
       array_merge($otherwiseValid, ['amountMsat' => 'not an integer']),
-      array_merge($otherwiseValid, ['orderTotal' => []]),
+      array_merge($otherwiseValid, ['orderTotal' => []])
     ]);
 
     $this->assertSame([], $this->repository->outstanding($this->order));
@@ -285,7 +285,7 @@ final class InvoiceRepositoryTest extends TestCase {
       $this->order,
       $this->invoice([
         'paymentHash' => str_repeat('cd', 32),
-        'verifyUrl' => 'https://blink.sv/verify/' . str_repeat('cd', 32),
+        'verifyUrl' => 'https://blink.sv/verify/' . str_repeat('cd', 32)
       ])
     );
     $this->repository->markSettled($this->order, str_repeat('ab', 32), 'ff00');

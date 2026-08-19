@@ -41,8 +41,7 @@ final class InvoiceFactoryTest extends TestCase {
 
   private function rate(?int $satoshis): SatsRateProviderInterface {
     return new class ($satoshis) implements SatsRateProviderInterface {
-      public function __construct(private ?int $satoshis) {
-      }
+      public function __construct(private ?int $satoshis) {}
 
       public function toSatoshis(float $amount, string $currency): ?int {
         return $this->satoshis;
@@ -90,11 +89,11 @@ final class InvoiceFactoryTest extends TestCase {
       'minSendable' => 1000,
       'maxSendable' => 100000000000,
       'commentAllowed' => 255,
-      'metadata' => self::METADATA,
+      'metadata' => self::METADATA
     ]);
     $this->http->queueJson([
       'pr' => $bolt11 ?? $this->invoiceFor(),
-      'verify' => 'https://blink.sv/verify/' . self::HASH,
+      'verify' => 'https://blink.sv/verify/' . self::HASH
     ]);
   }
 
@@ -190,7 +189,7 @@ final class InvoiceFactoryTest extends TestCase {
     $this->http->queueJson([
       'tag' => 'payRequest',
       'callback' => 'https://blink.sv/cb',
-      'metadata' => self::METADATA,
+      'metadata' => self::METADATA
     ]);
     $this->http->queueJson(['status' => 'ERROR', 'reason' => 'no route']);
 
@@ -217,11 +216,11 @@ final class InvoiceFactoryTest extends TestCase {
     $this->http->queueJson([
       'tag' => 'payRequest',
       'callback' => 'https://blink.sv/cb',
-      'metadata' => self::METADATA,
+      'metadata' => self::METADATA
     ]);
     $this->http->queueJson([
       'pr' => $this->invoiceFor(),
-      'verify' => 'https://blink.sv/verify/' . str_repeat('cd', 32),
+      'verify' => 'https://blink.sv/verify/' . str_repeat('cd', 32)
     ]);
 
     $result = $this->factory()->create($this->address, 10.0, 'USD', '10.00', 'USD', '');
@@ -234,11 +233,11 @@ final class InvoiceFactoryTest extends TestCase {
     $this->http->queueJson([
       'tag' => 'payRequest',
       'callback' => 'https://blink.sv/cb',
-      'metadata' => '[["text/plain","a different order"]]',
+      'metadata' => '[["text/plain","a different order"]]'
     ]);
     $this->http->queueJson([
       'pr' => $this->invoiceFor(),
-      'verify' => 'https://blink.sv/verify/' . self::HASH,
+      'verify' => 'https://blink.sv/verify/' . self::HASH
     ]);
 
     $result = $this->factory()->create($this->address, 10.0, 'USD', '10.00', 'USD', '');
@@ -304,11 +303,11 @@ final class InvoiceFactoryTest extends TestCase {
     $this->http->queueJson([
       'tag' => 'payRequest',
       'callback' => 'http://localhost:8889/cb',
-      'metadata' => self::METADATA,
+      'metadata' => self::METADATA
     ]);
     $this->http->queueJson([
       'pr' => $this->invoiceFor(3600, 'lntbs100u'),
-      'verify' => 'http://localhost:8889/verify/' . self::HASH,
+      'verify' => 'http://localhost:8889/verify/' . self::HASH
     ]);
 
     $result = $this->factory()->create($local, 10.0, 'USD', '10.00', 'USD', '');

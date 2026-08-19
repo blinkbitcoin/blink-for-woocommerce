@@ -61,7 +61,7 @@ final class CustodialCharacterizationTest extends IntegrationTestCase {
         InvoiceRepository::ACCOUNT_TYPE,
         InvoiceRepository::VERIFY_URL,
         InvoiceRepository::LN_ADDRESS,
-        InvoiceRepository::EXPIRES_AT,
+        InvoiceRepository::EXPIRES_AT
       ]
       as $key
     ) {
@@ -106,7 +106,7 @@ final class CustodialCharacterizationTest extends IntegrationTestCase {
     $found = wc_get_orders([
       'limit' => 2,
       'meta_key' => 'blink_id',
-      'meta_value' => 'hash-1',
+      'meta_value' => 'hash-1'
     ]);
 
     $this->assertCount(1, $found);

@@ -151,7 +151,7 @@ final class DbRateLimiterTest extends IntegrationTestCase {
           '_' .
           sprintf('%010d', $expiredWindow),
         'option_value' => '1',
-        'autoload' => 'no',
+        'autoload' => 'no'
       ]);
     }
     $this->limiter->hit('fresh', 5, 60);
@@ -258,7 +258,7 @@ final class DbRateLimiterTest extends IntegrationTestCase {
   public function test_a_name_with_an_expired_window_is_deleted(): void {
     $db = new StubWpdb();
     $db->colResult = [
-      DbRateLimiter::PREFIX . 'ip_a_' . sprintf('%010d', self::NOW - 200000),
+      DbRateLimiter::PREFIX . 'ip_a_' . sprintf('%010d', self::NOW - 200000)
     ];
     $limiter = new DbRateLimiter($db, new FakeClock(self::NOW));
 

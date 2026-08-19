@@ -27,8 +27,7 @@ final class InvoiceValidator {
   public function __construct(
     private Bolt11Decoder $decoder,
     private ClockInterface $clock
-  ) {
-  }
+  ) {}
 
   public function validate(
     string $bolt11,

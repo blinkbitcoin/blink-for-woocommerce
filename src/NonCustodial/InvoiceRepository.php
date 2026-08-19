@@ -69,11 +69,10 @@ final class InvoiceRepository {
     self::PREIMAGE,
     self::TERMINAL,
     UnpaidOrderGuard::HOLD_NOTICE,
-    'blink_redirect',
+    'blink_redirect'
   ];
 
-  public function __construct(private ClockInterface $clock) {
-  }
+  public function __construct(private ClockInterface $clock) {}
 
   public function isNonCustodial(OrderRecord $order): bool {
     return $order->getMeta(self::ACCOUNT_TYPE) === self::ACCOUNT_TYPE_NON_CUSTODIAL;
@@ -437,7 +436,7 @@ final class InvoiceRepository {
       'createdAt' => $invoice->createdAt,
       'expiresAt' => $invoice->expiresAt,
       'orderTotal' => $invoice->orderTotal,
-      'orderCurrency' => $invoice->orderCurrency,
+      'orderCurrency' => $invoice->orderCurrency
     ];
   }
 

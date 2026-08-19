@@ -17,8 +17,7 @@ final class BlinkApiSatsRateProvider implements SatsRateProviderInterface {
   public function __construct(
     private BlinkApiClient $client,
     private LoggerInterface $log
-  ) {
-  }
+  ) {}
 
   public function toSatoshis(float $amount, string $currency): ?int {
     try {

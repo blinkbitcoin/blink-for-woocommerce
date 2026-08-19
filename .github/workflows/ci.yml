@@ -25,13 +25,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
           coverage: none
           tools: composer:v2
-      - uses: ramsey/composer-install@v3
+      - uses: ramsey/composer-install@v4
       - run: composer lint:phpcs
       - run: composer lint:phpstan
       - run: composer lint:ignores
@@ -41,10 +41,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '24'
           cache: npm
       - run: npm ci
       # Formatting, lint rules, and type checking. The TypeScript step matters
@@ -61,7 +61,7 @@ jobs:
       matrix:
         php: ['8.1', '8.2', '8.3', '8.4']
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
@@ -85,13 +85,13 @@ jobs:
       matrix:
         php: ['8.1', '8.2', '8.3', '8.4']
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
           coverage: none
           tools: composer:v2
-      - uses: ramsey/composer-install@v3
+      - uses: ramsey/composer-install@v4
       - run: composer test:unit
 
   integration:
@@ -133,17 +133,17 @@ jobs:
           --health-timeout=5s
           --health-retries=20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
           coverage: none
           extensions: mysqli
           tools: composer:v2
-      - uses: ramsey/composer-install@v3
+      - uses: ramsey/composer-install@v4
       - name: Cache WordPress test library
         id: wp-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             /tmp/wordpress
@@ -183,14 +183,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
           coverage: none
           tools: composer:v2
       # vendor/ ships in the WordPress.org package, so the check has to see it.
-      - uses: ramsey/composer-install@v3
+      - uses: ramsey/composer-install@v4
         with:
           composer-options: '--no-dev'
       # Against the built distribution, not the repository root. The root also
@@ -212,13 +212,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
           coverage: none
           tools: composer:v2
-      - uses: ramsey/composer-install@v3
+      - uses: ramsey/composer-install@v4
       - name: Check composer.json against composer.lock
         run: composer validate --strict
       # This plugin handles payments and bundles its dependencies into the
@@ -226,9 +226,9 @@ jobs:
       # shop that installs it.
       - name: Audit PHP dependencies
         run: composer audit --locked
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '24'
           cache: npm
       - run: npm ci
       - name: Audit JavaScript dependencies
@@ -240,15 +240,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
           coverage: none
           tools: composer:v2, wp-cli
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '24'
           cache: npm
       - run: npm ci
       - name: Check the translation template is current
@@ -292,7 +292,7 @@ jobs:
           --health-timeout=5s
           --health-retries=20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # diff-cover needs the base branch to compare against.
           fetch-depth: 0
@@ -304,10 +304,10 @@ jobs:
           coverage: xdebug
           extensions: mysqli
           tools: composer:v2
-      - uses: ramsey/composer-install@v3
+      - uses: ramsey/composer-install@v4
       - name: Cache WordPress test library
         id: wp-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             /tmp/wordpress
@@ -343,7 +343,7 @@ jobs:
         env:
           XDEBUG_MODE: coverage
         run: composer coverage:gate
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - name: Require 100% line coverage of the diff
@@ -356,7 +356,7 @@ jobs:
             --fail-under=100 \
             --markdown-report build/coverage/diff-coverage.md
       - if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: php-coverage
           path: build/coverage
@@ -367,16 +367,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '24'
           cache: npm
       - run: npm ci
       - name: Run the JS suite with a 100% threshold
         run: npm run test:js:coverage
       - if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: js-coverage
           path: build/coverage-js
@@ -399,28 +399,28 @@ jobs:
           --health-timeout=5s
           --health-retries=20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
           coverage: none
           extensions: mysqli
           tools: composer:v2, wp-cli
-      - uses: ramsey/composer-install@v3
-      - uses: actions/setup-node@v4
+      - uses: ramsey/composer-install@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '24'
           cache: npm
       - run: npm ci
       - name: Cache Playwright browsers
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ hashFiles('package-lock.json') }}
       - run: npx playwright install --with-deps chromium
       - name: Cache WordPress download
         id: wp-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             /tmp/wordpress
@@ -461,7 +461,7 @@ jobs:
           WP_CORE_DIR: /tmp/wordpress
         run: npm run test:e2e
       - if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-artifacts
           path: |

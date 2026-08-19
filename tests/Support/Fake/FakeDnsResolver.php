@@ -12,8 +12,10 @@ use Blink\WC\NonCustodial\DnsResolverInterface;
  */
 final class FakeDnsResolver implements DnsResolverInterface {
   /** @param array<string,list<string>> $answers */
-  public function __construct(private array $answers = [], private array $fallback = []) {
-  }
+  public function __construct(
+    private array $answers = [],
+    private array $fallback = []
+  ) {}
 
   public function resolve(string $host): array {
     return $this->answers[strtolower($host)] ?? $this->fallback;

@@ -34,8 +34,7 @@ final class InvoiceReusePolicy {
   public function __construct(
     private InvoiceRepository $repository,
     private ClockInterface $clock
-  ) {
-  }
+  ) {}
 
   public function isReusable(OrderRecord $order): bool {
     if ($this->repository->terminalStatus($order) !== null) {

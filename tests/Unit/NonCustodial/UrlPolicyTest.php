@@ -138,7 +138,7 @@ final class UrlPolicyTest extends TestCase {
       'file' => ['file:///etc/passwd'],
       'gopher' => ['gopher://blink.sv/'],
       'ftp' => ['ftp://blink.sv/x'],
-      'no scheme' => ['//blink.sv/x'],
+      'no scheme' => ['//blink.sv/x']
     ];
   }
 
@@ -155,7 +155,7 @@ final class UrlPolicyTest extends TestCase {
       'empty' => [''],
       'garbage' => ['not a url'],
       'scheme only' => ['https://'],
-      'too long' => ['https://blink.sv/' . str_repeat('a', 2100)],
+      'too long' => ['https://blink.sv/' . str_repeat('a', 2100)]
     ];
   }
 
@@ -246,7 +246,7 @@ final class UrlPolicyTest extends TestCase {
       'ipv4-mapped packed loopback' => ['::ffff:7f00:1', false],
       // Not the NAT64 prefix, so it must not be unwrapped into a public v4.
       'lookalike prefix stays v6' => ['64:ff9c::5db8:d822', true],
-      'not an ip at all' => ['nonsense', false],
+      'not an ip at all' => ['nonsense', false]
     ];
   }
 

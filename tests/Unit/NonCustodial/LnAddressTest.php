@@ -35,13 +35,13 @@ final class LnAddressTest extends TestCase {
         'ShopName@blink.sv',
         'ShopName',
         'blink.sv',
-        null,
+        null
       ],
       'dots and dashes in identifier' => [
         'a.b-c_d@blink.sv',
         'a.b-c_d',
         'blink.sv',
-        null,
+        null
       ],
       'explicit port' => ['ok@localhost:8889', 'ok', 'localhost', 8889],
       'ipv4 literal' => ['ok@127.0.0.1', 'ok', '127.0.0.1', null],
@@ -53,10 +53,10 @@ final class LnAddressTest extends TestCase {
         'a@' . str_repeat('x', 63) . '.sv',
         'a',
         str_repeat('x', 63) . '.sv',
-        null,
+        null
       ],
       'lowest port' => ['a@blink.sv:1', 'a', 'blink.sv', 1],
-      'highest port' => ['a@blink.sv:65535', 'a', 'blink.sv', 65535],
+      'highest port' => ['a@blink.sv:65535', 'a', 'blink.sv', 65535]
     ];
   }
 
@@ -94,7 +94,7 @@ final class LnAddressTest extends TestCase {
       'bare ipv6 without brackets' => ['a@::1'],
       'unclosed bracket' => ['a@[::1'],
       'invalid ipv6 in brackets' => ['a@[not-an-ip]'],
-      'bad port after bracket' => ['a@[::1]:0'],
+      'bad port after bracket' => ['a@[::1]:0']
     ];
   }
 
@@ -121,7 +121,7 @@ final class LnAddressTest extends TestCase {
       'dot localhost tld' => ['a@shop.localhost', true],
       'public domain' => ['a@blink.sv', false],
       'public domain resembling local' => ['a@localhost.example.com', false],
-      'public ip' => ['a@93.184.216.34', false],
+      'public ip' => ['a@93.184.216.34', false]
     ];
   }
 

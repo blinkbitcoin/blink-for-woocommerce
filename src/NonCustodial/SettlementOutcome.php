@@ -10,6 +10,5 @@ final class SettlementOutcome {
     public readonly int $observedAt,
     public readonly string $reason = '',
     public readonly bool $terminal = false
-  ) {
-  }
+  ) {}
 }

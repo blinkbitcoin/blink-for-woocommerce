@@ -10,8 +10,7 @@ final class VerifyResult {
     public readonly ?string $preimage = null,
     public readonly ?string $paymentRequest = null,
     public readonly string $detail = ''
-  ) {
-  }
+  ) {}
 
   public static function of(VerifyState $state, string $detail = ''): self {
     return new self($state, null, null, $detail);

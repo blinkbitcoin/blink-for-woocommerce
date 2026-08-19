@@ -64,13 +64,19 @@
 
   <rule ref="WordPress.WP.I18n">
     <properties>
-      <property name="text_domain" type="array" value="blink-for-woocommerce"/>
+      <property name="text_domain" type="array">
+        <element value="blink-for-woocommerce"/>
+      </property>
     </properties>
   </rule>
 
   <rule ref="WordPress.NamingConventions.PrefixAllGlobals">
     <properties>
-      <property name="prefixes" type="array" value="blink,BLINK,Blink"/>
+      <property name="prefixes" type="array">
+        <element value="blink"/>
+        <element value="BLINK"/>
+        <element value="Blink"/>
+      </property>
     </properties>
     <!--
       Test doubles have to use the names of the things they stand in for

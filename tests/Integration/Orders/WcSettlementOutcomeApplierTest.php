@@ -45,14 +45,11 @@ final class WcSettlementOutcomeApplierTest extends IntegrationTestCase {
         return '';
       }
 
-      public function setMeta(string $key, mixed $value): void {
-      }
+      public function setMeta(string $key, mixed $value): void {}
 
-      public function deleteMeta(string $key): void {
-      }
+      public function deleteMeta(string $key): void {}
 
-      public function save(): void {
-      }
+      public function save(): void {}
 
       public function total(): string {
         return '10.00';
@@ -62,8 +59,7 @@ final class WcSettlementOutcomeApplierTest extends IntegrationTestCase {
         return 'USD';
       }
 
-      public function addNote(string $note): void {
-      }
+      public function addNote(string $note): void {}
     };
 
     $this->outcomeApplier->applyOutcome($record, $this->outcome(SettlementStatus::Paid));
@@ -135,7 +131,7 @@ final class WcSettlementOutcomeApplierTest extends IntegrationTestCase {
     } else {
       update_option('blink_order_states', [
         OrderStates::PAID => $configuredStatus,
-        OrderStates::EXPIRED => 'cancelled',
+        OrderStates::EXPIRED => 'cancelled'
       ]);
     }
 
@@ -150,7 +146,7 @@ final class WcSettlementOutcomeApplierTest extends IntegrationTestCase {
       $observed = wc_get_order($orderId);
       $statusHookPayment = [
         $observed->get_transaction_id(),
-        $observed->get_date_paid() !== null,
+        $observed->get_date_paid() !== null
       ];
     });
     add_action('woocommerce_payment_complete', function ($orderId) use (
@@ -172,7 +168,7 @@ final class WcSettlementOutcomeApplierTest extends IntegrationTestCase {
   public static function mappedPaidStatuses(): array {
     return [
       'shipped processing mapping' => [null, 'processing'],
-      'explicit on-hold mapping' => ['on-hold', 'on-hold'],
+      'explicit on-hold mapping' => ['on-hold', 'on-hold']
     ];
   }
 }

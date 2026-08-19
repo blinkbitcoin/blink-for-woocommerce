@@ -67,11 +67,11 @@ class BlinkWCPlugin {
       // fields, rendering each custom row once per registered renderer.
       add_action('woocommerce_admin_field_blink_custom_markup', [
         '\Blink\WC\Admin\GlobalSettings',
-        'output_custom_markup_field',
+        'output_custom_markup_field'
       ]);
       add_action('woocommerce_admin_field_order_states', [
         new \Blink\WC\Helpers\OrderStates(),
-        'renderOrderStatesHtml',
+        'renderOrderStatesHtml'
       ]);
 
       $this->dependenciesNotification();
@@ -108,7 +108,7 @@ class BlinkWCPlugin {
     wp_enqueue_script('blink-notifications');
     wp_localize_script('blink-notifications', 'BlinkNotifications', [
       'ajax_url' => admin_url('admin-ajax.php'),
-      'nonce' => wp_create_nonce('blink-notifications-nonce'),
+      'nonce' => wp_create_nonce('blink-notifications-nonce')
     ]);
   }
 
@@ -321,7 +321,7 @@ add_filter(
       add_query_arg(
         [
           'page' => 'wc-settings',
-          'tab' => 'blink_settings',
+          'tab' => 'blink_settings'
         ],
         get_admin_url() . 'admin.php'
       )
@@ -386,7 +386,7 @@ function blink_register_settlement_hooks(): void {
     \Blink\WC\NonCustodial\SettlementScheduler::HOOK,
     function ($order_id): void {
       $order = wc_get_order((int) $order_id);
-      if (!$order instanceof \WC_Order) {
+      if (!($order instanceof \WC_Order)) {
         return;
       }
 
@@ -411,7 +411,7 @@ function blink_register_settlement_hooks(): void {
   add_filter(
     'woocommerce_cancel_unpaid_order',
     function ($maycancel, $order) {
-      if (!$order instanceof \WC_Order) {
+      if (!($order instanceof \WC_Order)) {
         return $maycancel;
       }
 

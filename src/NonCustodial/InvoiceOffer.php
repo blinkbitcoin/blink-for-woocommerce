@@ -13,6 +13,5 @@ final class InvoiceOffer {
     public readonly string $paymentRequest,
     public readonly string $verifyUrl,
     public readonly ?string $verifyUrlPaymentHash
-  ) {
-  }
+  ) {}
 }

@@ -26,8 +26,7 @@ final class FakeOrder implements OrderRecord {
     private int $id = 1,
     private string $total = '10.00',
     private string $currency = 'USD'
-  ) {
-  }
+  ) {}
 
   public function id(): int {
     return $this->id;

@@ -46,11 +46,11 @@ final class NonCustodialCheckoutTest extends IntegrationTestCase {
       'minSendable' => 1000,
       'maxSendable' => 100000000000,
       'commentAllowed' => 255,
-      'metadata' => self::METADATA,
+      'metadata' => self::METADATA
     ]);
     $this->http->queueJson([
       'pr' => $bolt11 ?? $this->bolt11(3600, $hash),
-      'verify' => 'https://blink.sv/verify/' . $hash,
+      'verify' => 'https://blink.sv/verify/' . $hash
     ]);
   }
 
@@ -366,7 +366,7 @@ final class NonCustodialCheckoutTest extends IntegrationTestCase {
     $gateway->process_payment($order->get_id());
     $this->http->queueJson([
       'settled' => true,
-      'preimage' => $this->preimage,
+      'preimage' => $this->preimage
     ]);
 
     $this->services()->settlementScheduler()->tick($this->record($order));

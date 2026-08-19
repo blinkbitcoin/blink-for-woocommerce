@@ -87,7 +87,7 @@ final class GuzzleHttpClientTest extends TestCase {
       '404' => [404],
       '429' => [429],
       '500' => [500],
-      '503' => [503],
+      '503' => [503]
     ];
   }
 
@@ -254,7 +254,7 @@ final class GuzzleHttpClientTest extends TestCase {
     $client->get(
       'https://blink.sv/x',
       (new HttpRequestOptions())->withDnsPins([
-        'blink.sv:443' => ['93.184.216.34', '2606:2800::1'],
+        'blink.sv:443' => ['93.184.216.34', '2606:2800::1']
       ])
     );
 

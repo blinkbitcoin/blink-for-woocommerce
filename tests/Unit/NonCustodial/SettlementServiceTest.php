@@ -125,7 +125,7 @@ final class SettlementServiceTest extends TestCase {
     $previous = $this->storeInvoice();
     $current = $this->invoice([
       'paymentHash' => str_repeat('cd', 32),
-      'verifyUrl' => 'https://blink.sv/verify/' . str_repeat('cd', 32),
+      'verifyUrl' => 'https://blink.sv/verify/' . str_repeat('cd', 32)
     ]);
     $this->repository->replace($this->order, $current);
     $this->http->queueJson(['settled' => true, 'preimage' => $this->preimage]);
@@ -151,7 +151,7 @@ final class SettlementServiceTest extends TestCase {
       $this->invoice([
         'paymentHash' => str_repeat('cd', 32),
         'verifyUrl' => 'https://blink.sv/verify/' . str_repeat('cd', 32),
-        'orderTotal' => '25.00',
+        'orderTotal' => '25.00'
       ])
     );
     $this->http->queueJson(['settled' => true, 'preimage' => $this->preimage]);
@@ -173,7 +173,7 @@ final class SettlementServiceTest extends TestCase {
       $this->order,
       $this->invoice([
         'paymentHash' => $currentHash,
-        'verifyUrl' => 'https://blink.sv/verify/' . $currentHash,
+        'verifyUrl' => 'https://blink.sv/verify/' . $currentHash
       ])
     );
     $this->http->queue(HttpResponse::transportFailure('old endpoint down'));
@@ -193,7 +193,7 @@ final class SettlementServiceTest extends TestCase {
       $this->invoice([
         'paymentHash' => str_repeat('cd', 32),
         'verifyUrl' => 'https://blink.sv/verify/' . str_repeat('cd', 32),
-        'expiresAt' => self::NOW + 60,
+        'expiresAt' => self::NOW + 60
       ])
     );
     $this->clock->travel(60 + SettlementService::EXPIRY_GRACE_SECONDS + 1);
@@ -213,7 +213,7 @@ final class SettlementServiceTest extends TestCase {
       $this->order,
       $this->invoice([
         'paymentHash' => str_repeat('cd', 32),
-        'verifyUrl' => 'https://blink.sv/verify/' . str_repeat('cd', 32),
+        'verifyUrl' => 'https://blink.sv/verify/' . str_repeat('cd', 32)
       ])
     );
     $this->clock->travel(60 + SettlementService::EXPIRY_GRACE_SECONDS + 1);
@@ -233,7 +233,7 @@ final class SettlementServiceTest extends TestCase {
       $this->invoice([
         'paymentHash' => str_repeat('cd', 32),
         'verifyUrl' => 'https://blink.sv/verify/' . str_repeat('cd', 32),
-        'expiresAt' => self::NOW + 60,
+        'expiresAt' => self::NOW + 60
       ])
     );
     $this->clock->travel(60 + SettlementService::EXPIRY_GRACE_SECONDS + 1);
@@ -252,7 +252,7 @@ final class SettlementServiceTest extends TestCase {
       $this->order,
       $this->invoice([
         'paymentHash' => str_repeat('cd', 32),
-        'verifyUrl' => 'https://blink.sv/verify/' . str_repeat('cd', 32),
+        'verifyUrl' => 'https://blink.sv/verify/' . str_repeat('cd', 32)
       ])
     );
     $this->http->queueJson(['settled' => false]);
@@ -444,22 +444,22 @@ final class SettlementServiceTest extends TestCase {
       'connection timeout' => [
         static fn(FakeHttpClient $h) => $h->queue(
           HttpResponse::transportFailure('timeout')
-        ),
+        )
       ],
       'server error' => [
-        static fn(FakeHttpClient $h) => $h->queue(new HttpResponse(500, '')),
+        static fn(FakeHttpClient $h) => $h->queue(new HttpResponse(500, ''))
       ],
       'bad gateway' => [
-        static fn(FakeHttpClient $h) => $h->queue(new HttpResponse(502, '')),
+        static fn(FakeHttpClient $h) => $h->queue(new HttpResponse(502, ''))
       ],
       'malformed body' => [
-        static fn(FakeHttpClient $h) => $h->queue(new HttpResponse(200, '{')),
+        static fn(FakeHttpClient $h) => $h->queue(new HttpResponse(200, '{'))
       ],
       'oversized body' => [
         static fn(FakeHttpClient $h) => $h->queue(
           new HttpResponse(200, '{}', [], null, true)
-        ),
-      ],
+        )
+      ]
     ];
   }
 

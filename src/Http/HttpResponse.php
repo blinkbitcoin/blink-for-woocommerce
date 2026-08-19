@@ -22,8 +22,7 @@ final class HttpResponse {
     public readonly array $headers = [],
     public readonly ?string $transportError = null,
     public readonly bool $truncated = false
-  ) {
-  }
+  ) {}
 
   public static function transportFailure(string $reason): self {
     return new self(0, '', [], $reason);

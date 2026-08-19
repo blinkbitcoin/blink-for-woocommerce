@@ -35,7 +35,7 @@ final class Bolt11Decoder {
     'm' => 1000000000,
     'u' => 1000000,
     'n' => 1000,
-    'p' => 1,
+    'p' => 1
   ];
 
   /** @throws Bolt11Exception */

@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace Blink\WC\Support;
 
 final class RandomJitter implements JitterInterface {
-  public function __construct(private RandomSourceInterface $random) {
-  }
+  public function __construct(private RandomSourceInterface $random) {}
 
   public function apply(int $seconds, float $factor = 0.25): int {
     if ($seconds <= 0) {

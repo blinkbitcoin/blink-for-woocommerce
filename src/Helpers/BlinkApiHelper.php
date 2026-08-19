@@ -54,7 +54,7 @@ class BlinkApiHelper {
   public static function getApiUrl(string $env = null): string {
     $urlMapping = [
       'blink' => 'https://api.blink.sv/graphql',
-      'staging' => 'https://api.staging.galoy.io/graphql',
+      'staging' => 'https://api.staging.galoy.io/graphql'
     ];
     $url = $urlMapping[$env] ?? $urlMapping['blink'];
 
@@ -75,7 +75,7 @@ class BlinkApiHelper {
   public static function getPayUrl(string $env = null): string {
     $urlMapping = [
       'blink' => 'https://pay.blink.sv',
-      'staging' => 'https://pay.staging.galoy.io',
+      'staging' => 'https://pay.staging.galoy.io'
     ];
     return $urlMapping[$env] ?? $urlMapping['blink'];
   }
@@ -103,7 +103,7 @@ class BlinkApiHelper {
         'api_key' => get_option('blink_api_key') ?: '',
         // Non-custodial is BTC only for now.
         'wallet_type' => 'bitcoin',
-        'url' => $url,
+        'url' => $url
       ];
     }
 
@@ -118,7 +118,7 @@ class BlinkApiHelper {
       'env' => $env,
       'api_key' => $key,
       'wallet_type' => $walletType,
-      'url' => $url,
+      'url' => $url
     ];
   }
 
@@ -145,7 +145,7 @@ class BlinkApiHelper {
     }
 
     $metadata = Services::instance()->lnurlClient()->fetchPayMetadata($address);
-    $ok = !$metadata instanceof LnurlFailure;
+    $ok = !($metadata instanceof LnurlFailure);
 
     set_transient($cacheKey, $ok ? '1' : '0', 5 * MINUTE_IN_SECONDS);
     Logger::debug('End verifyLnAddress with ' . ($ok ? 'true' : 'false'));

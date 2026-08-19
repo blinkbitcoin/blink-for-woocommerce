@@ -24,8 +24,7 @@ final class StoredInvoice {
     public readonly int $expiresAt,
     public readonly string $orderTotal,
     public readonly string $orderCurrency
-  ) {
-  }
+  ) {}
 
   public function address(): ?LnAddress {
     return LnAddress::parse($this->lnAddress);
