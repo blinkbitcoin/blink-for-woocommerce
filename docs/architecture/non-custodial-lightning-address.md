@@ -41,7 +41,7 @@ checkout
         order-pay page: QR code + polling
             │
             ├─ browser asks the shop for the last observed status
-            └─ scheduler asks the verify URL, on an escalating curve
+            └─ scheduler asks the verify URL on a bounded cadence
 
         GET <verify URL>                                     LUD-21
              → {"settled": true, "preimage": "…"}
@@ -55,12 +55,24 @@ every URL involved after step 2 is chosen by a third party.
 Settlement is the part that had to change most, so it is worth being explicit
 about the rules.
 
-**A browser is not required.** An Action Scheduler job per pending order checks
-the verify URL on an escalating curve — 20s, 45s, 90s, 3m, 5m, 8m, and so on,
-each jittered by ±25%, clamped to the invoice's expiry plus a grace period. A
-Lightning payment normally settles within seconds, while the tab is still open,
-so the browser catches the common case and the scheduler exists for the customer
-who paid on a phone and closed the laptop.
+**A browser is not required when the store queue is healthy.** An Action
+Scheduler job per pending order checks after 20 and 45 seconds, then every 45
+seconds, each interval jittered by ±25% and clamped to the invoice's expiry plus
+a grace period. With Action Scheduler's usual one-minute runner this keeps the
+observation delay under two minutes. Action Scheduler uses WP-Cron by default,
+so a completely idle store needs its host's normal cron runner to provide that
+guarantee.
+
+**Orchestration is replaceable; settlement is not duplicated.** The production
+default is `Hybrid`: the worker runs and a stale payment-page observation may
+still initiate the established guarded check. `BrowserOnly` retains the legacy
+rollback path, while `WorkerOnly` makes the page cache-only. All three modes use
+the same settlement service, lock, validation and order-status applier.
+
+The modes are cases of the string-backed `SettlementMode` enum, serialized as
+`hybrid`, `browser_only` and `worker_only`. Code switches on enum cases, not raw
+strings. The serialized values exist only at configuration and test-control
+boundaries, where `tryFrom()` converts them back to the typed domain value.
 
 **Uncertainty never expires an order.** A timeout, a 5xx, a malformed body or a
 rejected URL says nothing about whether the customer paid, so all of them yield
@@ -101,8 +113,9 @@ bounded by `PollBudget` and the status cache, never by these counters.
 
 **One request at a time per order.** A lock whose lifetime exceeds the HTTP
 timeout means many browser tabs and a scheduler tick collapse into a single
-outbound request. The browser reads a cached observation (20 seconds) and only
-triggers a live check when that is stale.
+outbound request. In `BrowserOnly` and `Hybrid`, the browser reads a cached
+observation (20 seconds) and only triggers a live check when that is stale. In
+`WorkerOnly` it can only read the cache.
 
 **Settlement checks the money.** The preimage must hash to the invoice's payment
 hash. The order total and currency must still match what the invoice was created
@@ -169,8 +182,8 @@ order already in flight.
 
 ## Filters
 
-| Filter                                     | Purpose                                                                                                           |
-| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| `blink_service_*`                          | Replace any service in the graph (`blink_service_http`, `blink_service_clock`, …)                                 |
-| `blink_bolt11_require_description_binding` | Relax the metadata binding check for a server that does not echo metadata. On by default; disabling it is logged. |
-| `blink_client_ip`                          | Supply the real client address on a proxied site. Only `REMOTE_ADDR` is trusted by default.                       |
+| Filter                                     | Purpose                                                                                                                                                                                        |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `blink_service_*`                          | Replace any service in the graph (`blink_service_http`, `blink_service_clock`, …). `blink_service_settlementMode` accepts a `SettlementModeProviderInterface` for controlled rollout/rollback. |
+| `blink_bolt11_require_description_binding` | Relax the metadata binding check for a server that does not echo metadata. On by default; disabling it is logged.                                                                              |
+| `blink_client_ip`                          | Supply the real client address on a proxied site. Only `REMOTE_ADDR` is trusted by default.                                                                                                    |

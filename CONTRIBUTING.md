@@ -5,12 +5,12 @@
 With [Nix](https://nixos.org/):
 
 ```bash
-nix develop        # PHP 8.3 + Xdebug, Composer, Node 20, subversion, mysql client
+nix develop        # PHP 8.3 + Xdebug, Composer, Node 24, subversion, mysql client
 composer install
 npm ci
 ```
 
-Without Nix you will need PHP 8.1+ with Xdebug, Composer 2, Node 20, `svn` and a
+Without Nix you will need PHP 8.1+ with Xdebug, Composer 2, Node 24, `svn` and a
 MySQL client.
 
 A throwaway database for the integration suite:
@@ -34,7 +34,7 @@ composer test:unit          # WordPress-free, milliseconds
 composer test:integration   # real WP + WooCommerce + MySQL
 composer test               # both
 npm run test:js             # the pay page
-npm run test:e2e            # browser, needs `npx wp-env start`
+npm run test:e2e            # browser, after `bash bin/install-e2e-site.sh`
 
 composer lint               # phpcs + phpstan + the coverage-ignore register
 npm run lint                # prettier + eslint + tsc --noEmit
@@ -85,6 +85,12 @@ what the code now does is less useful than one saying what went wrong before —
 the reader can see the diff, but they cannot see the bug.
 
 User-visible changes need entries in `readme.txt` and `changelog.txt`.
+
+## Releases
+
+Publishing a GitHub release deploys the plugin to WordPress.org; pushing a tag
+alone does not. Maintainers must follow the version, CI, packaging, credential,
+production-verification and recovery steps in [docs/releasing.md](docs/releasing.md).
 
 ## A note on documentation
 

@@ -2,12 +2,12 @@
 
 Three tiers, each answering a different question.
 
-| Tier                              | Question                                                      | WordPress?        | Speed        |
-| --------------------------------- | ------------------------------------------------------------- | ----------------- | ------------ |
-| Unit (`tests/Unit`)               | Does this class behave correctly, including its edge cases?   | No                | milliseconds |
-| Integration (`tests/Integration`) | Does it work against real WordPress, WooCommerce and MySQL?   | Yes               | ~1 minute    |
-| End to end (`tests/e2e`)          | Do the scripts load, the QR render, and a real poll navigate? | Yes, in a browser | ~3 seconds   |
-| JavaScript (`tests/js`)           | Does the pay page behave?                                     | jsdom             | seconds      |
+| Tier                              | Question                                                    | WordPress?        | Speed        |
+| --------------------------------- | ----------------------------------------------------------- | ----------------- | ------------ |
+| Unit (`tests/Unit`)               | Does this class behave correctly, including its edge cases? | No                | milliseconds |
+| Integration (`tests/Integration`) | Does it work against real WordPress, WooCommerce and MySQL? | Yes               | ~1 minute    |
+| End to end (`tests/e2e`)          | Does the browser contract and closed-page worker flow hold? | Yes, in a browser | ~40 seconds  |
+| JavaScript (`tests/js`)           | Does the pay page behave?                                   | jsdom             | seconds      |
 
 ## Running them
 
@@ -36,16 +36,22 @@ npm run test:e2e
 bash bin/build-dist.sh
 ```
 
-`nix develop` provides PHP 8.3 with Xdebug, Composer, Node, subversion and a
-MySQL client. Xdebug matters: **pcov cannot produce branch coverage at all**, so
-it is not a substitute for the gate.
+`nix develop` provides PHP 8.3 with Xdebug, Composer, Node 24 LTS, subversion and
+a MySQL client. CI uses the same Node major, while `package.json` rejects other
+Node majors so local and hosted runs cannot silently drift apart. The JavaScript
+suite and coverage gate run on Vitest 4; static PHP analysis runs on PHPStan 2.
+Xdebug matters: **pcov cannot produce branch coverage at all**, so it is not a
+substitute for the gate.
 
 ## The distribution is not the repository
 
 `bin/build-dist.sh` applies `.distignore` to produce `build/blink-for-woocommerce`,
-which holds only what ships: the plugin file, `src`, `assets`, `languages`,
+which holds the release file set: the plugin file, `src`, `assets`, `languages`,
 `vendor` and the readme. The tests, build scripts, Nix flake and documentation
-stay behind.
+stay behind. The script copies the current local `vendor/` unchanged, however,
+so a development install may still contain Composer development packages. The
+deployment and manual ZIP workflows run `composer install --no-dev` first and
+are authoritative when inspecting the exact production artifact.
 
 Quality checks that speak for WordPress.org — Plugin Check in particular — run
 against that directory, not the repository root. Pointed at the root they report
@@ -124,6 +130,28 @@ with `do_action(SettlementScheduler::HOOK, $orderId)`, which is what Action
 Scheduler does when it runs the queue. A test that never touches the AJAX
 endpoint and still sees the order settle _is_ the "customer closed the laptop"
 case.
+
+The integration suite also passes the plugin's real scheduled action to
+`ActionScheduler::runner()->process_action()`. The browser E2E keeps WP-Cron
+disabled, closes the payment pages, and records the reported browser-only
+failure beside the worker-only result. Both orders remain pending while only
+time passes; the test then invokes Action Scheduler's real WP-CLI runner and
+requires only the worker-backed order to become paid. This separation prevents
+a test request, fake hook dispatcher, or an open page from accidentally doing
+the settlement work.
+
+The mode matrix uses `SettlementMode` cases in PHP. At the browser boundary the
+fixture exposes one typed constant object with the same three serialized values,
+and the test-control plugin converts the submitted value with
+`SettlementMode::tryFrom()`. This keeps raw mode strings out of scenarios and
+makes an unsupported spelling fall back to the production default instead of
+silently selecting a fourth behavior.
+
+The E2E intentionally supplies the queue runner. Action Scheduler persists and
+executes the work, but its default runner is initiated by WP-Cron. WordPress
+cannot execute PHP when the store receives no requests, so a production store
+that must settle within a bounded time needs its host to invoke WordPress cron
+regularly.
 
 **Time.** Travel the fake clock. Boundaries are tested at −1, 0 and +1.
 
@@ -209,13 +237,17 @@ only holds assertions that no other tier can make:
 - the scripts enqueue and execute from inside `woocommerce_receipt_*`;
 - the vendored QR library renders in a real DOM;
 - a real poll, with a nonce the page minted, navigates the customer.
+- after a real pay page closes, time and status reads cannot settle the order,
+  while Action Scheduler's real WP-CLI runner can settle the worker-backed
+  order without reopening that page.
 
-Everything else — URL policy, invoice validation, settlement, budgets,
-concurrency — is proven faster and more precisely in PHP or Vitest. An earlier
-version of this suite had eighteen specs; sixteen duplicated tests elsewhere,
-and most could not fail at all because the orders they created were never taken
-through the gateway. If a browser spec would still pass with the browser
-replaced by `curl`, it is in the wrong tier.
+The worker scenario is one cross-process acceptance test, not a second domain
+suite. URL policy, invoice validation, settlement outcomes, budgets and
+concurrency are still proven faster and more precisely in PHP or Vitest. An
+earlier version of this suite had eighteen specs; sixteen duplicated tests
+elsewhere, and most could not fail at all because the orders they created were
+never taken through the gateway. If a browser spec would still prove the same
+thing with the browser replaced by `curl`, it is in the wrong tier.
 
 Every spec must be shown to fail. Break the thing it asserts and watch it go
 red before trusting it.

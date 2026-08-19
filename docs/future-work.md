@@ -193,8 +193,8 @@ with the whole matrix green before and after.
 
 ## 8. Shrink the PHPStan baseline
 
-**Now.** PHPStan runs at level 8 and passes. New code has zero findings; the
-baseline holds 75 legacy ones, all in `BlinkLnGateway`, `BlinkApiClient`,
+**Now.** PHPStan 2 runs at level 8 and passes. New code has zero findings; the
+baseline holds 69 legacy findings, all in `BlinkLnGateway`, `BlinkApiClient`,
 `BlinkApiHelper`, `GlobalSettings`, `BlinkLnGatewayBlocks`, `OrderStates` and
 `Logger`.
 
@@ -222,8 +222,9 @@ one class, but it needs a build step in the release workflow.
 ## 10. A WP-Cron safety net for settlement
 
 **Now.** Background settlement relies entirely on Action Scheduler. If Action
-Scheduler is absent, `NullScheduler` degrades to browser-driven settlement; if
-Action Scheduler is present but its queue is wedged, checks simply stop.
+Scheduler is absent, `NullScheduler` degrades to browser-driven settlement. The
+settings page reports unavailable, failed and overdue settlement work and links
+to the Action Scheduler screen, but it does not repair a wedged queue.
 
 **Should be.** A low-frequency sweep that finds pending non-custodial orders
 whose checks have stalled and re-queues them, bounded to a small batch.
@@ -235,7 +236,7 @@ failure.
 
 **Note on what it cannot fix.** WP-Cron only advances on a page visit, so on a
 site with no traffic neither mechanism runs. That case is unsolvable in-process
-and is why the pay page still polls.
+and is why the default `Hybrid` mode retains the guarded browser fallback.
 
 ---
 
@@ -309,6 +310,46 @@ the suite going quietly non-hermetic.
 covered only incidentally, and the gate found it at 0% once the coverage job
 could actually finish. `WcOrderRecord` is exercised throughout the integration
 tier and is at 100%.
+
+---
+
+## 16. Finish the remaining dependency and tooling upgrades
+
+**Audit snapshot (2026-08-19).** Every direct npm development dependency is at
+its current release. The compatible Composer development lines are also
+current: PHPUnit 9, PHPCOV 8, WooCommerce stubs 11 and Mockery 1.6.14 are now
+installed alongside PHPStan 2. PHPUnit 10 was trialled, but WordPress 6.5's
+test framework calls the removed `PHPUnit\Util\Test::parseTestMethodAnnotations()`
+API and all integration tests fail before assertions. The compatible PHPUnit
+9/PHPCOV 8 lines therefore remain; data providers are already static for the
+future migration. The newer WooCommerce stubs allowed five obsolete PHPStan
+baseline entries to be deleted. The following upgrades remain deliberately
+separate because Composer or the supported integration matrix proves they
+conflict with the supported PHP/test matrix or the installed lint ecosystem.
+
+| Area                  | Current                       | Available | Migration boundary                                                                                                                                                          |
+| --------------------- | ----------------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Runtime HTTP          | Guzzle 7.15.3                 | 8.0.2     | This is a production dependency, outside the development-only refresh. Guzzle 8 also moves Promises and PSR-7 to new majors; address the unscoped bundled dependency in §9. |
+| Test runner           | PHPUnit 9.6.36                | 12.5.33   | PHPUnit 10 already breaks the WordPress 6.5 test framework; PHPUnit 12 additionally requires PHP 8.3 while the plugin and CI support PHP 8.1.                               |
+| Coverage merger       | PHPCOV 8.2.1                  | 11.0.4    | PHPCOV 9 requires PHPUnit 10, and PHPCOV 11 requires PHPUnit 12.5. PHPCOV 8 also emits a dynamic-property deprecation on PHP 8.2+, so this migration remains explicit.      |
+| PHPUnit compatibility | Yoast PHPUnit Polyfills 2.0.5 | 4.0.0     | Polyfills 4 supports PHPUnit 7–9 and 11–12 but excludes PHPUnit 10; moving it alone provides no compatibility path through the required PHPUnit 10 validation step.         |
+| Coding standards      | PHP_CodeSniffer 3.13.6        | 4.0.4     | WPCS 3.4.1 and PHPCompatibility-WP 2.1.8 constrain PHPCS to v3. Wait for compatible releases, then fix rule/config changes without suppressions.                            |
+| WordPress stubs       | 6.9.4                         | 7.0.1     | `phpstan-wordpress` 2.0.3 constrains the stubs to `^6.6.2`; analysis must also continue reflecting the supported WordPress 6.5 floor.                                       |
+
+**Replace the Grunt chain.** The current Grunt tasks still complete on Node 24,
+but `grunt-wp-i18n` and `grunt-wp-readme-to-markdown` emit Node deprecation
+warnings. Their legacy transitive Lodash dependency also accounts for the four
+development-only high-severity findings from `npm audit`; there is no patched
+Lodash release available in that dependency line. Replace these tasks with
+maintained WordPress CLI/build commands, retain the translation/readme
+reproducibility checks, then remove Grunt and its legacy plugins. None of these
+packages ships in the plugin, and `npm audit --omit=dev` is currently clean.
+
+**Completion rule.** Remove an item only after its manifest and lockfile move,
+the minimum/latest WordPress and WooCommerce matrix passes on every supported
+PHP version, PHP and JavaScript coverage remain at 100%, the real browser flow
+passes, and both dependency audits are reviewed. Do not satisfy an upgrade by
+growing the PHPStan baseline, adding lint suppressions, or weakening coverage.
 
 ---
 
