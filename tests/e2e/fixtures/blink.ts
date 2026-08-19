@@ -50,7 +50,7 @@ export const TerminalSettlementStatus = {
 } as const;
 
 const SETTLEMENT_MODE_FIELD = 'blink_e2e_settlement_mode';
-const SETTLEMENT_ACTION_GROUP = 'blink';
+const SETTLEMENT_ACTION_HOOK = 'blink_settle_noncustodial';
 
 /**
  * Creates an order and takes it through the real gateway.
@@ -125,7 +125,7 @@ export async function runScheduler(): Promise<void> {
     [
       'action-scheduler',
       'run',
-      `--group=${SETTLEMENT_ACTION_GROUP}`,
+      `--hooks=${SETTLEMENT_ACTION_HOOK}`,
       '--batches=0',
       `--path=${wpCoreDir}`,
     ],
