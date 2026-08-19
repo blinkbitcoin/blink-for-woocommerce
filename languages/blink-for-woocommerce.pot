@@ -5,7 +5,7 @@ msgstr ""
 "Project-Id-Version: Blink For Woocommerce 0.3.0\n"
 "Report-Msgid-Bugs-To: "
 "https://wordpress.org/support/plugin/blink-for-woocommerce\n"
-"POT-Creation-Date: 2026-08-18 23:19:24+00:00\n"
+"POT-Creation-Date: 2026-08-19 00:52:09+00:00\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -31,66 +31,66 @@ msgid ""
 "problem persists."
 msgstr ""
 
-#: src/Gateway/BlinkLnGateway.php:533
+#: src/Gateway/BlinkLnGateway.php:530
 msgid ""
 "Could not load the Lightning invoice for this order. Please contact the "
 "store."
 msgstr ""
 
-#: src/Gateway/BlinkLnGateway.php:594
+#: src/Gateway/BlinkLnGateway.php:591
 msgid "Copied!"
 msgstr ""
 
-#: src/Gateway/BlinkLnGateway.php:595 src/Gateway/BlinkLnGateway.php:653
+#: src/Gateway/BlinkLnGateway.php:592 src/Gateway/BlinkLnGateway.php:650
 msgid "Copy invoice"
 msgstr ""
 
-#: src/Gateway/BlinkLnGateway.php:596
+#: src/Gateway/BlinkLnGateway.php:593
 msgid "Payment received! Redirecting…"
 msgstr ""
 
-#: src/Gateway/BlinkLnGateway.php:597
+#: src/Gateway/BlinkLnGateway.php:594
 msgid "This invoice has expired. Please place the order again."
 msgstr ""
 
-#: src/Gateway/BlinkLnGateway.php:603
+#: src/Gateway/BlinkLnGateway.php:600
 msgid ""
 "We could not confirm this payment. If you have already paid, do not pay "
 "again — your order will be updated once the payment is confirmed."
 msgstr ""
 
-#: src/Gateway/BlinkLnGateway.php:607
+#: src/Gateway/BlinkLnGateway.php:604
 msgid "Payment received. This order is being reviewed before it is completed."
 msgstr ""
 
-#: src/Gateway/BlinkLnGateway.php:611
+#: src/Gateway/BlinkLnGateway.php:608
 msgid ""
 "We cannot reach the payment server right now. Any payment you have made is "
 "safe."
 msgstr ""
 
-#: src/Gateway/BlinkLnGateway.php:615
+#: src/Gateway/BlinkLnGateway.php:612
 msgid "This payment session is no longer valid. Please reload the page."
 msgstr ""
 
-#: src/Gateway/BlinkLnGateway.php:619
+#: src/Gateway/BlinkLnGateway.php:616
 msgid "Check again"
 msgstr ""
 
-#: src/Gateway/BlinkLnGateway.php:627
+#: src/Gateway/BlinkLnGateway.php:624
 msgid "Pay with Bitcoin (Lightning)"
 msgstr ""
 
-#: src/Gateway/BlinkLnGateway.php:636
+#: src/Gateway/BlinkLnGateway.php:633
 #. translators: %s: amount in satoshis
 msgid "%s sats"
 msgstr ""
 
-#: src/Gateway/BlinkLnGateway.php:650
+#: src/Gateway/BlinkLnGateway.php:647
 msgid "Open in wallet"
 msgstr ""
 
-#: src/Gateway/BlinkLnGateway.php:657
+#: src/Gateway/BlinkLnGateway.php:654
 msgid "Waiting for payment…"
 msgstr ""
 

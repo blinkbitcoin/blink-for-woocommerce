@@ -222,8 +222,10 @@ final class InvoiceRepository {
     $remaining = array_values(
       array_filter(
         $this->outstanding($order),
-        static fn(StoredInvoice $invoice): bool =>
-          !hash_equals($invoice->paymentHash, $paymentHash)
+        static fn(StoredInvoice $invoice): bool => !hash_equals(
+          $invoice->paymentHash,
+          $paymentHash
+        )
       )
     );
 
@@ -447,10 +449,7 @@ final class InvoiceRepository {
       }
     }
 
-    foreach (
-      ['amountMsat', 'satoshis', 'createdAt', 'expiresAt']
-      as $key
-    ) {
+    foreach (['amountMsat', 'satoshis', 'createdAt', 'expiresAt'] as $key) {
       if (!isset($value[$key]) || !is_int($value[$key])) {
         return null;
       }

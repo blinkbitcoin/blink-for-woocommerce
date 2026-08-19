@@ -144,22 +144,20 @@ final class WcSettlementOutcomeApplierTest extends IntegrationTestCase {
     $statusHookPayment = null;
     $paymentCompleteStatus = null;
 
-    add_action(
-      'woocommerce_order_status_' . $expectedStatus,
-      function ($orderId) use (&$statusHookPayment): void {
-        $observed = wc_get_order($orderId);
-        $statusHookPayment = [
-          $observed->get_transaction_id(),
-          $observed->get_date_paid() !== null,
-        ];
-      }
-    );
-    add_action(
-      'woocommerce_payment_complete',
-      function ($orderId) use (&$paymentCompleteStatus): void {
-        $paymentCompleteStatus = wc_get_order($orderId)->get_status();
-      }
-    );
+    add_action('woocommerce_order_status_' . $expectedStatus, function ($orderId) use (
+      &$statusHookPayment
+    ): void {
+      $observed = wc_get_order($orderId);
+      $statusHookPayment = [
+        $observed->get_transaction_id(),
+        $observed->get_date_paid() !== null,
+      ];
+    });
+    add_action('woocommerce_payment_complete', function ($orderId) use (
+      &$paymentCompleteStatus
+    ): void {
+      $paymentCompleteStatus = wc_get_order($orderId)->get_status();
+    });
 
     $this->outcomeApplier->applyOutcome(
       $this->record($order),

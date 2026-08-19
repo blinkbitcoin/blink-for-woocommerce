@@ -182,10 +182,7 @@ final class SettlementServiceTest extends TestCase {
     $outcome = $this->service->poll($this->order);
 
     $this->assertSame(SettlementStatus::Paid, $outcome->status);
-    $this->assertSame(
-      $currentHash,
-      $this->repository->settledPaymentHash($this->order)
-    );
+    $this->assertSame($currentHash, $this->repository->settledPaymentHash($this->order));
     $this->assertSame(2, $this->http->requestCount());
   }
 

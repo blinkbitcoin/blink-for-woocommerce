@@ -158,8 +158,7 @@ final class SettlementService {
 
         $madeRequest = true;
         $result = $this->lnurl->verify($invoice->verifyUrl, $address);
-        $hadConclusiveResponse =
-          $hadConclusiveResponse || $result->state->isConclusive();
+        $hadConclusiveResponse = $hadConclusiveResponse || $result->state->isConclusive();
 
         if ($result->state === VerifyState::Settled) {
           $outcome = $this->settle($order, $invoice, $result);
@@ -228,8 +227,7 @@ final class SettlementService {
     }
 
     if ($result->state === VerifyState::Unsettled) {
-      return $this->clock->now() >
-        $invoice->expiresAt + self::EXPIRY_GRACE_SECONDS;
+      return $this->clock->now() > $invoice->expiresAt + self::EXPIRY_GRACE_SECONDS;
     }
 
     return $result->state === VerifyState::NotFound &&
@@ -278,11 +276,7 @@ final class SettlementService {
           $order->id()
         )
       );
-      $this->repository->markSettled(
-        $order,
-        $invoice->paymentHash,
-        $result->preimage
-      );
+      $this->repository->markSettled($order, $invoice->paymentHash, $result->preimage);
       $this->repository->markTerminal($order, SettlementStatus::Review);
 
       return new SettlementOutcome(
@@ -296,11 +290,7 @@ final class SettlementService {
     // The latch: the scheduler tick and the browser can both see this payment.
     // Reaching here twice is impossible -- poll() returns early once the order
     // is terminal -- but the latch still guards against a caller that skips it.
-    $this->repository->markSettled(
-      $order,
-      $invoice->paymentHash,
-      $result->preimage
-    );
+    $this->repository->markSettled($order, $invoice->paymentHash, $result->preimage);
     $this->repository->markTerminal($order, SettlementStatus::Paid);
 
     return new SettlementOutcome(

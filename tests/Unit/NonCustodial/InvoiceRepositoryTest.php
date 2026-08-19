@@ -212,12 +212,12 @@ final class InvoiceRepositoryTest extends TestCase {
 
     $this->repository->replace($this->order, $current);
 
-    $this->assertSame($current->paymentHash, $this->repository->load($this->order)?->paymentHash);
-    $this->assertEquals([$previous], $this->repository->outstanding($this->order));
-    $this->assertEquals(
-      [$previous, $current],
-      $this->repository->tracked($this->order)
+    $this->assertSame(
+      $current->paymentHash,
+      $this->repository->load($this->order)?->paymentHash
     );
+    $this->assertEquals([$previous], $this->repository->outstanding($this->order));
+    $this->assertEquals([$previous, $current], $this->repository->tracked($this->order));
   }
 
   public function testRepeatedReplacementTracksEveryDistinctInvoice(): void {
@@ -235,10 +235,7 @@ final class InvoiceRepositoryTest extends TestCase {
 
     $this->repository->replace($this->order, $third);
 
-    $this->assertEquals(
-      [$first, $second],
-      $this->repository->outstanding($this->order)
-    );
+    $this->assertEquals([$first, $second], $this->repository->outstanding($this->order));
   }
 
   public function testAResolvedInvoiceIsNotCarriedIntoANewAttempt(): void {
@@ -423,11 +420,7 @@ final class InvoiceRepositoryTest extends TestCase {
       $this->repository->markSettled($this->order, str_repeat('ab', 32), 'ff00')
     );
     $this->assertFalse(
-      $this->repository->markSettled(
-        $this->order,
-        str_repeat('ab', 32),
-        'different'
-      )
+      $this->repository->markSettled($this->order, str_repeat('ab', 32), 'different')
     );
   }
 
