@@ -1,6 +1,6 @@
 {
   "name": "blink-for-woocommerce",
-  "version": "0.3.0",
+  "version": "0.3.2",
   "main": "Gruntfile.cjs",
   "author": "Blink",
   "engines": {

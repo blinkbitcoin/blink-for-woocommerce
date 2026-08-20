@@ -1,3 +1,6 @@
+= 0.3.2 :: 2026-08-20 =
+* Fixed: non-custodial checkout accepts Blink/Galoy invoices with their real 30-day expiry. Instead of rejecting an invoice whose lifetime exceeds the tracking window, the plugin accepts it and tracks it for the window, so checkout no longer fails with "Can't create the Lightning invoice".
+
 = 0.3.0 :: 2026-08-18 =
 * Fixed: non-custodial checkout now accepts Blink/Galoy invoices with 24-hour expiry instead of rejecting them as too long.
 * Fixed: non-custodial orders now settle in the background. Previously settlement only happened while the customer's pay page was open, so a buyer who paid from a phone and closed the tab could have their paid order cancelled when hold-stock expired.

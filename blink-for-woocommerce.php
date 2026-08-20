@@ -11,7 +11,7 @@
  * Requires at least: 6.5
  * Text Domain:     blink-for-woocommerce
  * Domain Path:     /languages
- * Version:         0.3.0
+ * Version:         0.3.2
  *
  * @package         Blink_For_Woocommerce
  */
@@ -21,7 +21,7 @@ use Blink\WC\Helpers\Logger;
 use Blink\WC\Gateway\BlinkLnGateway;
 
 defined('ABSPATH') || exit();
-define('BLINK_VERSION', '0.3.0');
+define('BLINK_VERSION', '0.3.2');
 define('BLINK_VERSION_KEY', 'blink_version');
 define('BLINK_PLUGIN_FILE_PATH', plugin_dir_path(__FILE__));
 define('BLINK_PLUGIN_URL', plugin_dir_url(__FILE__));
