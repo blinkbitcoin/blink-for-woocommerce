@@ -1,4 +1,4 @@
-version: "3.9"
+version: '3.9'
 
 services:
   wordpress:
@@ -7,7 +7,7 @@ services:
       - wordpress:/var/www/html
       - ./:/var/www/html/wp-content/plugins/blink-for-woocommerce
     ports:
-      - "8080:80"
+      - '8080:80'
     restart: on-failure:10
     environment:
       WORDPRESS_DB_HOST: db

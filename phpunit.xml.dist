@@ -1,16 +1,57 @@
 <?xml version="1.0"?>
 <phpunit
-	bootstrap="tests/bootstrap.php"
-	backupGlobals="false"
-	colors="true"
-	convertErrorsToExceptions="true"
-	convertNoticesToExceptions="true"
-	convertWarningsToExceptions="true"
-	>
-	<testsuites>
-		<testsuite name="testing">
-			<directory prefix="test-" suffix=".php">./tests/</directory>
-			<exclude>./tests/test-sample.php</exclude>
-		</testsuite>
-	</testsuites>
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+    bootstrap="tests/bootstrap.php"
+    backupGlobals="false"
+    beStrictAboutTestsThatDoNotTestAnything="true"
+    failOnRisky="true"
+    failOnWarning="true"
+    colors="true"
+    cacheResultFile="build/.phpunit.result.cache">
+
+  <testsuites>
+    <testsuite name="integration">
+      <directory suffix="Test.php">tests/Integration</directory>
+    </testsuite>
+  </testsuites>
+
+  <!--
+    Line coverage only, deliberately. Xdebug's path-coverage mode over a suite
+    that boots WordPress and WooCommerce for every test measured 16x slower
+    than line coverage here (20+ minutes against 75 seconds), which made the
+    coverage job slow enough to stop being useful.
+
+    Branch coverage therefore comes from the unit suite, which covers all the
+    domain logic. What this tier uniquely covers is the thin adapters onto
+    WordPress (DbLock, WcOrderRecord, OrderStatusApplier and friends), and
+    those are line-gated rather than branch-gated. The trade is stated in
+    docs/testing.md rather than left for someone to discover.
+  -->
+  <coverage pathCoverage="false" processUncoveredFiles="true"
+            cacheDirectory="build/.phpunit-coverage-cache">
+    <include>
+      <directory suffix=".php">src</directory>
+    </include>
+    <exclude>
+      <!--
+        Excluded for the same reason as in phpunit-unit.xml.dist: these extend
+        WooCommerce base classes at include time. processUncoveredFiles records
+        them here, where WooCommerce is loaded, but anything that later reads
+        the merged report outside WordPress (the coverage gate, phpcov's report
+        writers) re-includes them and fatals. None of them is gated, so keeping
+        them out of the filter costs nothing.
+      -->
+      <directory suffix=".php">src/Admin</directory>
+      <directory suffix=".php">src/Blocks</directory>
+      <directory suffix=".php">src/Gateway</directory>
+    </exclude>
+    <report>
+      <php outputFile="build/cov/integration.cov"/>
+    </report>
+  </coverage>
+
+  <php>
+    <ini name="display_errors" value="1"/>
+  </php>
 </phpunit>

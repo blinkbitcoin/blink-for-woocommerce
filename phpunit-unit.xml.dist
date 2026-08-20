@@ -1,0 +1,45 @@
+<?xml version="1.0"?>
+<phpunit
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+    bootstrap="tests/bootstrap-unit.php"
+    backupGlobals="false"
+    beStrictAboutTestsThatDoNotTestAnything="true"
+    beStrictAboutOutputDuringTests="true"
+    failOnRisky="true"
+    failOnWarning="true"
+    colors="true"
+    cacheResultFile="build/.phpunit-unit.result.cache">
+
+  <testsuites>
+    <testsuite name="unit">
+      <directory suffix="Test.php">tests/Unit</directory>
+    </testsuite>
+  </testsuites>
+
+  <!-- pathCoverage needs Xdebug; it is ignored (line-only) under pcov. -->
+  <coverage pathCoverage="true" processUncoveredFiles="true"
+            cacheDirectory="build/.phpunit-coverage-cache">
+    <include>
+      <directory suffix=".php">src</directory>
+    </include>
+    <exclude>
+      <!--
+        These extend WooCommerce base classes at include time, so they cannot be
+        loaded without WooCommerce present. processUncoveredFiles would try to,
+        and fail. They are covered by the integration suite instead, and the
+        merged report is what the coverage gate reads.
+      -->
+      <directory suffix=".php">src/Admin</directory>
+      <directory suffix=".php">src/Blocks</directory>
+      <directory suffix=".php">src/Gateway</directory>
+    </exclude>
+    <report>
+      <php outputFile="build/cov/unit.cov"/>
+    </report>
+  </coverage>
+
+  <php>
+    <ini name="display_errors" value="1"/>
+  </php>
+</phpunit>

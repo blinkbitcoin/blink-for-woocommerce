@@ -1,21 +1,39 @@
 {
   "name": "blink-for-woocommerce",
-  "version": "0.1.3",
-  "main": "Gruntfile.js",
+  "version": "0.3.2",
+  "main": "Gruntfile.cjs",
   "author": "Blink",
+  "engines": {
+    "node": ">=24 <25"
+  },
   "scripts": {
-    "prettier:check": "prettier -c blink-for-woocommerce.php src",
-    "prettier:fix": "prettier -w blink-for-woocommerce.php src",
+    "prettier:check": "prettier -c \"**/*.{js,cjs,ts,json,md,yml}\" \"blink-for-woocommerce.php\" \"src/**/*.php\" \"tests/**/*.php\"",
+    "prettier:fix": "prettier -w \"**/*.{js,cjs,ts,json,md,yml}\" \"blink-for-woocommerce.php\" \"src/**/*.php\" \"tests/**/*.php\"",
     "start": "grunt default",
     "readme": "grunt readme",
-    "i18n": "grunt i18n"
+    "i18n": "grunt i18n",
+    "test:js": "vitest run",
+    "test:js:watch": "vitest",
+    "test:js:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "lint:js": "eslint .",
+    "test:e2e:setup": "bash bin/install-e2e-site.sh",
+    "lint:types": "tsc --noEmit",
+    "lint": "npm run prettier:check && npm run lint:js && npm run lint:types"
   },
   "devDependencies": {
-    "@prettier/plugin-php": "^0.22.2",
-    "grunt": "^1.6.1",
-    "grunt-wp-i18n": "^1.0.3",
+    "@playwright/test": "^1.62.1",
+    "@prettier/plugin-php": "^0.25.0",
+    "@types/node": "^26.2.0",
+    "@vitest/coverage-istanbul": "^4.1.11",
+    "eslint": "^10.8.1",
+    "grunt": "^1.6.3",
+    "grunt-wp-i18n": "^1.0.4",
     "grunt-wp-readme-to-markdown": "^2.1.0",
-    "prettier": "^3.3.3"
+    "jsdom": "^30.0.1",
+    "prettier": "^3.9.6",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11"
   },
   "prettier": {
     "plugins": [
@@ -25,6 +43,9 @@
     "useTabs": false,
     "tabWidth": 2,
     "singleQuote": true,
-    "braceStyle": "1tbs"
-  }
+    "braceStyle": "1tbs",
+    "phpVersion": "8.1",
+    "trailingCommaPHP": false
+  },
+  "type": "module"
 }

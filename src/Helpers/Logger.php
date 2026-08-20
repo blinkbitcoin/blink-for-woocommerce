@@ -7,11 +7,6 @@ namespace Blink\WC\Helpers;
 class Logger {
   public static function debug(string $message, $force = false): void {
     if (get_option('blink_debug') === 'yes' || $force) {
-      // Convert message to string
-      if (!is_string($message)) {
-        $message = wc_print_r($message, true);
-      }
-
       $logger = new \WC_Logger();
       $context = ['source' => BLINK_PLUGIN_ID];
       $logger->debug($message, $context);

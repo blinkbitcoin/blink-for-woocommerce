@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Blink\WC\Helpers;
 
+use Exception;
+
 class BlinkApiClient {
   private $apiUrl;
   private $token;
@@ -17,20 +19,41 @@ class BlinkApiClient {
     // Prepare HTTP headers
     $headers = [
       'X-API-KEY' => $this->token,
-      'Content-Type' => 'application/json',
+      'Content-Type' => 'application/json'
     ];
 
     // Prepare request body
     $body = wp_json_encode([
       'query' => $query,
-      'variables' => $variables,
+      'variables' => $variables
     ]);
 
     // Make the HTTP POST request
-    $client = new \GuzzleHttp\Client();
+    // Without explicit timeouts Guzzle waits indefinitely, so a hung Blink
+    // API blocks the PHP worker handling a customer's checkout.
+    $options = [
+      'connect_timeout' => 5,
+      'timeout' => 20
+    ];
+
+    /**
+     * Filters the Guzzle handler used for Blink API requests.
+     *
+     * Every custodial call funnels through here, so this one seam makes the
+     * whole client testable without reaching the real API. Production leaves
+     * it null and gets Guzzle's default handler.
+     *
+     * @param callable|null $handler
+     */
+    $handler = apply_filters('blink_api_http_handler', null);
+    if ($handler !== null) {
+      $options['handler'] = $handler;
+    }
+
+    $client = new \GuzzleHttp\Client($options);
     $response = $client->request('POST', $this->apiUrl, [
       'headers' => $headers,
-      'body' => $body,
+      'body' => $body
     ]);
 
     // Parse response
@@ -112,8 +135,8 @@ class BlinkApiClient {
         'amount' => $amount,
         'expiresIn' => $expiresIn,
         'memo' => $memo,
-        'walletId' => $walletId,
-      ],
+        'walletId' => $walletId
+      ]
     ];
 
     // Send GraphQL request
@@ -154,8 +177,8 @@ class BlinkApiClient {
         'amount' => $amount,
         'expiresIn' => $expiresIn,
         'memo' => $memo,
-        'walletId' => $walletId,
-      ],
+        'walletId' => $walletId
+      ]
     ];
 
     $response = $this->sendRequest($query, $variables);
@@ -183,8 +206,8 @@ class BlinkApiClient {
     // Prepare variables for the invoice payment status by hash GraphQL query
     $variables = [
       'input' => [
-        'paymentHash' => $paymentHash,
-      ],
+        'paymentHash' => $paymentHash
+      ]
     ];
 
     // Send GraphQL request for invoice payment status by hash
@@ -214,7 +237,7 @@ class BlinkApiClient {
 
     $variables = [
       'amount' => $amount,
-      'currency' => $currency,
+      'currency' => $currency
     ];
 
     $response = $this->sendRequest($query, $variables);

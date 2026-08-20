@@ -1,0 +1,13 @@
+{
+  "_comment": [
+    "Files held to 100% line AND branch coverage.",
+    "This list is a ratchet: entries may be added, never removed. It starts as",
+    "the code this PR introduces rather than all of src/, so the PR is not",
+    "blocked on pre-existing untested legacy, while still converging there.",
+    "Path coverage is deliberately NOT gated: it is combinatorial, and a fully",
+    "covered class routinely sits at 25% paths.",
+    "src/Services.php is excluded: it is pure wiring whose branches are which WordPress environment is present, exercised by the integration suite."
+  ],
+  "include": ["src/Http/", "src/NonCustodial/", "src/Orders/", "src/Support/"],
+  "exclude": ["src/Services.php"]
+}

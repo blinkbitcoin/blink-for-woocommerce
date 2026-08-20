@@ -7,14 +7,27 @@ namespace Blink\WC\Gateway;
 use Blink\WC\Helpers\Logger;
 use Blink\WC\Helpers\BlinkApiHelper;
 use Blink\WC\Helpers\OrderStates;
+use Blink\WC\NonCustodial\LnAddress;
+use Blink\WC\NonCustodial\LnurlFailure;
+use Blink\WC\NonCustodial\SettlementStatus;
+use Blink\WC\NonCustodial\StoredInvoice;
+use Blink\WC\NonCustodial\WcOrderRecord;
+use Blink\WC\Services;
 
 class BlinkLnGateway extends \WC_Payment_Gateway {
   const ICON_MEDIA_OPTION = 'icon_media_id';
   private $apiHelper;
+  private Services $services;
   public $debug_php_version;
   public $debug_plugin_version;
 
-  public function __construct() {
+  /**
+   * WooCommerce constructs gateways itself, so the services graph is an
+   * optional argument defaulting to the shared one. Tests pass their own.
+   */
+  public function __construct(?Services $services = null) {
+    $this->services = $services ?? Services::instance();
+
     // Set the id first.
     $this->id = 'blink_default';
 
@@ -43,9 +56,14 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
     // Actions.
     add_action('woocommerce_update_options_payment_gateways_' . $this->getId(), [
       $this,
-      'process_admin_options',
+      'process_admin_options'
     ]);
     add_action('woocommerce_api_' . $this->getId(), [$this, 'processWebhook']);
+
+    // Non-custodial (lightning address) on-site pay page + polling endpoint.
+    add_action('woocommerce_receipt_' . $this->getId(), [$this, 'renderPayPage']);
+    add_action('wp_ajax_blink_check_invoice', [$this, 'ajaxCheckInvoice']);
+    add_action('wp_ajax_nopriv_blink_check_invoice', [$this, 'ajaxCheckInvoice']);
 
     // Supported features.
     $this->supports = ['products'];
@@ -62,7 +80,7 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
         'label' => 'Enable this payment gateway.',
         'default' => 'no',
         'value' => 'yes',
-        'desc_tip' => false,
+        'desc_tip' => false
       ],
       'title' => [
         'title' => 'Title',
@@ -70,7 +88,7 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
         'description' =>
           'Controls the name of this payment method as displayed to the customer during checkout.',
         'default' => $this->getTitle(),
-        'desc_tip' => true,
+        'desc_tip' => true
       ],
       'description' => [
         'title' => 'Customer Message',
@@ -78,8 +96,8 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
         'description' =>
           'Message to explain how the customer will be paying for the purchase.',
         'default' => $this->getDescription(),
-        'desc_tip' => true,
-      ],
+        'desc_tip' => true
+      ]
     ];
   }
 
@@ -108,21 +126,25 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
    * Get custom gateway icon, if any.
    */
   public function getIcon(): string {
-    $icon = null;
-    if ($mediaId = $this->get_option(self::ICON_MEDIA_OPTION)) {
-      if ($customIcon = wp_get_attachment_image_src($mediaId)[0]) {
-        $icon = $customIcon;
-      }
+    $defaultIcon = BLINK_PLUGIN_URL . 'assets/images/blink-logo.png';
+
+    $mediaId = $this->get_option(self::ICON_MEDIA_OPTION);
+    if (!$mediaId) {
+      return $defaultIcon;
     }
 
-    return $icon ?? BLINK_PLUGIN_URL . 'assets/images/blink-logo.png';
+    $customIcon = wp_get_attachment_image_src($mediaId);
+    return $customIcon[0] ?? $defaultIcon;
   }
 
   public function process_admin_options() {
     // Store media id.
     $iconFieldName = 'woocommerce_' . $this->getId() . '_' . self::ICON_MEDIA_OPTION;
 
-    // nonce validation is not required here because it is done by parent::process_admin_options()
+    // Nonce validation happens in parent::process_admin_options(), which runs
+    // below; reading the posted value first is safe because it is only used
+    // after that check passes.
+    // phpcs:disable WordPress.Security.NonceVerification.Missing -- verified by parent::process_admin_options().
     if (
       !empty($_POST[$iconFieldName]) &&
       ($mediaId = sanitize_key($_POST[$iconFieldName]))
@@ -134,6 +156,7 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
       // Reset to empty otherwise.
       $this->update_option(self::ICON_MEDIA_OPTION, '');
     }
+    // phpcs:enable WordPress.Security.NonceVerification.Missing
     return parent::process_admin_options();
   }
 
@@ -153,11 +176,32 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
       );
     }
 
+    // wc_get_order() returns false for an unknown id, so this must be checked
+    // before anything is called on it.
     $order = wc_get_order($order_id);
-    if ($order->get_id() === 0) {
-      $message = 'Could not load order id ' . $orderId . ', aborting.';
+    if (!($order instanceof \WC_Order)) {
+      $message = 'Could not load order id ' . $order_id . ', aborting.';
       Logger::debug($message, true);
       throw new \Exception(esc_html($message));
+    }
+
+    // Non-custodial (lightning address) accounts are handled on our own pay page.
+    //
+    // Decided from the order's own stored account type when it has one, because
+    // an order in flight has to be finished the way it was started. A merchant
+    // who flips this setting mid-checkout would otherwise send an existing
+    // non-custodial order down the custodial branch, where its LNURL payment
+    // hash is queried through the Blink API and validInvoiceExists() reads the
+    // resulting null as "reuse this", redirecting the buyer to a Blink-hosted
+    // checkout that does not exist. The setting only decides the type of an
+    // order that has no invoice yet.
+    $record = new WcOrderRecord($order);
+    $isNonCustodial = $this->services
+      ->invoiceRepository()
+      ->resolvesNonCustodial($record, $this->apiHelper->isNonCustodial());
+
+    if ($isNonCustodial) {
+      return $this->processPaymentNonCustodial($order);
     }
 
     // Check for existing invoice and redirect instead.
@@ -175,24 +219,119 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
         'redirect' =>
           $this->apiHelper->getInvoiceRedirectUrl($existingInvoiceId) .
           '?returnUrl=' .
-          urlencode($order->get_checkout_order_received_url()),
+          urlencode($order->get_checkout_order_received_url())
       ];
     }
 
     // Create an invoice.
     Logger::debug('Creating invoice on Blink');
-    if ($invoice = $this->createInvoice($order)) {
-      Logger::debug('Invoice creation successful, redirecting user.');
-      return [
-        'result' => 'success',
-        'invoiceId' => $invoice['paymentHash'],
-        'orderCompleteLink' => $order->get_checkout_order_received_url(),
-        'redirect' =>
-          $invoice['redirectUrl'] .
-          '?returnUrl=' .
-          urlencode($order->get_checkout_order_received_url()),
-      ];
+    $invoice = $this->createInvoice($order);
+
+    // Returning nothing leaves WooCommerce with no result key, which it
+    // reports to the customer as a silent failure.
+    if (!$invoice) {
+      $message = __(
+        "Can't create the Lightning invoice. Please try again or contact us if the problem persists.",
+        'blink-for-woocommerce'
+      );
+
+      // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- WooCommerce escapes notice text when it renders it.
+      throw new \Exception($message);
     }
+
+    Logger::debug('Invoice creation successful, redirecting user.');
+
+    return [
+      'result' => 'success',
+      'invoiceId' => $invoice['paymentHash'],
+      'orderCompleteLink' => $order->get_checkout_order_received_url(),
+      'redirect' =>
+        $invoice['redirectUrl'] .
+        '?returnUrl=' .
+        urlencode($order->get_checkout_order_received_url())
+    ];
+  }
+
+  /**
+   * Processes a payment for a non-custodial (lightning address) account.
+   *
+   * Creates a BOLT11 invoice via the LNURL flow and sends the buyer to the
+   * on-site order-pay page, where the invoice is displayed and polled.
+   */
+  protected function processPaymentNonCustodial(\WC_Order $order): array {
+    $record = new WcOrderRecord($order);
+
+    if (!$this->services->invoiceReusePolicy()->isReusable($record)) {
+      // Built before anything stored is touched. Clearing first and creating
+      // afterwards meant a failed creation left the order with no payment hash,
+      // no verify URL and no account type, while the previous invoice stayed
+      // payable -- so a customer who paid it could never be credited.
+      $invoice = $this->buildNonCustodialInvoice($order);
+      if ($invoice instanceof LnurlFailure) {
+        $message = __(
+          "Can't create the Lightning invoice. Please try again or contact us if the problem persists.",
+          'blink-for-woocommerce'
+        );
+
+        // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- WooCommerce escapes notice text when it renders it.
+        throw new \Exception($message);
+      }
+
+      $this->replaceNonCustodialInvoice($record, $invoice);
+    } else {
+      // Creating an invoice schedules its own checks; reusing one does not, and
+      // anything that resolved this order in the meantime -- a failed attempt on
+      // another gateway, say -- tore the existing schedule down.
+      $this->services->settlementScheduler()->ensureScheduled($record);
+    }
+
+    return [
+      'result' => 'success',
+      'redirect' => $order->get_checkout_payment_url(true)
+    ];
+  }
+
+  /**
+   * @return StoredInvoice|LnurlFailure
+   */
+  private function buildNonCustodialInvoice(\WC_Order $order) {
+    $config = BlinkApiHelper::getConfig();
+    $address = LnAddress::parse((string) ($config['ln_address'] ?? ''));
+    if ($address === null) {
+      Logger::debug('Configured lightning address is not usable.', true);
+
+      return new LnurlFailure('CONFIG_INVALID', 'lightning address is not usable');
+    }
+
+    return $this->services
+      ->invoiceFactory()
+      ->create(
+        $address,
+        (float) $order->get_total(),
+        (string) $order->get_currency(),
+        (string) $order->get_total(),
+        (string) $order->get_currency(),
+        'GW-' . $order->get_order_number()
+      );
+  }
+
+  /**
+   * Makes a freshly built invoice current without losing a payable predecessor.
+   *
+   * Reached only with a real invoice in hand, so the order is never left
+   * without one. Replaced invoices remain attached to the order until their
+   * verify endpoints conclusively report that they can no longer be paid.
+   */
+  private function replaceNonCustodialInvoice(
+    WcOrderRecord $record,
+    StoredInvoice $invoice
+  ): void {
+    $repository = $this->services->invoiceRepository();
+
+    $repository->replace($record, $invoice);
+    // Background settlement starts here, so the order no longer depends on the
+    // customer keeping the pay page open.
+    $this->services->settlementScheduler()->onInvoiceCreated($record, $invoice);
   }
 
   public function process_refund($order_id, $amount = null, $reason = '') {
@@ -226,8 +365,10 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
 
       // Load the order by metadata field Blink_id
       $orders = wc_get_orders([
+        // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- the webhook has only the payment hash to identify the order by.
         'meta_key' => 'blink_id',
-        'meta_value' => $invoiceId,
+        // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value -- see above.
+        'meta_value' => $invoiceId
       ]);
 
       // Abort if no orders found
@@ -241,7 +382,7 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
         Logger::debug('Found multiple orders for invoiceId: ' . esc_html($invoiceId));
         Logger::debug(print_r($orders, true));
         wp_die('Multiple orders found for this invoiceId, aborting.', '', [
-          'response' => 200,
+          'response' => 200
         ]);
       }
 
@@ -261,21 +402,27 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
    * @return mixed Returns false if no valid invoice found or the invoice id.
    */
   protected function validInvoiceExists(\WC_Order $order): bool {
-    if ($invoiceId = $order->get_meta('blink_id')) {
-      try {
-        Logger::debug(
-          'Trying to fetch existing invoice from Blink for hash ' . $invoiceId
-        );
-        $invoice = $this->apiHelper->getInvoice($invoiceId);
-        $invalidStates = ['EXPIRED'];
-        if (in_array($invoice['status'], $invalidStates)) {
-          return false;
-        }
+    $invoiceId = $order->get_meta('blink_id');
+    if (!$invoiceId) {
+      return false;
+    }
 
+    try {
+      Logger::debug('Trying to fetch existing invoice from Blink for hash ' . $invoiceId);
+      $invoice = $this->apiHelper->getInvoiceCustodial($invoiceId);
+
+      // TODO: on an API error this deliberately keeps today's behaviour and
+      // reuses the existing invoice, which can leave a customer looking at a
+      // QR code that is no longer payable. Returning false here would be more
+      // correct, but it changes custodial checkout behaviour and belongs in a
+      // change that can be verified against a live Blink account.
+      if ($invoice === null) {
         return true;
-      } catch (\Throwable $e) {
-        Logger::debug($e->getMessage());
       }
+
+      return ($invoice['status'] ?? null) !== 'EXPIRED';
+    } catch (\Throwable $e) {
+      Logger::debug($e->getMessage());
     }
 
     return false;
@@ -303,9 +450,15 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
       Logger::debug('Creating invoice with currency: ' . $currency);
       $invoice = $this->apiHelper->createInvoice($amount, $currency, $orderNumber);
 
+      if (!$invoice) {
+        Logger::debug('Invoice creation returned no invoice for order ' . $orderNumber);
+        return null;
+      }
+
       $order->update_meta_data('blink_redirect', $invoice['redirectUrl']);
       $order->update_meta_data('blink_id', $invoice['paymentHash']);
       $order->update_meta_data('blink_payment_request', $invoice['paymentRequest']);
+
       $order->save();
 
       return $invoice;
@@ -316,67 +469,299 @@ class BlinkLnGateway extends \WC_Payment_Gateway {
     return null;
   }
 
-  protected function processOrderStatus(\WC_Order $order) {
+  protected function processOrderStatus(
+    \WC_Order $order,
+    string $context = 'webhook'
+  ): string {
     Logger::debug('Updating status for order: ' . $order->get_id());
-    // Check if the order is already in a final state, if so do not update it if the orders are protected.
-    $protectOrders = get_option('blink_protect_order_status', 'no');
 
-    Logger::debug('Protect order: ' . $protectOrders);
-
-    if ($protectOrders === 'yes') {
-      // Check if the order status is either 'processing' or 'completed'
-      if ($order->has_status(['processing', 'completed'])) {
-        $note =
-          'Webhook received from Blink, but the order is already processing or completed, skipping to update order status. Please manually check if everything is alright.';
-        $order->add_order_note($note);
-        return;
-      }
+    $applier = $this->services->statusApplier();
+    if ($applier->isProtected($order)) {
+      return $applier->apply($order, 'PENDING', $context);
     }
 
-    if ($invoiceId = $order->get_meta('blink_id')) {
-      // Get configured order states or fall back to defaults.
-      if (!($configuredOrderStates = get_option('blink_order_states'))) {
-        $configuredOrderStates = (new OrderStates())->getDefaultOrderStateMappings();
-      }
-      Logger::debug('Configured Order States: ' . implode(', ', $configuredOrderStates));
-
-      try {
-        Logger::debug(
-          'Trying to fetch existing invoice from Blink for hash ' . $invoiceId
-        );
-        $invoice = $this->apiHelper->getInvoice($invoiceId);
-        $invoiceStatus = $invoice['status'];
-        Logger::debug('Invoice status: ' . $invoiceStatus);
-
-        if ($invoiceStatus === 'EXPIRED') {
-          $this->updateWCOrderStatus(
-            $order,
-            $configuredOrderStates[OrderStates::EXPIRED]
-          );
-          $order->add_order_note('Invoice expired.');
-          return;
-        }
-
-        if ($invoiceStatus === 'PAID') {
-          $this->updateWCOrderStatus($order, $configuredOrderStates[OrderStates::PAID]);
-          $order->add_order_note('Invoice payment settled.');
-          return;
-        }
-      } catch (\Throwable $e) {
-        Logger::debug($e->getMessage(), true);
-      }
+    $invoiceId = $order->get_meta('blink_id');
+    if (!$invoiceId) {
+      return 'PENDING';
     }
+
+    try {
+      Logger::debug('Trying to fetch existing invoice from Blink for hash ' . $invoiceId);
+      $invoice = $this->apiHelper->getInvoiceCustodial($invoiceId);
+      $status = is_array($invoice)
+        ? (string) ($invoice['status'] ?? 'PENDING')
+        : 'PENDING';
+      Logger::debug('Invoice status: ' . $status);
+
+      return $applier->apply($order, $status, $context);
+    } catch (\Throwable $e) {
+      Logger::debug($e->getMessage(), true);
+    }
+
+    return 'PENDING';
   }
 
   /**
-   * Update WC order status (if a valid mapping is set).
+   * Renders the on-site pay page for non-custodial (lightning address) orders.
+   *
+   * Displays the BOLT11 invoice as a QR code plus copy button and enqueues the
+   * polling script that watches the LUD-21 verify endpoint for settlement.
+   *
+   * @param int $order_id Order ID (provided by woocommerce_receipt_{id}).
    */
-  public function updateWCOrderStatus(\WC_Order $order, string $status): void {
-    if ($status !== OrderStates::IGNORE) {
-      Logger::debug(
-        'Updating order status from ' . $order->get_status() . ' to ' . $status
-      );
-      $order->update_status($status);
+  public function renderPayPage($order_id): void {
+    $order = wc_get_order($order_id);
+    if (!($order instanceof \WC_Order)) {
+      return;
     }
+
+    $record = new WcOrderRecord($order);
+    $repository = $this->services->invoiceRepository();
+
+    // Only handle non-custodial orders here; custodial orders redirect off-site.
+    if (!$repository->isNonCustodial($record)) {
+      return;
+    }
+
+    $invoice = $repository->load($record);
+    $paymentRequest = $invoice?->paymentRequest;
+    if ($invoice === null || !$paymentRequest) {
+      echo '<p>' .
+        esc_html__(
+          'Could not load the Lightning invoice for this order. Please contact the store.',
+          'blink-for-woocommerce'
+        ) .
+        '</p>';
+      return;
+    }
+
+    // If the order is already paid (e.g. page reloaded), send to the received
+    // page.
+    //
+    // In practice WooCommerce gets there first: it refuses to render a payment
+    // form for an order that no longer needs payment, so this hook is never
+    // reached in that state. Kept as a guard rather than deleted, because it
+    // costs nothing and the alternative is relying on another plugin's
+    // behaviour to protect a payment page.
+    if ($order->is_paid()) {
+      wp_safe_redirect($order->get_checkout_order_received_url());
+      exit();
+    }
+
+    // Showing a customer a payable invoice is the point at which it must be
+    // watched. Re-submitting checkout is not the usual way back here -- an
+    // emailed pay link, the My Account "Pay" button and a reloaded tab all
+    // render this page without going through process_payment() -- so this is
+    // the route that would otherwise leave a retried order unmonitored.
+    $this->services->settlementScheduler()->ensureScheduled($record);
+
+    $this->enqueuePayScripts();
+
+    $lightningUri = 'lightning:' . strtoupper($paymentRequest);
+    $satoshis = $invoice->satoshis;
+
+    // The deadline is the invoice's own expiry plus the same grace the server
+    // allows. The previous 30-minute cap was shorter than the invoice itself,
+    // so a customer returning at minute 31 was told to place the order again
+    // while the QR code on screen was still perfectly payable.
+    $deadline =
+      $invoice->expiresAt > 0
+        ? $invoice->expiresAt +
+          \Blink\WC\NonCustodial\SettlementService::EXPIRY_GRACE_SECONDS
+        : time() + HOUR_IN_SECONDS;
+
+    // wp_localize_script() casts every value to a string, which is why the
+    // client's `typeof deadline === 'number'` check could never be true and
+    // the page polled forever. wp_json_encode preserves the types.
+    wp_add_inline_script(
+      'blink-pay',
+      'var BlinkPay = ' .
+        wp_json_encode([
+          'ajaxUrl' => admin_url('admin-ajax.php'),
+          'nonce' => wp_create_nonce('blink-pay-nonce'),
+          'orderId' => $order->get_id(),
+          'orderKey' => $order->get_order_key(),
+          'paymentRequest' => $paymentRequest,
+          'lightningUri' => $lightningUri,
+          'redirectUrl' => $order->get_checkout_order_received_url(),
+          'pollInterval' => 3000,
+          // Unix timestamp (seconds) after which the client stops polling.
+          'deadline' => $deadline,
+          'i18n' => [
+            'copied' => __('Copied!', 'blink-for-woocommerce'),
+            'copy' => __('Copy invoice', 'blink-for-woocommerce'),
+            'paid' => __('Payment received! Redirecting…', 'blink-for-woocommerce'),
+            'expired' => __(
+              'This invoice has expired. Please place the order again.',
+              'blink-for-woocommerce'
+            ),
+            // One literal, not a concatenation: the POT extractor silently
+            // skips a concatenated string, leaving it untranslatable forever.
+            'unconfirmed' => __(
+              'We could not confirm this payment. If you have already paid, do not pay again — your order will be updated once the payment is confirmed.',
+              'blink-for-woocommerce'
+            ),
+            'review' => __(
+              'Payment received. This order is being reviewed before it is completed.',
+              'blink-for-woocommerce'
+            ),
+            'unreachable' => __(
+              'We cannot reach the payment server right now. Any payment you have made is safe.',
+              'blink-for-woocommerce'
+            ),
+            'invalid' => __(
+              'This payment session is no longer valid. Please reload the page.',
+              'blink-for-woocommerce'
+            ),
+            'checkAgain' => __('Check again', 'blink-for-woocommerce')
+          ]
+        ]) .
+        ';',
+      'before'
+    );
+    ?>
+    <section class="blink-pay-container" id="blink-pay">
+      <h2><?php echo esc_html__(
+        'Pay with Bitcoin (Lightning)',
+        'blink-for-woocommerce'
+      ); ?></h2>
+      <?php if ($satoshis > 0) { ?>
+        <p class="blink-pay-amount">
+          <?php echo esc_html(
+            sprintf(
+              /* translators: %s: amount in satoshis */
+              __('%s sats', 'blink-for-woocommerce'),
+              number_format_i18n($satoshis)
+            )
+          ); ?>
+        </p>
+      <?php } ?>
+      <div class="blink-pay-qr" id="blink-pay-qr" data-uri="<?php echo esc_attr(
+        $lightningUri
+      ); ?>"></div>
+      <p class="blink-pay-invoice">
+        <code id="blink-pay-bolt11"><?php echo esc_html($paymentRequest); ?></code>
+      </p>
+      <div class="blink-pay-actions">
+        <a class="button" href="<?php echo esc_attr($lightningUri); ?>">
+          <?php echo esc_html__('Open in wallet', 'blink-for-woocommerce'); ?>
+        </a>
+        <button type="button" class="button" id="blink-pay-copy">
+          <?php echo esc_html__('Copy invoice', 'blink-for-woocommerce'); ?>
+        </button>
+      </div>
+      <p class="blink-pay-status" id="blink-pay-status">
+        <?php echo esc_html__('Waiting for payment…', 'blink-for-woocommerce'); ?>
+      </p>
+    </section>
+    <?php
+  }
+
+  /**
+   * Registers and enqueues the pay-page assets (QR generator + poller).
+   */
+  protected function enqueuePayScripts(): void {
+    wp_register_style(
+      'blink-pay',
+      BLINK_PLUGIN_URL . 'assets/css/pay.css',
+      [],
+      BLINK_VERSION
+    );
+    wp_enqueue_style('blink-pay');
+
+    wp_register_script(
+      'blink-qrcode',
+      BLINK_PLUGIN_URL . 'assets/js/frontend/qrcode.min.js',
+      [],
+      BLINK_VERSION,
+      true
+    );
+    wp_register_script(
+      'blink-pay',
+      BLINK_PLUGIN_URL . 'assets/js/frontend/pay.js',
+      ['blink-qrcode'],
+      BLINK_VERSION,
+      true
+    );
+    wp_enqueue_script('blink-qrcode');
+    wp_enqueue_script('blink-pay');
+  }
+
+  /**
+   * AJAX endpoint polled by the pay page to detect settlement of a
+   * non-custodial invoice via its LUD-21 verify URL.
+   */
+  /**
+   * Reports settlement to the pay page.
+   *
+   * The browser no longer drives verification. It reads the last observation,
+   * and only triggers a live check when that observation is stale, this client
+   * is within its request budget, and no other request for the order is
+   * already in flight. Ten open tabs therefore collapse to one outbound
+   * request per cache window instead of ten every three seconds.
+   */
+  public function ajaxCheckInvoice(): void {
+    check_ajax_referer('blink-pay-nonce', 'nonce');
+
+    $orderId = isset($_POST['order_id']) ? absint($_POST['order_id']) : 0;
+    $orderKey = isset($_POST['order_key'])
+      ? sanitize_text_field(wp_unslash($_POST['order_key']))
+      : '';
+
+    $order = $orderId ? wc_get_order($orderId) : null;
+    if (
+      !($order instanceof \WC_Order) ||
+      !hash_equals($order->get_order_key(), $orderKey)
+    ) {
+      wp_send_json_error(['message' => 'Invalid order.'], 403);
+    }
+
+    $record = new WcOrderRecord($order);
+
+    // This endpoint exists for the non-custodial pay page. Without this check
+    // any valid order id and key drives a settlement check, custodial orders
+    // included.
+    if (!$this->services->invoiceRepository()->isNonCustodial($record)) {
+      wp_send_json_error(['message' => 'Invalid order.'], 403);
+    }
+
+    if ($order->is_paid()) {
+      wp_send_json_success([
+        'status' => SettlementStatus::Paid->value,
+        'redirect' => $order->get_checkout_order_received_url()
+      ]);
+    }
+
+    $outcome = $this->services
+      ->paymentPageSettlementObserver()
+      ->observe($record, $this->clientIp());
+    $status = $outcome->status;
+
+    // The same applier the background job uses, so a status reached through
+    // the pay page and one reached by the scheduler behave identically.
+    $this->services->outcomeApplier()->applyOutcome($record, $outcome);
+
+    wp_send_json_success([
+      'status' => $status->value,
+      'redirect' =>
+        $status === SettlementStatus::Paid
+          ? $order->get_checkout_order_received_url()
+          : null
+    ]);
+  }
+
+  /**
+   * The client address used for per-IP budgeting.
+   *
+   * Only REMOTE_ADDR is trusted: honouring X-Forwarded-For by default would
+   * make the budget trivially bypassable by anyone sending the header. Sites
+   * behind a proxy can filter this.
+   */
+  private function clientIp(): string {
+    $ip = isset($_SERVER['REMOTE_ADDR'])
+      ? sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR']))
+      : '';
+
+    return (string) apply_filters('blink_client_ip', $ip);
   }
 }

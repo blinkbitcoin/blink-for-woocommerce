@@ -1,4 +1,11 @@
-files.extend-exclude = ["languages/blink-for-woocommerce-es.po"]
+files.extend-exclude = [
+  "languages/blink-for-woocommerce-es.po",
+  # Bech32 and hex payloads, not prose: a BOLT11 invoice is full of arbitrary
+  # letter sequences that a spellchecker reads as misspelled words.
+  "tests/fixtures/**",
+  "assets/js/frontend/qrcode.min.js",
+  "phpstan-baseline.neon",
+]
 
 [default.extend-words]
 Automattic = "Automattic"

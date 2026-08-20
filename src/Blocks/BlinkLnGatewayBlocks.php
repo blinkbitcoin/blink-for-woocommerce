@@ -53,12 +53,7 @@ final class BlinkLnGatewayBlocks extends AbstractPaymentMethodType {
   public function get_payment_method_script_handles(): array {
     $script_url = BLINK_PLUGIN_URL . 'assets/js/frontend/blocks.js';
     $script_asset_path = BLINK_PLUGIN_FILE_PATH . 'assets/js/frontend/blocks.asset.php';
-    $script_asset = file_exists($script_asset_path)
-      ? require $script_asset_path
-      : [
-        'dependencies' => [],
-        'version' => BLINK_VERSION,
-      ];
+    $script_asset = $this->loadScriptAsset($script_asset_path);
 
     wp_register_script(
       'blink-gateway-blocks',
@@ -80,13 +75,52 @@ final class BlinkLnGatewayBlocks extends AbstractPaymentMethodType {
   }
 
   /**
+   * Loads the optional dependency manifest emitted by the WordPress build.
+   *
+   * @return array{dependencies: list<string>, version: string}
+   */
+  private function loadScriptAsset(string $path): array {
+    if (!is_file($path)) {
+      return [
+        'dependencies' => [],
+        'version' => BLINK_VERSION
+      ];
+    }
+
+    $asset = require $path;
+    if (!is_array($asset)) {
+      return [
+        'dependencies' => [],
+        'version' => BLINK_VERSION
+      ];
+    }
+
+    $dependencies = [];
+    if (isset($asset['dependencies']) && is_array($asset['dependencies'])) {
+      foreach ($asset['dependencies'] as $dependency) {
+        if (is_string($dependency)) {
+          $dependencies[] = $dependency;
+        }
+      }
+    }
+
+    return [
+      'dependencies' => $dependencies,
+      'version' =>
+        isset($asset['version']) && is_string($asset['version'])
+          ? $asset['version']
+          : BLINK_VERSION
+    ];
+  }
+
+  /**
    * Returns an array of key=>value pairs of data made available to the payment methods script.
    */
   public function get_payment_method_data(): array {
     return [
       'title' => $this->get_setting('title'),
       'description' => $this->get_setting('description'),
-      'supports' => $this->get_supported_features(),
+      'supports' => $this->get_supported_features()
     ];
   }
 }

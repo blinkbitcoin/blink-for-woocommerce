@@ -1,0 +1,341 @@
+parameters:
+	ignoreErrors:
+		-
+			message: "#^Method Blink\\\\WC\\\\Admin\\\\GlobalSettings\\:\\:getGlobalSettings\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/Admin/GlobalSettings.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Admin\\\\GlobalSettings\\:\\:get_settings_for_default_section\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/Admin/GlobalSettings.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Admin\\\\GlobalSettings\\:\\:output_custom_markup_field\\(\\) has no return type specified\\.$#"
+			count: 1
+			path: src/Admin/GlobalSettings.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Admin\\\\GlobalSettings\\:\\:output_custom_markup_field\\(\\) has parameter \\$value with no type specified\\.$#"
+			count: 1
+			path: src/Admin/GlobalSettings.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Admin\\\\GlobalSettings\\:\\:save\\(\\) has no return type specified\\.$#"
+			count: 1
+			path: src/Admin/GlobalSettings.php
+
+		-
+			message: "#^Property Blink\\\\WC\\\\Admin\\\\GlobalSettings\\:\\:\\$apiHelper is never read, only written\\.$#"
+			count: 1
+			path: src/Admin/GlobalSettings.php
+
+		-
+			message: "#^Access to an undefined property WooCommerce\\:\\:\\$payment_gateways\\.$#"
+			count: 1
+			path: src/Blocks/BlinkLnGatewayBlocks.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Blocks\\\\BlinkLnGatewayBlocks\\:\\:get_payment_method_data\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/Blocks/BlinkLnGatewayBlocks.php
+
+		-
+			message: "#^Property Blink\\\\WC\\\\Blocks\\\\BlinkLnGatewayBlocks\\:\\:\\$gateway has no type specified\\.$#"
+			count: 1
+			path: src/Blocks/BlinkLnGatewayBlocks.php
+
+		-
+			message: "#^Action callback returns bool but should not return anything\\.$#"
+			count: 1
+			path: src/Gateway/BlinkLnGateway.php
+
+		-
+			message: "#^Call to an undefined static method Blink\\\\WC\\\\Helpers\\\\Logger\\:\\:error\\(\\)\\.$#"
+			count: 1
+			path: src/Gateway/BlinkLnGateway.php
+
+		-
+			message: "#^Cannot access offset 0 on non\\-empty\\-array\\<WC_Order\\>\\|stdClass\\.$#"
+			count: 1
+			path: src/Gateway/BlinkLnGateway.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Gateway\\\\BlinkLnGateway\\:\\:createInvoice\\(\\) has no return type specified\\.$#"
+			count: 1
+			path: src/Gateway/BlinkLnGateway.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Gateway\\\\BlinkLnGateway\\:\\:init_form_fields\\(\\) has no return type specified\\.$#"
+			count: 1
+			path: src/Gateway/BlinkLnGateway.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Gateway\\\\BlinkLnGateway\\:\\:processPaymentNonCustodial\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/Gateway/BlinkLnGateway.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Gateway\\\\BlinkLnGateway\\:\\:processWebhook\\(\\) has no return type specified\\.$#"
+			count: 1
+			path: src/Gateway/BlinkLnGateway.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Gateway\\\\BlinkLnGateway\\:\\:process_payment\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/Gateway/BlinkLnGateway.php
+
+		-
+			message: "#^PHPDoc tag @param references unknown parameter\\: \\$orderId$#"
+			count: 1
+			path: src/Gateway/BlinkLnGateway.php
+
+		-
+			message: "#^PHPDoc tag @return with type mixed is not subtype of native type bool\\.$#"
+			count: 1
+			path: src/Gateway/BlinkLnGateway.php
+
+		-
+			message: "#^Parameter \\#1 \\$attachment_id of function wp_get_attachment_image_src expects int, string given\\.$#"
+			count: 1
+			path: src/Gateway/BlinkLnGateway.php
+
+		-
+			message: "#^Parameter \\#1 \\$json of function json_decode expects string, string\\|false given\\.$#"
+			count: 1
+			path: src/Gateway/BlinkLnGateway.php
+
+		-
+			message: "#^Parameter \\#1 \\$value of function count expects array\\|Countable, array\\<WC_Order\\>\\|stdClass given\\.$#"
+			count: 2
+			path: src/Gateway/BlinkLnGateway.php
+
+		-
+			message: "#^Parameter \\#2 \\$status of method Blink\\\\WC\\\\Orders\\\\OrderStatusApplier\\:\\:apply\\(\\) expects 'EXPIRED'\\|'PAID'\\|'PENDING'\\|'REVIEW', string given\\.$#"
+			count: 1
+			path: src/Gateway/BlinkLnGateway.php
+
+		-
+			message: "#^Property Blink\\\\WC\\\\Gateway\\\\BlinkLnGateway\\:\\:\\$apiHelper has no type specified\\.$#"
+			count: 1
+			path: src/Gateway/BlinkLnGateway.php
+
+		-
+			message: "#^Property Blink\\\\WC\\\\Gateway\\\\BlinkLnGateway\\:\\:\\$debug_php_version has no type specified\\.$#"
+			count: 1
+			path: src/Gateway/BlinkLnGateway.php
+
+		-
+			message: "#^Property Blink\\\\WC\\\\Gateway\\\\BlinkLnGateway\\:\\:\\$debug_plugin_version has no type specified\\.$#"
+			count: 1
+			path: src/Gateway/BlinkLnGateway.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Helpers\\\\BlinkApiClient\\:\\:__construct\\(\\) has parameter \\$apiUrl with no type specified\\.$#"
+			count: 1
+			path: src/Helpers/BlinkApiClient.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Helpers\\\\BlinkApiClient\\:\\:__construct\\(\\) has parameter \\$token with no type specified\\.$#"
+			count: 1
+			path: src/Helpers/BlinkApiClient.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Helpers\\\\BlinkApiClient\\:\\:createInvoice\\(\\) has no return type specified\\.$#"
+			count: 1
+			path: src/Helpers/BlinkApiClient.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Helpers\\\\BlinkApiClient\\:\\:createInvoice\\(\\) has parameter \\$amount with no type specified\\.$#"
+			count: 1
+			path: src/Helpers/BlinkApiClient.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Helpers\\\\BlinkApiClient\\:\\:createInvoice\\(\\) has parameter \\$expiresIn with no type specified\\.$#"
+			count: 1
+			path: src/Helpers/BlinkApiClient.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Helpers\\\\BlinkApiClient\\:\\:createInvoice\\(\\) has parameter \\$memo with no type specified\\.$#"
+			count: 1
+			path: src/Helpers/BlinkApiClient.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Helpers\\\\BlinkApiClient\\:\\:createInvoice\\(\\) has parameter \\$walletId with no type specified\\.$#"
+			count: 1
+			path: src/Helpers/BlinkApiClient.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Helpers\\\\BlinkApiClient\\:\\:createStablesatsInvoice\\(\\) has no return type specified\\.$#"
+			count: 1
+			path: src/Helpers/BlinkApiClient.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Helpers\\\\BlinkApiClient\\:\\:createStablesatsInvoice\\(\\) has parameter \\$amount with no type specified\\.$#"
+			count: 1
+			path: src/Helpers/BlinkApiClient.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Helpers\\\\BlinkApiClient\\:\\:createStablesatsInvoice\\(\\) has parameter \\$expiresIn with no type specified\\.$#"
+			count: 1
+			path: src/Helpers/BlinkApiClient.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Helpers\\\\BlinkApiClient\\:\\:createStablesatsInvoice\\(\\) has parameter \\$memo with no type specified\\.$#"
+			count: 1
+			path: src/Helpers/BlinkApiClient.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Helpers\\\\BlinkApiClient\\:\\:createStablesatsInvoice\\(\\) has parameter \\$walletId with no type specified\\.$#"
+			count: 1
+			path: src/Helpers/BlinkApiClient.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Helpers\\\\BlinkApiClient\\:\\:currencyConversionEstimation\\(\\) has no return type specified\\.$#"
+			count: 1
+			path: src/Helpers/BlinkApiClient.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Helpers\\\\BlinkApiClient\\:\\:currencyConversionEstimation\\(\\) has parameter \\$amount with no type specified\\.$#"
+			count: 1
+			path: src/Helpers/BlinkApiClient.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Helpers\\\\BlinkApiClient\\:\\:currencyConversionEstimation\\(\\) has parameter \\$currency with no type specified\\.$#"
+			count: 1
+			path: src/Helpers/BlinkApiClient.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Helpers\\\\BlinkApiClient\\:\\:getAuthorizationScopes\\(\\) has no return type specified\\.$#"
+			count: 1
+			path: src/Helpers/BlinkApiClient.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Helpers\\\\BlinkApiClient\\:\\:getInvoiceStatus\\(\\) has no return type specified\\.$#"
+			count: 1
+			path: src/Helpers/BlinkApiClient.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Helpers\\\\BlinkApiClient\\:\\:getInvoiceStatus\\(\\) has parameter \\$paymentHash with no type specified\\.$#"
+			count: 1
+			path: src/Helpers/BlinkApiClient.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Helpers\\\\BlinkApiClient\\:\\:getWallets\\(\\) has no return type specified\\.$#"
+			count: 1
+			path: src/Helpers/BlinkApiClient.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Helpers\\\\BlinkApiClient\\:\\:sendRequest\\(\\) has no return type specified\\.$#"
+			count: 1
+			path: src/Helpers/BlinkApiClient.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Helpers\\\\BlinkApiClient\\:\\:sendRequest\\(\\) has parameter \\$query with no type specified\\.$#"
+			count: 1
+			path: src/Helpers/BlinkApiClient.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Helpers\\\\BlinkApiClient\\:\\:sendRequest\\(\\) has parameter \\$variables with no type specified\\.$#"
+			count: 1
+			path: src/Helpers/BlinkApiClient.php
+
+		-
+			message: "#^Property Blink\\\\WC\\\\Helpers\\\\BlinkApiClient\\:\\:\\$apiUrl has no type specified\\.$#"
+			count: 1
+			path: src/Helpers/BlinkApiClient.php
+
+		-
+			message: "#^Property Blink\\\\WC\\\\Helpers\\\\BlinkApiClient\\:\\:\\$token has no type specified\\.$#"
+			count: 1
+			path: src/Helpers/BlinkApiClient.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Helpers\\\\BlinkApiHelper\\:\\:createInvoice\\(\\) has no return type specified\\.$#"
+			count: 1
+			path: src/Helpers/BlinkApiHelper.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Helpers\\\\BlinkApiHelper\\:\\:createInvoice\\(\\) has parameter \\$amount with no type specified\\.$#"
+			count: 1
+			path: src/Helpers/BlinkApiHelper.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Helpers\\\\BlinkApiHelper\\:\\:createInvoice\\(\\) has parameter \\$currency with no type specified\\.$#"
+			count: 1
+			path: src/Helpers/BlinkApiHelper.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Helpers\\\\BlinkApiHelper\\:\\:createInvoice\\(\\) has parameter \\$orderNumber with no type specified\\.$#"
+			count: 1
+			path: src/Helpers/BlinkApiHelper.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Helpers\\\\BlinkApiHelper\\:\\:getConfig\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/Helpers/BlinkApiHelper.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Helpers\\\\BlinkApiHelper\\:\\:getInvoiceRedirectUrl\\(\\) has parameter \\$invoiceId with no type specified\\.$#"
+			count: 1
+			path: src/Helpers/BlinkApiHelper.php
+
+		-
+			message: "#^Negated boolean expression is always false\\.$#"
+			count: 1
+			path: src/Helpers/BlinkApiHelper.php
+
+		-
+			message: "#^Property Blink\\\\WC\\\\Helpers\\\\BlinkApiHelper\\:\\:\\$accountType has no type specified\\.$#"
+			count: 1
+			path: src/Helpers/BlinkApiHelper.php
+
+		-
+			message: "#^Property Blink\\\\WC\\\\Helpers\\\\BlinkApiHelper\\:\\:\\$apiKey has no type specified\\.$#"
+			count: 1
+			path: src/Helpers/BlinkApiHelper.php
+
+		-
+			message: "#^Property Blink\\\\WC\\\\Helpers\\\\BlinkApiHelper\\:\\:\\$configured has no type specified\\.$#"
+			count: 1
+			path: src/Helpers/BlinkApiHelper.php
+
+		-
+			message: "#^Property Blink\\\\WC\\\\Helpers\\\\BlinkApiHelper\\:\\:\\$env has no type specified\\.$#"
+			count: 1
+			path: src/Helpers/BlinkApiHelper.php
+
+		-
+			message: "#^Property Blink\\\\WC\\\\Helpers\\\\BlinkApiHelper\\:\\:\\$lnAddress has no type specified\\.$#"
+			count: 1
+			path: src/Helpers/BlinkApiHelper.php
+
+		-
+			message: "#^Property Blink\\\\WC\\\\Helpers\\\\BlinkApiHelper\\:\\:\\$walletType has no type specified\\.$#"
+			count: 1
+			path: src/Helpers/BlinkApiHelper.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Helpers\\\\Logger\\:\\:debug\\(\\) has parameter \\$force with no type specified\\.$#"
+			count: 1
+			path: src/Helpers/Logger.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Helpers\\\\OrderStates\\:\\:getDefaultOrderStateMappings\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/Helpers/OrderStates.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Helpers\\\\OrderStates\\:\\:getOrderStateLabels\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/Helpers/OrderStates.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Helpers\\\\OrderStates\\:\\:renderOrderStatesHtml\\(\\) has no return type specified\\.$#"
+			count: 1
+			path: src/Helpers/OrderStates.php
+
+		-
+			message: "#^Method Blink\\\\WC\\\\Helpers\\\\OrderStates\\:\\:renderOrderStatesHtml\\(\\) has parameter \\$value with no type specified\\.$#"
+			count: 1
+			path: src/Helpers/OrderStates.php

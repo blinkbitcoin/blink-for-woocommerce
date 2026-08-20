@@ -1,26 +1,58 @@
-# Blink Plugin for WooCommerce
+# Blink for WooCommerce
 
-## Development
-```
-git clone git@github.com:blinkbitcoin/blink-for-woocommerce.git
-```
+Accept Bitcoin over the Lightning Network in WooCommerce, using
+[Blink](https://www.blink.sv/).
 
-**Install dependencies with Composer:**
-```
+> The WordPress.org plugin listing lives in `readme.txt`. Running
+> `npm run readme` renders a preview to `docs/wordpress-org/readme.md`.
+> **Do not edit that file** — and note this `README.md` is hand-maintained, so
+> do not regenerate it from `readme.txt` either.
+
+## Two ways to take payment
+
+**Custodial.** Connect a Blink account with an API key. The plugin creates
+invoices through the Blink API, sends the customer to `pay.blink.sv`, and the
+Blink dashboard notifies your shop when a payment settles.
+
+**Non-custodial.** Enter a Lightning address such as `shop@blink.sv`. No API
+key, no account connection. The plugin speaks LNURL to whatever server backs
+that address, shows the invoice as a QR code on your own site, and checks for
+settlement itself — there is no webhook in this mode.
+
+Merchants choosing between them should read
+[the setup guide](docs/merchant/non-custodial-setup.md), which is honest about
+the trade-offs.
+
+## Quick start
+
+```bash
+git clone https://github.com/blinkbitcoin/blink-for-woocommerce.git
+cd blink-for-woocommerce
 composer install
+docker-compose up          # WordPress + WooCommerce on http://localhost:8080
 ```
 
-### Contributing
-Feel free to open an issue to discuss a feature or provide a PR for any improvements or if you want to tackle a feature listed in the issues.
+Then: WooCommerce → Settings → Payments → Blink.
 
-### Local development with Docker
-**Install dependencies**
-```
-composer install
-```
+## Documentation
 
-**Run docker compose to spin containers up**
-```
-docker-compose up -d
-```
-Go to [http://localhost:8080](http://localhost:8080) and install WordPress, WooCommerce and Blink for WooCommerce Plugin.
+|                                                                                    |                                                   |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------- |
+| [Contributing](CONTRIBUTING.md)                                                    | Setup, running the suites, what review asks about |
+| [Testing](docs/testing.md)                                                         | The three tiers, the fakes, the coverage gate     |
+| [Non-custodial architecture](docs/architecture/non-custodial-lightning-address.md) | The LNURL flow, settlement, order meta            |
+| [Seams](docs/architecture/seams.md)                                                | The injected interfaces and why each exists       |
+| [Outbound request policy](docs/security/ssrf-policy.md)                            | Trust boundaries and URL rules                    |
+| [Merchant setup](docs/merchant/non-custodial-setup.md)                             | Lightning address mode, end to end                |
+| [Security policy](SECURITY.md)                                                     | Reporting a vulnerability                         |
+
+## Requirements
+
+PHP 8.1+, WordPress 6.5+, WooCommerce 9.0+.
+
+WordPress 6.5 rather than 6.0 because the oldest WooCommerce this plugin is
+tested against requires it, and the plugin cannot run without WooCommerce.
+
+## Licence
+
+MIT. See [license.txt](license.txt).

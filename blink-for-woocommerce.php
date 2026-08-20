@@ -7,9 +7,11 @@
  * Author URI:      https://blink.sv
  * License:         MIT
  * License URI:     https://github.com/blinkbitcoin/blink-for-woocommerce/blob/main/license.txt
+ * Requires PHP:    8.1
+ * Requires at least: 6.5
  * Text Domain:     blink-for-woocommerce
  * Domain Path:     /languages
- * Version:         0.1.3
+ * Version:         0.3.2
  *
  * @package         Blink_For_Woocommerce
  */
@@ -19,7 +21,7 @@ use Blink\WC\Helpers\Logger;
 use Blink\WC\Gateway\BlinkLnGateway;
 
 defined('ABSPATH') || exit();
-define('BLINK_VERSION', '0.1.3');
+define('BLINK_VERSION', '0.3.2');
 define('BLINK_VERSION_KEY', 'blink_version');
 define('BLINK_PLUGIN_FILE_PATH', plugin_dir_path(__FILE__));
 define('BLINK_PLUGIN_URL', plugin_dir_url(__FILE__));
@@ -51,6 +53,27 @@ class BlinkWCPlugin {
         return $settings;
       });
 
+      // Register the custom settings-field renderers exactly once per request.
+      // These must NOT live in GlobalSettings::__construct(), because WooCommerce
+      // instantiates the settings page multiple times per request (via the
+      // woocommerce_get_settings_pages filter). Registering there would attach a
+      // distinct per-instance callback each time. Using a static callback also lets
+      // WordPress de-duplicate the registration.
+      //
+      // The field type is namespaced as "blink_custom_markup" (not the generic
+      // "custom_markup") to avoid colliding with other active plugins that use the
+      // same generic type/hook (e.g. the BTCPay for WooCommerce plugin). A shared
+      // hook name would cause every plugin's renderer to fire for every plugin's
+      // fields, rendering each custom row once per registered renderer.
+      add_action('woocommerce_admin_field_blink_custom_markup', [
+        '\Blink\WC\Admin\GlobalSettings',
+        'output_custom_markup_field'
+      ]);
+      add_action('woocommerce_admin_field_order_states', [
+        new \Blink\WC\Helpers\OrderStates(),
+        'renderOrderStatesHtml'
+      ]);
+
       $this->dependenciesNotification();
       $this->notConfiguredNotification();
       $this->submitReviewNotification();
@@ -78,12 +101,14 @@ class BlinkWCPlugin {
       'blink-notifications',
       plugin_dir_url(__FILE__) . 'assets/js/backend/notifications.js',
       ['jquery'],
-      BLINK_VERSION
+      BLINK_VERSION,
+      // Admin notice handling; nothing needs it before the page renders.
+      true
     );
     wp_enqueue_script('blink-notifications');
     wp_localize_script('blink-notifications', 'BlinkNotifications', [
       'ajax_url' => admin_url('admin-ajax.php'),
-      'nonce' => wp_create_nonce('blink-notifications-nonce'),
+      'nonce' => wp_create_nonce('blink-notifications-nonce')
     ]);
   }
 
@@ -100,7 +125,14 @@ class BlinkWCPlugin {
       wp_die('Unauthorized!', '', ['response' => 401]);
     }
 
-    $dismissForever = filter_var($_POST['dismiss_forever'], FILTER_VALIDATE_BOOL);
+    // The key is not guaranteed to be present, and POST data must be
+    // unslashed before it is used.
+    $dismissForever = filter_var(
+      isset($_POST['dismiss_forever'])
+        ? sanitize_text_field(wp_unslash($_POST['dismiss_forever']))
+        : '',
+      FILTER_VALIDATE_BOOL
+    );
 
     if ($dismissForever) {
       update_option('blink_review_dismissed_forever', true);
@@ -117,9 +149,9 @@ class BlinkWCPlugin {
    */
   public function dependenciesNotification() {
     // Check PHP version.
-    if (version_compare(PHP_VERSION, '7.4', '<')) {
+    if (version_compare(PHP_VERSION, '8.1', '<')) {
       $versionMessage = sprintf(
-        'Your PHP version is %s but Blink Payment plugin requires version 7.4+.',
+        'Your PHP version is %s but Blink Payment plugin requires version 8.1+.',
         PHP_VERSION
       );
       Notice::addNotice('error', $versionMessage);
@@ -167,7 +199,9 @@ class BlinkWCPlugin {
     ) {
       $reviewMessage = sprintf(
         'Thank you for using Blink for WooCommerce! If you like the plugin, we would love if you %1$sleave us a review%2$s. %3$sRemind me later%4$s %5$sStop reminding me forever%6$s',
-        '<a href="https://wordpress.org/support/plugin/blink-for-woocommerce/reviews/?filter=5#new-post" target="_blank">',
+        // Deliberately not ?filter=5: WordPress.org rejects a plugin that links
+        // straight to the five-star form, and Plugin Check blocks on it.
+        '<a href="https://wordpress.org/support/plugin/blink-for-woocommerce/reviews/" target="_blank" rel="noopener">',
         '</a>',
         '<button class="blink-review-dismiss">',
         '</button>',
@@ -254,6 +288,7 @@ class BlinkWCPlugin {
 }
 
 // Start everything up.
+// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound -- renaming this shipped function would break any site that unhooks it.
 function init_blink_plugin() {
   \BlinkWCPlugin::instance();
 }
@@ -286,7 +321,7 @@ add_filter(
       add_query_arg(
         [
           'page' => 'wc-settings',
-          'tab' => 'blink_settings',
+          'tab' => 'blink_settings'
         ],
         get_admin_url() . 'admin.php'
       )
@@ -330,6 +365,109 @@ register_activation_hook(__FILE__, function () {
 });
 
 // Initialize payment gateways and plugin.
+/**
+ * Registers the background settlement hooks.
+ *
+ * Deliberately inside a function rather than at file scope: the plugin's
+ * autoloader is only required at plugins_loaded, so referencing a plugin class
+ * -- even just a class constant -- while this file is being included fatals on
+ * activation. That is exactly what happened, and it took activating the plugin
+ * on a real site to notice, because the test bootstrap loads Composer first.
+ *
+ * Hooked at plugins_loaded priority 1, immediately after init_blink_plugin()
+ * has loaded the autoloader at priority 0.
+ */
+function blink_register_settlement_hooks(): void {
+  if (!class_exists(\Blink\WC\NonCustodial\SettlementScheduler::class)) {
+    return;
+  }
+
+  add_action(
+    \Blink\WC\NonCustodial\SettlementScheduler::HOOK,
+    function ($order_id): void {
+      $order = wc_get_order((int) $order_id);
+      if (!($order instanceof \WC_Order)) {
+        return;
+      }
+
+      \Blink\WC\Services::instance()
+        ->settlementScheduler()
+        ->tick(new \Blink\WC\NonCustodial\WcOrderRecord($order));
+    },
+    10,
+    1
+  );
+
+  /**
+   * Hold off WooCommerce's unpaid-order timer while an invoice is still payable.
+   *
+   * That timer cancels pending orders once woocommerce_hold_stock_minutes has
+   * passed -- 60 by default, against invoices valid for up to 3600 seconds --
+   * and the cancellation used to take the order's settlement checks with it,
+   * losing payments made on a still-valid QR code. The veto releases once the
+   * invoice resolves, or once its window closes with a conclusive answer about
+   * whether it was paid. An order nobody could get an answer about is held.
+   */
+  add_filter(
+    'woocommerce_cancel_unpaid_order',
+    function ($maycancel, $order) {
+      if (!($order instanceof \WC_Order)) {
+        return $maycancel;
+      }
+
+      return \Blink\WC\Services::instance()
+        ->unpaidOrderGuard()
+        ->mayCancel(new \Blink\WC\NonCustodial\WcOrderRecord($order), (bool) $maycancel);
+    },
+    10,
+    2
+  );
+
+  /**
+   * Stop checking an order that has been resolved by any other route -- paid
+   * through a different gateway, refunded, completed by hand, or cancelled by
+   * a shop manager. WooCommerce's own stock timer no longer reaches here while
+   * an invoice is live, so a cancellation at this point is a human decision.
+   *
+   * 'failed' is deliberately absent. WooCommerce sets it when *another*
+   * gateway attempt on the same order errors, which says nothing about the
+   * Lightning invoice: the customer can still pay the BOLT11 they already have
+   * open, and tearing the schedule down here left that payment uncredited.
+   */
+  add_action(
+    'woocommerce_order_status_changed',
+    function ($order_id, $from, $to): void {
+      if (!in_array($to, ['cancelled', 'refunded', 'completed', 'processing'], true)) {
+        return;
+      }
+
+      \Blink\WC\Services::instance()->settlementScheduler()->cancel((int) $order_id);
+    },
+    10,
+    3
+  );
+
+  /**
+   * Housekeeping for the lock and rate-limiter rows. Both are written on a hot
+   * path and expire by time rather than by deletion, so without this they
+   * accumulate in wp_options indefinitely.
+   */
+  add_action('blink_cleanup', function (): void {
+    \Blink\WC\Services::instance()->lock()->collectGarbage();
+    \Blink\WC\Services::instance()->rateLimiter()->collectGarbage();
+  });
+
+  if (!wp_next_scheduled('blink_cleanup')) {
+    wp_schedule_event(time() + HOUR_IN_SECONDS, 'daily', 'blink_cleanup');
+  }
+}
+
+add_action('plugins_loaded', 'blink_register_settlement_hooks', 1);
+
+register_deactivation_hook(__FILE__, function (): void {
+  wp_clear_scheduled_hook('blink_cleanup');
+});
+
 add_filter('woocommerce_payment_gateways', ['BlinkWCPlugin', 'initPaymentGateways']);
 add_action('plugins_loaded', 'init_blink_plugin', 0);
 

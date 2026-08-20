@@ -1,0 +1,497 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege by default; jobs that need more ask for it themselves.
+permissions:
+  contents: read
+
+env:
+  WP_VERSION_DEFAULT: '6.6'
+  WC_VERSION_DEFAULT: '9.3.2'
+
+jobs:
+  lint-php:
+    name: Lint PHP
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: composer:v2
+      - uses: ramsey/composer-install@v4
+      - run: composer lint:phpcs
+      - run: composer lint:phpstan
+      - run: composer lint:ignores
+
+  lint-js:
+    name: Lint JavaScript and TypeScript
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      # Formatting, lint rules, and type checking. The TypeScript step matters
+      # because Playwright strips types without checking them, so a type error
+      # in the end-to-end helpers would otherwise reach CI unnoticed.
+      - run: npm run lint
+
+  php-syntax:
+    name: PHP ${{ matrix.php }} syntax
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.1', '8.2', '8.3', '8.4']
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+      # tests and bin are linted too, not just src: the suites run on every PHP
+      # in this matrix, so a test file using a feature the floor lacks breaks
+      # the build. A constant in a trait -- 8.2 and later only -- did exactly
+      # that, and it surfaced as a fatal seven minutes into the integration job
+      # rather than here, twenty seconds in.
+      - name: Lint every PHP file that runs on this version
+        run: |
+          find src tests bin blink-for-woocommerce.php -name '*.php' -print0 \
+            | xargs -0 -n1 -P4 php -l
+
+  unit:
+    name: Unit PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.1', '8.2', '8.3', '8.4']
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: composer:v2
+      - uses: ramsey/composer-install@v4
+      - run: composer test:unit
+
+  integration:
+    name: Integration PHP ${{ matrix.php }} / WP ${{ matrix.wp }} / WC ${{ matrix.wc }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: ${{ matrix.experimental == true }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The minimums readme.txt actually claims. Claiming support for a
+          # version nothing tests is how a plugin breaks on the shops least
+          # able to debug it.
+          #
+          # WordPress 6.5 rather than 6.0: this plugin cannot run without
+          # WooCommerce, and the oldest WooCommerce in this matrix (9.3.2)
+          # declares "Requires at least: 6.5". On 6.0 its blocks call
+          # register_block_type_from_metadata() with an array of scripts, which
+          # that WordPress cannot parse, and the suite dies in bootstrap. The
+          # plugin header claims 6.5 for the same reason.
+          - { php: '8.1', wp: '6.5', wc: '9.3.2', hpos: 'no' }
+          - { php: '8.1', wp: '6.6', wc: '9.3.2', hpos: 'yes' }
+          - { php: '8.2', wp: '6.6', wc: 'latest', hpos: 'no' }
+          - { php: '8.3', wp: 'latest', wc: 'latest', hpos: 'yes' }
+          - { php: '8.4', wp: 'latest', wc: 'latest', hpos: 'yes' }
+          # Advisory: catches core changes before they ship.
+          - { php: '8.3', wp: 'trunk', wc: 'latest', hpos: 'yes', experimental: true }
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: wordpress_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -proot"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          extensions: mysqli
+          tools: composer:v2
+      - uses: ramsey/composer-install@v4
+      - name: Cache WordPress test library
+        id: wp-cache
+        uses: actions/cache@v6
+        with:
+          path: |
+            /tmp/wordpress
+            /tmp/wordpress-tests-lib
+          key: wp-${{ matrix.wp }}-wc-${{ matrix.wc }}-${{ hashFiles('bin/install-wp-tests.sh') }}
+      # Only on a cache miss: with the library already on disk nothing calls
+      # svn, and this step is pure risk. It hung for 25 minutes on an apt
+      # mirror and took two jobs down with it, so it is also bounded and
+      # retried -- a slow mirror should cost a retry, not the job's budget.
+      - name: Install subversion
+        if: steps.wp-cache.outputs.cache-hit != 'true'
+        timeout-minutes: 5
+        run: |
+          for attempt in 1 2 3; do
+            sudo apt-get update -qq && \
+              sudo apt-get install -y --no-install-recommends subversion && exit 0
+            echo "apt attempt ${attempt} failed; retrying"
+            sleep 5
+          done
+          echo "Could not install subversion after three attempts." >&2
+          exit 1
+      - name: Install WordPress test library
+        run: bash bin/install-wp-tests.sh wordpress_test root root '127.0.0.1:3306' ${{ matrix.wp }} true
+      - name: Install WooCommerce
+        run: bash bin/install-woocommerce.sh ${{ matrix.wc }}
+      - name: Run the integration suite
+        env:
+          WP_TESTS_PHPUNIT_POLYFILLS_PATH: ${{ github.workspace }}/vendor/yoast/phpunit-polyfills
+          WC_PLUGIN_DIR: /tmp/wordpress/wp-content/plugins/woocommerce
+          # WooCommerce can store orders in posts or in its own tables; the
+          # plugin reads order meta either way and must be proven to.
+          BLINK_TEST_HPOS: ${{ matrix.hpos }}
+        run: composer test:integration
+
+  plugin-check:
+    name: WordPress.org Plugin Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: composer:v2
+      # vendor/ ships in the WordPress.org package, so the check has to see it.
+      - uses: ramsey/composer-install@v4
+        with:
+          composer-options: '--no-dev'
+      # Against the built distribution, not the repository root. The root also
+      # holds tests, build scripts and dotfiles that are never shipped, and
+      # checking them reports problems in files no shop receives.
+      - name: Build the distribution
+        run: bash bin/build-dist.sh
+      - name: Run the checks WordPress.org runs
+        uses: WordPress/plugin-check-action@v1
+        with:
+          build-dir: './build/blink-for-woocommerce'
+          # Errors block; warnings are surfaced without failing the build,
+          # because several apply only to themes or to plugins using patterns
+          # this one deliberately avoids.
+          wp-version: 'latest'
+
+  security-audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: composer:v2
+      - uses: ramsey/composer-install@v4
+      - name: Check composer.json against composer.lock
+        run: composer validate --strict
+      # This plugin handles payments and bundles its dependencies into the
+      # WordPress.org package, so a known-vulnerable library ships to every
+      # shop that installs it.
+      - name: Audit PHP dependencies
+        run: composer audit --locked
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Audit JavaScript dependencies
+        # Dev-only tooling, so this reports without blocking.
+        run: npm audit --omit=dev || true
+
+  i18n:
+    name: Translations
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: composer:v2, wp-cli
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Check the translation template is current
+        run: |
+          npm run i18n
+          # makepot stamps a fresh POT-Creation-Date on every run, so a plain
+          # diff can never be clean. Compare the substance instead.
+          CHANGES=$(git diff -U0 -- languages/ \
+            | grep -E '^[+-]' \
+            | grep -vE '^(\+\+\+|---)' \
+            | grep -v 'POT-Creation-Date' \
+            || true)
+          if [ -n "$CHANGES" ]; then
+            echo "The translation template is out of date. Run 'npm run i18n' and commit the result."
+            echo "$CHANGES" | head -40
+            exit 1
+          fi
+          git checkout -- languages/
+      - name: Check the WordPress.org readme preview is current
+        run: |
+          npm run readme
+          if ! git diff --quiet -- docs/wordpress-org/; then
+            echo "docs/wordpress-org/readme.md is stale. Run 'npm run readme' and commit the result."
+            exit 1
+          fi
+
+  coverage:
+    name: Coverage gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: wordpress_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -proot"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # diff-cover needs the base branch to compare against.
+          fetch-depth: 0
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          # Xdebug, not pcov: pcov is a line-hit sampler and cannot produce
+          # branch coverage at all, which is what this gate is for.
+          coverage: xdebug
+          extensions: mysqli
+          tools: composer:v2
+      - uses: ramsey/composer-install@v4
+      - name: Cache WordPress test library
+        id: wp-cache
+        uses: actions/cache@v6
+        with:
+          path: |
+            /tmp/wordpress
+            /tmp/wordpress-tests-lib
+          key: wp-${{ env.WP_VERSION_DEFAULT }}-wc-${{ env.WC_VERSION_DEFAULT }}-${{ hashFiles('bin/install-wp-tests.sh') }}
+      # Only on a cache miss: with the library already on disk nothing calls
+      # svn, and this step is pure risk. It hung for 25 minutes on an apt
+      # mirror and took two jobs down with it, so it is also bounded and
+      # retried -- a slow mirror should cost a retry, not the job's budget.
+      - name: Install subversion
+        if: steps.wp-cache.outputs.cache-hit != 'true'
+        timeout-minutes: 5
+        run: |
+          for attempt in 1 2 3; do
+            sudo apt-get update -qq && \
+              sudo apt-get install -y --no-install-recommends subversion && exit 0
+            echo "apt attempt ${attempt} failed; retrying"
+            sleep 5
+          done
+          echo "Could not install subversion after three attempts." >&2
+          exit 1
+      - name: Install WordPress test library
+        run: bash bin/install-wp-tests.sh wordpress_test root root '127.0.0.1:3306' ${{ env.WP_VERSION_DEFAULT }} true
+      - name: Install WooCommerce
+        run: bash bin/install-woocommerce.sh ${{ env.WC_VERSION_DEFAULT }}
+      - name: Run both suites with branch coverage
+        env:
+          XDEBUG_MODE: coverage
+          WP_TESTS_PHPUNIT_POLYFILLS_PATH: ${{ github.workspace }}/vendor/yoast/phpunit-polyfills
+          WC_PLUGIN_DIR: /tmp/wordpress/wp-content/plugins/woocommerce
+        run: bin/run-coverage.sh
+      - name: Require 100% line and branch coverage on gated files
+        env:
+          XDEBUG_MODE: coverage
+        run: composer coverage:gate
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Require 100% line coverage of the diff
+        if: github.event_name == 'pull_request'
+        run: |
+          pip install "diff-cover>=9"
+          git fetch origin ${{ github.base_ref }} --depth=1
+          diff-cover build/coverage/cobertura.xml \
+            --compare-branch=origin/${{ github.base_ref }} \
+            --fail-under=100 \
+            --markdown-report build/coverage/diff-coverage.md
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: php-coverage
+          path: build/coverage
+          retention-days: 14
+
+  javascript:
+    name: JavaScript
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Run the JS suite with a 100% threshold
+        run: npm run test:js:coverage
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: js-coverage
+          path: build/coverage-js
+          retention-days: 14
+
+  e2e:
+    name: End to end
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: wordpress_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -proot"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          extensions: mysqli
+          tools: composer:v2, wp-cli
+      - uses: ramsey/composer-install@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Install pinned headless Chromium
+        timeout-minutes: 5
+        run: npx playwright install --only-shell chromium
+      - name: Cache WordPress download
+        id: wp-cache
+        uses: actions/cache@v6
+        with:
+          path: |
+            /tmp/wordpress
+            /tmp/wordpress-tests-lib
+          key: wp-${{ env.WP_VERSION_DEFAULT }}-wc-${{ env.WC_VERSION_DEFAULT }}-${{ hashFiles('bin/install-wp-tests.sh') }}
+      # Only on a cache miss: with the library already on disk nothing calls
+      # svn, and this step is pure risk. It hung for 25 minutes on an apt
+      # mirror and took two jobs down with it, so it is also bounded and
+      # retried -- a slow mirror should cost a retry, not the job's budget.
+      - name: Install subversion
+        if: steps.wp-cache.outputs.cache-hit != 'true'
+        timeout-minutes: 5
+        run: |
+          for attempt in 1 2 3; do
+            sudo apt-get update -qq && \
+              sudo apt-get install -y --no-install-recommends subversion && exit 0
+            echo "apt attempt ${attempt} failed; retrying"
+            sleep 5
+          done
+          echo "Could not install subversion after three attempts." >&2
+          exit 1
+      - name: Install WordPress and WooCommerce
+        run: |
+          bash bin/install-wp-tests.sh wordpress_test root root '127.0.0.1:3306' ${{ env.WP_VERSION_DEFAULT }} true
+          bash bin/install-woocommerce.sh ${{ env.WC_VERSION_DEFAULT }}
+      # A plain WordPress served by PHP's built-in server: no Docker image
+      # pulls, and activating the plugin here is what caught it fatalling on
+      # activation.
+      - name: Build the end-to-end site
+        env:
+          WP_CORE_DIR: /tmp/wordpress
+          DB_HOST: 127.0.0.1:3306
+          DB_USER: root
+          DB_PASS: root
+        run: bash bin/install-e2e-site.sh
+      - name: Run the browser suite
+        env:
+          WP_CORE_DIR: /tmp/wordpress
+        run: npm run test:e2e
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-artifacts
+          path: |
+            build/playwright-report
+            build/test-results
+          retention-days: 7
+
+  # The single required check. Marking each matrix leg required would mean
+  # editing branch protection every time the matrix changes, and a renamed leg
+  # would silently stop being required.
+  ci-ok:
+    name: CI OK
+    if: always()
+    timeout-minutes: 5
+    needs:
+      - lint-php
+      - lint-js
+      - php-syntax
+      - unit
+      - integration
+      - plugin-check
+      - security-audit
+      - i18n
+      - coverage
+      - javascript
+      - e2e
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any required job did not succeed
+        run: |
+          echo '${{ toJSON(needs) }}'
+          if echo '${{ toJSON(needs) }}' | grep -E '"result": "(failure|cancelled)"'; then
+            echo "At least one required job failed."
+            exit 1
+          fi
+          echo "All required jobs succeeded."

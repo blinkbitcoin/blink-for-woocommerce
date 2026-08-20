@@ -1,19 +1,64 @@
 {
   "name": "blink/blink-for-woocommerce",
-  "type": "project",
+  "description": "Blink payment gateway for WooCommerce.",
+  "type": "wordpress-plugin",
   "license": "MIT",
   "autoload": {
     "psr-4": {
       "Blink\\WC\\": "src/"
     }
   },
-  "authors": [
-    {
-      "name": "Blink",
-      "email": "support@blink.sv"
+  "autoload-dev": {
+    "psr-4": {
+      "Blink\\WC\\Tests\\": "tests/"
     }
-  ],
+  },
   "require": {
+    "php": ">=8.1",
+    "ext-curl": "*",
     "guzzlehttp/guzzle": "^7.9.2"
+  },
+  "require-dev": {
+    "brain/monkey": "^2.6",
+    "dealerdirect/phpcodesniffer-composer-installer": "^1.0",
+    "mockery/mockery": "^1.6.14",
+    "php-stubs/woocommerce-stubs": "^11.0",
+    "php-stubs/wordpress-stubs": "^6.6",
+    "phpcompatibility/phpcompatibility-wp": "^2.1",
+    "phpstan/extension-installer": "^1.4",
+    "phpstan/phpstan": "^2.2",
+    "phpstan/phpstan-mockery": "^2.0",
+    "phpunit/phpcov": "^8.2",
+    "phpunit/phpunit": "^9.6",
+    "squizlabs/php_codesniffer": "^3.10",
+    "szepeviktor/phpstan-wordpress": "^2.0",
+    "wp-coding-standards/wpcs": "^3.1",
+    "yoast/phpunit-polyfills": "^2.0"
+  },
+  "config": {
+    "sort-packages": true,
+    "allow-plugins": {
+      "dealerdirect/phpcodesniffer-composer-installer": true,
+      "phpstan/extension-installer": true
+    }
+  },
+  "scripts": {
+    "test:unit": "phpunit -c phpunit-unit.xml.dist --no-coverage",
+    "test:integration": "phpunit -c phpunit.xml.dist --no-coverage",
+    "test": [
+      "@test:unit",
+      "@test:integration"
+    ],
+    "coverage": "bin/run-coverage.sh",
+    "coverage:gate": "php bin/coverage-gate.php",
+    "lint:phpcs": "phpcs",
+    "lint:phpcbf": "phpcbf",
+    "lint:phpstan": "phpstan analyse --memory-limit=1G",
+    "lint:ignores": "php bin/check-coverage-ignores.php",
+    "lint": [
+      "@lint:phpcs",
+      "@lint:phpstan",
+      "@lint:ignores"
+    ]
   }
 }

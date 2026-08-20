@@ -1,0 +1,30 @@
+# Keeping dependencies current matters more than usual here: this plugin
+# bundles its PHP dependencies into the package that ships to every shop, so a
+# vulnerable library is not merely a build-time concern.
+version: 2
+updates:
+  - package-ecosystem: composer
+    directory: '/'
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels: ['dependencies', 'php']
+    groups:
+      dev-dependencies:
+        dependency-type: development
+
+  - package-ecosystem: npm
+    directory: '/'
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels: ['dependencies', 'javascript']
+    groups:
+      dev-dependencies:
+        dependency-type: development
+
+  - package-ecosystem: github-actions
+    directory: '/'
+    schedule:
+      interval: weekly
+    labels: ['dependencies', 'ci']
