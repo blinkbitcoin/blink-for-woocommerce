@@ -92,6 +92,17 @@ test.describe('the pay page', () => {
     }
   });
 
+  test('accepts a Blink length invoice expiry at checkout', async ({ page, request }) => {
+    const order = await seedOrder(request, '10.00', 'long-expiry');
+
+    await page.goto(order.payUrl);
+
+    await expect(page.locator('#blink-pay-qr svg')).toBeVisible();
+    const payload = await page.evaluate(() => window.BlinkPay);
+    expect(payload.deadline).toBeGreaterThanOrEqual(Math.floor(Date.now() / 1000));
+    expect(payload.paymentRequest).toMatch(/^lnbc10m1/);
+  });
+
   test('redirects the customer when the payment arrives', async ({ page, request }) => {
     const order = await seedOrder(request);
     await page.goto(order.payUrl);

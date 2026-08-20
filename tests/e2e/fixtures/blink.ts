@@ -62,8 +62,10 @@ const SETTLEMENT_ACTION_HOOK = 'blink_settle_noncustodial';
 export async function seedOrder(
   request: APIRequestContext,
   total = '10.00',
+  identifier = 'ok',
 ): Promise<SeededOrder> {
-  const response = await request.post(`${BASE}/blink-e2e/control/order?total=${total}`);
+  const params = new URLSearchParams({ total, identifier });
+  const response = await request.post(`${BASE}/blink-e2e/control/order?${params}`);
   expect(response.ok()).toBeTruthy();
 
   const order = (await response.json()) as SeededOrder;

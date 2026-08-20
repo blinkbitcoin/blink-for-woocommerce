@@ -11,7 +11,7 @@ use Blink\WC\Support\ClockInterface;
  *
  * WooCommerce holds stock for pending orders and cancels them once
  * `woocommerce_hold_stock_minutes` has passed -- 60 by default, against Blink
- * invoices that may be valid for 3600 seconds. That timer is stock management:
+ * invoices that may be valid for 24 hours. That timer is stock management:
  * it knows nothing about whether a Lightning invoice is still payable, and
  * cancelling on it took the order's scheduled settlement checks with it, so a
  * customer who paid a live invoice and closed the tab was never credited.

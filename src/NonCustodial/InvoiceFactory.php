@@ -19,7 +19,7 @@ use Blink\WC\Support\LoggerInterface;
  */
 final class InvoiceFactory {
   /** Longest invoice lifetime this plugin will hold an order open for. */
-  public const MAX_EXPIRY_SECONDS = 3600;
+  public const MAX_EXPIRY_SECONDS = 86400;
 
   /**
    * @param bool $requireDescriptionBinding Real LNURL servers vary in how they

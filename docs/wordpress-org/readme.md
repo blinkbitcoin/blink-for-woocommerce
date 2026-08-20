@@ -80,6 +80,7 @@ Yes, visit the [Blink website](https://www.blink.sv/) for support and troublesho
 ## Changelog ##
 
 ### 0.3.0 :: 2026-08-18 ###
+* Fixed: non-custodial checkout now accepts Blink/Galoy invoices with 24-hour expiry instead of rejecting them as too long.
 * Fixed: non-custodial orders now settle in the background. Previously settlement only happened while the customer's pay page was open, so a buyer who paid from a phone and closed the tab could have their paid order cancelled when hold-stock expired.
 * Fixed: an unreachable verification endpoint no longer causes orders to be cancelled. Uncertainty leaves an order pending for review rather than expiring it.
 * Fixed: the pay page's expiry deadline works. It was passed to the browser as a string, so the check never matched and the page polled indefinitely without ever showing the expiry message.

@@ -133,8 +133,17 @@ final class InvoiceFactoryTest extends TestCase {
     $this->assertSame(self::NOW + 900, $result->expiresAt);
   }
 
-  public function testAnOverlyLongInvoiceExpiryIsRejected(): void {
+  public function testAcceptsABlinkLengthInvoiceExpiry(): void {
     $this->queueHappyPath($this->invoiceFor(86400));
+
+    $result = $this->factory()->create($this->address, 10.0, 'USD', '10.00', 'USD', '');
+
+    $this->assertInstanceOf(StoredInvoice::class, $result);
+    $this->assertSame(self::NOW + 86400, $result->expiresAt);
+  }
+
+  public function testAnOverlyLongInvoiceExpiryIsRejected(): void {
+    $this->queueHappyPath($this->invoiceFor(86401));
 
     $result = $this->factory()->create($this->address, 10.0, 'USD', '10.00', 'USD', '');
 

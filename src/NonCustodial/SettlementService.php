@@ -37,8 +37,7 @@ final class SettlementService {
   /**
    * A backstop, not a working budget.
    *
-   * The scheduler's own timetable -- thirteen offsets plus a five-minute tail,
-   * against invoices capped at an hour -- tops out around fifteen checks, so a
+   * The scheduler's own timetable is clamped to the invoice expiry window, so a
    * healthy order comes nowhere near this. It is here to bound a future path
    * that reschedules faster than intended. It is deliberately not a defence
    * against frequent polling: that belongs to PollBudget and the status cache.

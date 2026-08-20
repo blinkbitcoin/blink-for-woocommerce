@@ -94,7 +94,7 @@ the next check further away.
 
 **WooCommerce's stock timer defers to a payable invoice.** `wc_cancel_unpaid_orders()`
 cancels pending orders once `woocommerce_hold_stock_minutes` has passed -- 60 by
-default, against invoices that may be valid for 3600 seconds -- and that
+default, against invoices that may be valid for 24 hours -- and that
 cancellation used to take the order's scheduled checks with it. The plugin now
 answers `woocommerce_cancel_unpaid_order` with `false` while a non-custodial
 invoice is unresolved and inside its window. The reprieve releases itself: once

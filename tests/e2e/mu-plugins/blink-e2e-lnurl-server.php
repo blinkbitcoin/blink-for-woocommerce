@@ -178,6 +178,11 @@ final class Blink_E2E_Lnurl_Server {
           'pr' => self::invoice($identifier, $amountMsat, $paymentHash, 30),
           'verify' => home_url('/blink-e2e/verify/' . $paymentHash)
         ]);
+      case 'long-expiry':
+        self::json([
+          'pr' => self::invoice($identifier, $amountMsat, $paymentHash, 86400),
+          'verify' => home_url('/blink-e2e/verify/' . $paymentHash)
+        ]);
       default:
         self::json([
           'pr' => self::invoice($identifier, $amountMsat, $paymentHash),
@@ -248,6 +253,22 @@ final class Blink_E2E_Lnurl_Server {
     $total = isset($_REQUEST['total'])
       ? (float) sanitize_text_field(wp_unslash($_REQUEST['total']))
       : 10.0;
+    $identifier = isset($_REQUEST['identifier'])
+      ? sanitize_text_field(wp_unslash($_REQUEST['identifier']))
+      : 'ok';
+    if (!preg_match('/^[a-z0-9-]+$/', $identifier)) {
+      status_header(400);
+      self::json([
+        'error' => 'identifier must contain only lowercase letters, digits or hyphens'
+      ]);
+    }
+
+    $host = (string) parse_url(home_url(), PHP_URL_HOST);
+    $port = parse_url(home_url(), PHP_URL_PORT);
+    update_option(
+      'blink_ln_address',
+      $identifier . '@' . $host . ($port === null ? '' : ':' . $port)
+    );
 
     $order = wc_create_order();
     $order->set_currency('USD');

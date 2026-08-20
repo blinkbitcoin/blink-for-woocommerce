@@ -45,7 +45,7 @@ in the Blink dashboard.
 ## What happens if they close the page
 
 The order still completes. Your shop keeps checking in the background for as
-long as the invoice is valid — roughly an hour — so a customer who scans the QR
+long as the invoice is valid, up to 24 hours, so a customer who scans the QR
 code with their phone and closes the laptop is fine.
 
 This is worth stating plainly because it is the one thing most likely to worry
@@ -58,8 +58,9 @@ total falls outside that range, checkout will refuse rather than produce an
 invoice nobody can pay. If you sell items priced far apart, check your
 provider's limits.
 
-Invoices are valid for up to an hour. If one expires unpaid, the order is
-cancelled and the customer can order again.
+Invoices can be valid for up to 24 hours. If one expires unpaid, the order is
+cancelled and the customer can order again once the shop has confirmed it was
+not paid.
 
 ## Troubleshooting
 

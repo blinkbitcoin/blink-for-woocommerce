@@ -12,8 +12,8 @@ use Blink\WC\Admin\Notice;
 use Blink\WC\Helpers\BlinkApiClient;
 
 class BlinkApiHelper {
-  /** Default non-custodial invoice expiry window, in seconds (60 minutes). */
-  const NON_CUSTODIAL_EXPIRY_SECONDS = 3600;
+  /** Default non-custodial invoice expiry window, in seconds (24 hours). */
+  const NON_CUSTODIAL_EXPIRY_SECONDS = 86400;
 
   public $configured = false;
   public $env;
