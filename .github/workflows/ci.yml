@@ -350,7 +350,14 @@ jobs:
         if: github.event_name == 'pull_request'
         run: |
           pip install "diff-cover>=9"
-          git fetch origin ${{ github.base_ref }} --depth=1
+          # No --depth=1 here: a shallow fetch writes .git/shallow and severs
+          # the base branch's ancestry, so when base advances between the
+          # PR merge ref being created and this step running, diff-cover's
+          # origin/base...HEAD merge-base walk dies with "no merge base".
+          # The checkout above already has full history (fetch-depth: 0), so
+          # an unbounded fetch costs only the new commits and keeps the merge
+          # base reachable no matter how far base has moved.
+          git fetch origin ${{ github.base_ref }}
           diff-cover build/coverage/cobertura.xml \
             --compare-branch=origin/${{ github.base_ref }} \
             --fail-under=100 \
