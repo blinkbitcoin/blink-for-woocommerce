@@ -99,13 +99,20 @@ final class NonCustodialCheckoutTest extends IntegrationTestCase {
     $this->assertSame(self::NOW + 86400, $stored?->expiresAt);
   }
 
-  public function test_checkout_refuses_an_invoice_above_the_supported_expiry(): void {
+  /**
+   * Blink issues invoices payable for 30 days. Rejecting them broke checkout,
+   * so a longer-lived invoice is accepted and tracked only for the window the
+   * shop is willing to hold the order open for.
+   */
+  public function test_checkout_clamps_an_invoice_above_the_tracking_window(): void {
     $order = $this->makeOrder();
-    $this->queueSuccessfulInvoice($this->bolt11(86401));
+    $this->queueSuccessfulInvoice($this->bolt11(2592000));
 
-    $this->expectException(\Exception::class);
-    $this->expectExceptionMessage("Can't create the Lightning invoice");
-    $this->gateway->process_payment($order->get_id());
+    $result = $this->gateway->process_payment($order->get_id());
+
+    $this->assertSame('success', $result['result']);
+    $stored = $this->repository()->load($this->record($this->reload($order)));
+    $this->assertSame(self::NOW + 86400, $stored?->expiresAt);
   }
 
   public function test_checkout_schedules_background_settlement(): void {

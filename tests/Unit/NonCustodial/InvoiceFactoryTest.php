@@ -41,8 +41,7 @@ final class InvoiceFactoryTest extends TestCase {
 
   private function rate(?int $satoshis): SatsRateProviderInterface {
     return new class ($satoshis) implements SatsRateProviderInterface {
-      public function __construct(private ?int $satoshis) {
-      }
+      public function __construct(private ?int $satoshis) {}
 
       public function toSatoshis(float $amount, string $currency): ?int {
         return $this->satoshis;
