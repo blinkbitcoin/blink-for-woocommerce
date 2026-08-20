@@ -4,7 +4,7 @@
 **Requires at least:** 6.5  
 **Tested up to:** 7.1  
 **Requires PHP:** 8.1  
-**Stable tag:** 0.3.0  
+**Stable tag:** 0.3.2  
 **License:** MIT  
 **License URI:** https://github.com/blinkbitcoin/blink-for-woocommerce/blob/main/license.txt  
 
@@ -78,6 +78,9 @@ Yes, visit the [Blink website](https://www.blink.sv/) for support and troublesho
 2. Payment Checkout Page - Customers can choose to pay with Bitcoin via the Lightning Network during checkout.
 
 ## Changelog ##
+
+### 0.3.2 :: 2026-08-20 ###
+* Fixed: non-custodial checkout accepts Blink/Galoy invoices with their real 30-day expiry. Instead of rejecting an invoice whose lifetime exceeds the tracking window, the plugin accepts it and tracks it for the window, so checkout no longer fails with "Can't create the Lightning invoice".
 
 ### 0.3.0 :: 2026-08-18 ###
 * Fixed: non-custodial checkout now accepts Blink/Galoy invoices with 24-hour expiry instead of rejecting them as too long.
