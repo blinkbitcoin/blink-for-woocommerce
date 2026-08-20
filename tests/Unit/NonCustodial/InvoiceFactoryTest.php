@@ -41,7 +41,8 @@ final class InvoiceFactoryTest extends TestCase {
 
   private function rate(?int $satoshis): SatsRateProviderInterface {
     return new class ($satoshis) implements SatsRateProviderInterface {
-      public function __construct(private ?int $satoshis) {}
+      public function __construct(private ?int $satoshis) {
+      }
 
       public function toSatoshis(float $amount, string $currency): ?int {
         return $this->satoshis;
@@ -142,13 +143,13 @@ final class InvoiceFactoryTest extends TestCase {
     $this->assertSame(self::NOW + 86400, $result->expiresAt);
   }
 
-  public function testAnOverlyLongInvoiceExpiryIsRejected(): void {
-    $this->queueHappyPath($this->invoiceFor(86401));
+  public function testAnOverlyLongInvoiceExpiryIsClampedToTheTrackingWindow(): void {
+    $this->queueHappyPath($this->invoiceFor(2592000));
 
     $result = $this->factory()->create($this->address, 10.0, 'USD', '10.00', 'USD', '');
 
-    $this->assertInstanceOf(LnurlFailure::class, $result);
-    $this->assertSame('BOLT11_TOO_LONG', $result->code);
+    $this->assertInstanceOf(StoredInvoice::class, $result);
+    $this->assertSame(self::NOW + 86400, $result->expiresAt);
   }
 
   public function testTheCommentIsForwardedToTheServer(): void {

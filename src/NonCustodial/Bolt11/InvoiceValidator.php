@@ -27,7 +27,8 @@ final class InvoiceValidator {
   public function __construct(
     private Bolt11Decoder $decoder,
     private ClockInterface $clock
-  ) {}
+  ) {
+  }
 
   public function validate(
     string $bolt11,
@@ -107,17 +108,13 @@ final class InvoiceValidator {
       );
     }
 
-    // Never stop tracking an invoice while it remains payable. An invoice
-    // longer than the shop is willing to hold the order open is refused before
-    // it can be shown to the customer.
-    if ($invoice->expirySeconds > $expectation->maxExpirySeconds) {
-      return ValidationResult::fail(
-        'BOLT11_TOO_LONG',
-        'invoice expiry exceeds the maximum supported lifetime'
-      );
-    }
-
-    $expiresAt = $invoice->expiresAt();
+    // An invoice can outlive the window the shop is willing to hold the order
+    // open for -- Blink issues invoices payable for 30 days, while stock is
+    // only reserved for the tracking window. Rejecting such an invoice breaks
+    // checkout outright, so accept it and track it only for the window:
+    // settlement checks, the pay-page deadline and the stock hold all run off
+    // this clamped expiry, exactly as if the invoice itself expired then.
+    $expiresAt = min($invoice->expiresAt(), $now + $expectation->maxExpirySeconds);
 
     if ($expiresAt - $now < $expectation->minRemainingSeconds) {
       return ValidationResult::fail(
