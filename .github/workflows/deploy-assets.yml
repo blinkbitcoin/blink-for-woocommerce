@@ -13,13 +13,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
 
-      - name: Install Composer dependencies
-        uses: php-actions/composer@v6
-        with:
-          dev: no
-          php_version: 8.3.6
-          php_extensions: bcmath
-
+      # No composer install here: the asset action only syncs readme.txt and
+      # .wordpress-org/ to SVN, and it refuses to deploy when anything else in
+      # the working copy is modified. Installing dependencies builds a vendor/
+      # tree that differs from what is committed to SVN trunk, which tripped
+      # that guard on every run ("Other files have been modified").
       - name: WordPress Plugin Assets Deploy
         id: deploy
         uses: 10up/action-wordpress-plugin-asset-update@stable
